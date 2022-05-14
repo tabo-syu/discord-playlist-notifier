@@ -1,0 +1,18 @@
+version: '3'
+
+services:
+  bot:
+    build: .
+    tty: true
+    volumes:
+      - .:/go/src/bot
+    depends_on:
+      - redis
+
+  redis:
+    image: "redis:7.0.0-bullseye"
+    volumes:
+      - "redis-data:/data"
+
+volumes:
+  redis-data:
