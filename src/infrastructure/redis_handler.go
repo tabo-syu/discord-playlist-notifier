@@ -25,13 +25,21 @@ func NewRedisHandler(ctx context.Context) (interfaces.RedisHandler, error) {
 		return nil, err
 	}
 
-	return RedisHandler{Redis, ctx}, nil
+	return &RedisHandler{Redis, ctx}, nil
 }
 
-func (h RedisHandler) Get(key string) interfaces.StringCmd {
+func (h *RedisHandler) Get(key string) interfaces.StringCmd {
 	return h.Redis.Get(h.ctx, key)
 }
 
-func (h RedisHandler) Set(key string, value interface{}, expiration time.Duration) interfaces.StatusCmd {
+func (h *RedisHandler) Set(key string, value interface{}, expiration time.Duration) interfaces.StatusCmd {
 	return h.Redis.Set(h.ctx, key, value, expiration)
+}
+
+func (h *RedisHandler) Del(key string) interfaces.IntCmd {
+	return h.Redis.Del(h.ctx, key)
+}
+
+func (h *RedisHandler) Exists(key string) interfaces.IntCmd {
+	return h.Redis.Exists(h.ctx, key)
 }

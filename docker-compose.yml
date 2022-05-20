@@ -6,6 +6,8 @@ services:
     tty: true
     volumes:
       - .:/go/src/bot
+    env_file:
+      - .env
     depends_on:
       - redis
 

@@ -3,6 +3,8 @@ package usecases
 import "discord-playlist-notifier/src/domain"
 
 type PlaylistRepository interface {
-	FindById(string) (domain.Playlist, error)
-	Save(domain.Playlist) error
+	Insert(id string) (*domain.Playlist, error)
+	FindById(id string) (*domain.Playlist, error)
+	Delete(id string) error
+	Exists(id string) (bool, error)
 }
