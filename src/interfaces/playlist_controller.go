@@ -3,7 +3,6 @@ package interfaces
 import (
 	"discord-playlist-notifier/src/usecases"
 	"fmt"
-	"time"
 )
 
 type PlaylistController struct {
@@ -26,34 +25,32 @@ func (c *PlaylistController) Register(playlistId string) {
 	playlist, err := c.PlaylistInteractor.Register(playlistId)
 	if err != nil {
 		fmt.Println(err)
+	} else {
+		fmt.Println("==============")
+		fmt.Printf("%#v\n", playlist)
+		fmt.Println("==============")
+		fmt.Println("Registered!")
 	}
-
-	fmt.Println("==============")
-	fmt.Printf("%#v\n", playlist)
-	fmt.Println("==============")
-	fmt.Println("Registered!")
 }
 
-func (c *PlaylistController) AddedVideosSince(playlistId string, since time.Time) {
-	videos := c.PlaylistInteractor.AddedVideosSince(playlistId, since)
-
-	fmt.Println(videos)
-}
-
-func (c *PlaylistController) Update(playlistId string) {
-	playlist, err := c.PlaylistInteractor.Update(playlistId)
+func (c *PlaylistController) AddedVideosSince(playlistId string) {
+	fmt.Println("Detecting...")
+	videos, err := c.PlaylistInteractor.AddedVideosSince(playlistId)
 	if err != nil {
 		fmt.Println(err)
+	} else {
+		fmt.Println("==============")
+		fmt.Println(videos)
+		fmt.Println("==============")
+		fmt.Println("Detected!")
 	}
-
-	fmt.Println(playlist)
 }
 
 func (c *PlaylistController) Delete(playlistId string) {
 	fmt.Println("deleting...")
 	err := c.PlaylistInteractor.Delete(playlistId)
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Println(err)
 	} else {
 		fmt.Println("deleted!")
 	}

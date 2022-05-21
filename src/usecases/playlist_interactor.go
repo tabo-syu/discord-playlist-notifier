@@ -2,7 +2,7 @@ package usecases
 
 import (
 	"discord-playlist-notifier/src/domain"
-	"time"
+	"discord-playlist-notifier/src/errors"
 )
 
 type PlaylistInteractor struct {
@@ -16,7 +16,7 @@ func (i *PlaylistInteractor) Register(playlistId string) (*domain.Playlist, erro
 	}
 
 	if exists {
-		return &domain.Playlist{}, nil
+		return &domain.Playlist{}, errors.ErrAlreadyRegisteredAtDatabase
 	}
 
 	res, err := i.PlaylistRepository.Insert(playlistId)
@@ -27,43 +27,33 @@ func (i *PlaylistInteractor) Register(playlistId string) (*domain.Playlist, erro
 	return res, nil
 }
 
-func (i *PlaylistInteractor) AddedVideosSince(playlistId string, since time.Time) *[]domain.Video {
+func (i *PlaylistInteractor) AddedVideosSince(playlistId string) (*[]domain.Video, error) {
 	exists, err := i.PlaylistRepository.Exists(playlistId)
-	if err != nil || !exists {
-		return &[]domain.Video{}
+	if err != nil {
+		return &[]domain.Video{}, err
+	}
+	if !exists {
+		return &[]domain.Video{}, errors.ErrNotFoundAtDatabase
 	}
 
-	playlist, err := i.PlaylistRepository.FindById(playlistId)
+	pp, err := i.PlaylistRepository.FindById(playlistId)
 	if err != nil {
-		return &[]domain.Video{}
+		return &[]domain.Video{}, err
+	}
+
+	cp, err := i.PlaylistRepository.Insert(playlistId)
+	if err != nil {
+		return &[]domain.Video{}, err
 	}
 
 	var addedVideos []domain.Video
-	for _, v := range playlist.Videos {
-		if v.PublishedAt.After(since) {
+	for _, v := range cp.Videos {
+		if v.PublishedAt.After(pp.UpdatedAt) {
 			addedVideos = append(addedVideos, v)
 		}
 	}
 
-	return &addedVideos
-}
-
-func (i *PlaylistInteractor) Update(playlistId string) (*domain.Playlist, error) {
-	exists, err := i.PlaylistRepository.Exists(playlistId)
-	if err != nil {
-		return &domain.Playlist{}, err
-	}
-
-	if !exists {
-		return &domain.Playlist{}, nil
-	}
-
-	res, err := i.PlaylistRepository.Insert(playlistId)
-	if err != nil {
-		return &domain.Playlist{}, err
-	}
-
-	return res, nil
+	return &addedVideos, nil
 }
 
 func (i *PlaylistInteractor) Delete(playlistId string) error {
@@ -71,9 +61,8 @@ func (i *PlaylistInteractor) Delete(playlistId string) error {
 	if err != nil {
 		return err
 	}
-
 	if !exists {
-		return nil
+		return errors.ErrNotFoundAtDatabase
 	}
 
 	return i.PlaylistRepository.Delete(playlistId)
