@@ -1,0 +1,30 @@
+package router
+
+import (
+	"discord-playlist-notifier/command"
+)
+
+type router struct {
+	routes map[string]command.Handle
+}
+
+type Router interface {
+	Route(string) command.Handle
+}
+
+func NewRouter(commands []*command.Command) *router {
+	routes := map[string]command.Handle{}
+	for _, command := range commands {
+		routes[command.Info.Name] = command.Handle
+	}
+
+	return &router{routes}
+}
+
+func (r *router) Route(commandName string) command.Handle {
+	if h, ok := r.routes[commandName]; ok {
+		return h
+	}
+
+	return nil
+}
