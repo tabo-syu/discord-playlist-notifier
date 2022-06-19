@@ -4,12 +4,12 @@ import (
 	"discord-playlist-notifier/command"
 )
 
-type router struct {
-	routes map[string]command.Handle
-}
-
 type Router interface {
 	Route(string) command.Handle
+}
+
+type router struct {
+	routes map[string]command.Handle
 }
 
 func NewRouter(commands []*command.Command) *router {
