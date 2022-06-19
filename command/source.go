@@ -9,5 +9,5 @@ var source = &discordgo.ApplicationCommandOption{
 }
 
 func sourceFunc() string {
-	return "source"
+	return "https://github.com/tabo-syu/discord-playlist-notifier"
 }
