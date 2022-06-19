@@ -1,6 +1,8 @@
 package command
 
-import "github.com/bwmarrin/discordgo"
+import (
+	"github.com/bwmarrin/discordgo"
+)
 
 type Handle func(*discordgo.ApplicationCommandInteractionData) string
 type Command struct {
@@ -25,14 +27,22 @@ var PlaylistNotifier = Command{
 func handle(data *discordgo.ApplicationCommandInteractionData) string {
 	message := ""
 
-	subcommand := data.Options[0].Name
-	switch subcommand {
+	playlistId := ""
+	mention := false
+
+	subcommand := data.Options[0]
+	if len(subcommand.Options) > 0 {
+		options := parseCommandArguments(subcommand.Options)
+		playlistId = options["playlist-id"].StringValue()
+		mention = options["mention"].BoolValue()
+	}
+	switch subcommand.Name {
 	case "add":
-		message = addFunc("hoge", true)
+		message = addFunc(playlistId, mention)
 	case "update":
-		message = updateFunc("hoge", true)
+		message = updateFunc(playlistId, mention)
 	case "delete":
-		message = deleteFunc("hoge")
+		message = deleteFunc(playlistId)
 	case "source":
 		message = sourceFunc()
 	}
@@ -55,3 +65,14 @@ var (
 		Required:    true,
 	}
 )
+
+type Options map[string]*discordgo.ApplicationCommandInteractionDataOption
+
+func parseCommandArguments(args []*discordgo.ApplicationCommandInteractionDataOption) Options {
+	options := make(Options, len(args))
+	for _, arg := range args {
+		options[arg.Name] = arg
+	}
+
+	return options
+}
