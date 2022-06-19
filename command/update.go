@@ -2,7 +2,7 @@ package command
 
 import "github.com/bwmarrin/discordgo"
 
-var update = &discordgo.ApplicationCommandOption{
+var updateSubCommand = &discordgo.ApplicationCommandOption{
 	Type:        discordgo.ApplicationCommandOptionSubCommand,
 	Name:        "update",
 	Description: "プレイリストの通知設定を更新します。",
@@ -12,6 +12,6 @@ var update = &discordgo.ApplicationCommandOption{
 	},
 }
 
-func updateFunc(playlistId string, needMention bool) string {
+func update(playlistId string, needMention bool) string {
 	return "update"
 }

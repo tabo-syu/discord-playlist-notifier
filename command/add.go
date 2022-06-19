@@ -1,8 +1,12 @@
 package command
 
-import "github.com/bwmarrin/discordgo"
+import (
+	"fmt"
 
-var add = &discordgo.ApplicationCommandOption{
+	"github.com/bwmarrin/discordgo"
+)
+
+var addSubCommand = &discordgo.ApplicationCommandOption{
 	Type:        discordgo.ApplicationCommandOptionSubCommand,
 	Name:        "add",
 	Description: "通知するプレイリストを追加します。",
@@ -12,6 +16,6 @@ var add = &discordgo.ApplicationCommandOption{
 	},
 }
 
-func addFunc(playlistId string, needMention bool) string {
-	return "add"
+func add(playlistId string, needMention bool) string {
+	return fmt.Sprintf("%s, %#v", playlistId, needMention)
 }

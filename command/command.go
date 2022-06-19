@@ -15,10 +15,10 @@ var PlaylistNotifier = Command{
 		Name:        "playlist-notifier",
 		Description: "テキストチャンネルに YouTube のプレイリストの更新を通知します。",
 		Options: []*discordgo.ApplicationCommandOption{
-			add,
-			update,
-			delete,
-			source,
+			addSubCommand,
+			updateSubCommand,
+			deleteSubCommand,
+			sourceSubCommand,
 		},
 	},
 	Handle: handle,
@@ -38,13 +38,13 @@ func handle(data *discordgo.ApplicationCommandInteractionData) string {
 	}
 	switch subcommand.Name {
 	case "add":
-		message = addFunc(playlistId, mention)
+		message = add(playlistId, mention)
 	case "update":
-		message = updateFunc(playlistId, mention)
+		message = update(playlistId, mention)
 	case "delete":
-		message = deleteFunc(playlistId)
+		message = delete(playlistId)
 	case "source":
-		message = sourceFunc()
+		message = source()
 	}
 
 	return message

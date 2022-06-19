@@ -2,7 +2,7 @@ package command
 
 import "github.com/bwmarrin/discordgo"
 
-var delete = &discordgo.ApplicationCommandOption{
+var deleteSubCommand = &discordgo.ApplicationCommandOption{
 	Type:        discordgo.ApplicationCommandOptionSubCommand,
 	Name:        "delete",
 	Description: "通知するプレイリストを削除します。",
@@ -11,6 +11,6 @@ var delete = &discordgo.ApplicationCommandOption{
 	},
 }
 
-func deleteFunc(playlistId string) string {
+func delete(playlistId string) string {
 	return "delete"
 }
