@@ -1,7 +1,7 @@
 package command
 
 import (
-	"fmt"
+	"discord-playlist-notifier/service"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -16,6 +16,12 @@ var addSubCommand = &discordgo.ApplicationCommandOption{
 	},
 }
 
-func add(playlistId string, needMention bool) string {
-	return fmt.Sprintf("%s, %#v", playlistId, needMention)
+func add(service service.YouTubeService, playlistId string, needMention bool) string {
+	res, err := service.GetPlaylist(playlistId)
+	if err != nil {
+		return ""
+	}
+
+	return res
+	// return fmt.Sprintf("%s, %#v", playlistId, needMention)
 }

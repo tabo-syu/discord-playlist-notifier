@@ -1,6 +1,10 @@
 package command
 
-import "github.com/bwmarrin/discordgo"
+import (
+	"discord-playlist-notifier/service"
+
+	"github.com/bwmarrin/discordgo"
+)
 
 var updateSubCommand = &discordgo.ApplicationCommandOption{
 	Type:        discordgo.ApplicationCommandOptionSubCommand,
@@ -12,6 +16,6 @@ var updateSubCommand = &discordgo.ApplicationCommandOption{
 	},
 }
 
-func update(playlistId string, needMention bool) string {
+func update(service service.YouTubeService, playlistId string, needMention bool) string {
 	return "update"
 }

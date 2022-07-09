@@ -1,6 +1,10 @@
 package command
 
-import "github.com/bwmarrin/discordgo"
+import (
+	"discord-playlist-notifier/service"
+
+	"github.com/bwmarrin/discordgo"
+)
 
 var deleteSubCommand = &discordgo.ApplicationCommandOption{
 	Type:        discordgo.ApplicationCommandOptionSubCommand,
@@ -11,6 +15,6 @@ var deleteSubCommand = &discordgo.ApplicationCommandOption{
 	},
 }
 
-func delete(playlistId string) string {
+func delete(service service.YouTubeService, playlistId string) string {
 	return "delete"
 }
