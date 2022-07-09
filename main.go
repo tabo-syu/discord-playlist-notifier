@@ -7,10 +7,10 @@ import (
 	"discord-playlist-notifier/repository"
 	"discord-playlist-notifier/router"
 	"discord-playlist-notifier/server"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
-	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"google.golang.org/api/option"
@@ -42,15 +42,15 @@ var (
 func init() {
 	var err error
 
-	dsn := strings.Join([]string{
-		"host=" + DB_HOST,
-		"user=" + DB_USER,
-		"password=" + DB_PASSWORD,
-		"dbname=" + DB_NAME,
-		"port=" + DB_PORT,
-		"sslmode=disable",
-		"TimeZone=" + DB_TIMEZONE,
-	}, " ")
+	dsn := fmt.Sprintf(
+		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable Timezone=%s",
+		DB_HOST,
+		DB_USER,
+		DB_PASSWORD,
+		DB_NAME,
+		DB_PORT,
+		DB_TIMEZONE,
+	)
 	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("Could not connect the db: %v", err)
