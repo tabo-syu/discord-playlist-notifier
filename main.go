@@ -4,9 +4,9 @@ import (
 	"context"
 	"discord-playlist-notifier/command"
 	"discord-playlist-notifier/registerer"
+	"discord-playlist-notifier/repository"
 	"discord-playlist-notifier/router"
 	"discord-playlist-notifier/server"
-	"discord-playlist-notifier/service"
 	"log"
 	"os"
 	"os/signal"
@@ -46,8 +46,8 @@ func main() {
 	commands := []*command.Command{&command.PlaylistNotifier}
 
 	router := router.NewRouter(commands)
-	service := service.NewYouTubeService(yt)
-	server := server.NewServer(dc, router, service)
+	repository := repository.NewYouTubeRepository(yt)
+	server := server.NewServer(dc, router, repository)
 	if err := server.Serve(); err != nil {
 		log.Fatalf("Cannot open the session: %v", err)
 	}

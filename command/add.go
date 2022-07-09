@@ -1,7 +1,7 @@
 package command
 
 import (
-	"discord-playlist-notifier/service"
+	"discord-playlist-notifier/repository"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -16,8 +16,8 @@ var addSubCommand = &discordgo.ApplicationCommandOption{
 	},
 }
 
-func add(service service.YouTubeService, playlistId string, needMention bool) string {
-	res, err := service.GetPlaylist(playlistId)
+func add(repository repository.YouTubeRepository, playlistId string, needMention bool) string {
+	res, err := repository.GetPlaylist(playlistId)
 	if err != nil {
 		return ""
 	}

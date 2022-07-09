@@ -1,8 +1,8 @@
 package server
 
 import (
+	"discord-playlist-notifier/repository"
 	"discord-playlist-notifier/router"
-	"discord-playlist-notifier/service"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -13,13 +13,13 @@ type Server interface {
 }
 
 type server struct {
-	session *discordgo.Session
-	router  router.Router
-	service service.YouTubeService
+	session    *discordgo.Session
+	router     router.Router
+	repository repository.YouTubeRepository
 }
 
-func NewServer(session *discordgo.Session, router router.Router, service service.YouTubeService) *server {
-	return &server{session, router, service}
+func NewServer(session *discordgo.Session, router router.Router, repository repository.YouTubeRepository) *server {
+	return &server{session, router, repository}
 }
 
 func (s *server) Serve() error {
@@ -30,7 +30,7 @@ func (s *server) Serve() error {
 			return
 		}
 
-		response := command(&request, s.service)
+		response := command(&request, s.repository)
 
 		d.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,

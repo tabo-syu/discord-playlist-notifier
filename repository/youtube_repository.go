@@ -1,4 +1,4 @@
-package service
+package repository
 
 import (
 	"google.golang.org/api/youtube/v3"
@@ -6,19 +6,19 @@ import (
 
 const MAX_RESULTS = 20
 
-type YouTubeService interface {
+type YouTubeRepository interface {
 	GetPlaylist(string) (string, error)
 }
 
-type youTubeService struct {
+type youTubeRepository struct {
 	youtube *youtube.Service
 }
 
-func NewYouTubeService(yt *youtube.Service) *youTubeService {
-	return &youTubeService{yt}
+func NewYouTubeRepository(yt *youtube.Service) *youTubeRepository {
+	return &youTubeRepository{yt}
 }
 
-func (s *youTubeService) GetPlaylist(id string) (string, error) {
+func (s *youTubeRepository) GetPlaylist(id string) (string, error) {
 	call := s.youtube.PlaylistItems.List([]string{"snippet"}).MaxResults(MAX_RESULTS)
 	res, err := call.PlaylistId(id).Do()
 	if err != nil {

@@ -1,7 +1,7 @@
 package command
 
 import (
-	"discord-playlist-notifier/service"
+	"discord-playlist-notifier/repository"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -15,6 +15,6 @@ var deleteSubCommand = &discordgo.ApplicationCommandOption{
 	},
 }
 
-func delete(service service.YouTubeService, playlistId string) string {
+func delete(repository repository.YouTubeRepository, playlistId string) string {
 	return "delete"
 }
