@@ -9,12 +9,12 @@ services:
     env_file:
       - .env
     depends_on:
-      - redis
+      - db
 
-  redis:
-    image: "redis:7.0.0-bullseye"
+  db:
+    image: "postgres:14.4-alpine"
     volumes:
-      - "redis-data:/data"
+      - "db-data:/var/lib/postgresql/data"
 
 volumes:
-  redis-data:
+  db-data:
