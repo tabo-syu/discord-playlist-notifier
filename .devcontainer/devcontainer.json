@@ -19,7 +19,9 @@
 	"settings": {},
 	// Add the IDs of extensions you want installed when the container is created.
 	"extensions": [
-		"golang.go"
+		"golang.go",
+		"mtxr.sqltools",
+		"mtxr.sqltools-driver-pg"
 	]
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
 	// "forwardPorts": [],
