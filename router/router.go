@@ -1,7 +1,7 @@
 package router
 
 import (
-	"discord-playlist-notifier/command"
+	"discord-playlist-notifier/handler/command"
 )
 
 type Router interface {

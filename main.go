@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
-	"discord-playlist-notifier/command"
 	"discord-playlist-notifier/domain"
+	"discord-playlist-notifier/handler/command"
 	"discord-playlist-notifier/registerer"
 	"discord-playlist-notifier/repository"
 	"discord-playlist-notifier/router"
