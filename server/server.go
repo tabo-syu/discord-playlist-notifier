@@ -1,6 +1,7 @@
 package server
 
 import (
+	"discord-playlist-notifier/handler/event"
 	"discord-playlist-notifier/repository"
 	"discord-playlist-notifier/router"
 
@@ -24,6 +25,17 @@ func NewServer(session *discordgo.Session, db repository.DBRepository, youtube r
 }
 
 func (s *server) Serve() error {
+	// Bot がサーバーに参加したとき
+	s.session.AddHandler(func(d *discordgo.Session, g *discordgo.GuildCreate) {
+		event.GuildCreate(g.Guild.ID)
+	})
+
+	// Bot がサーバーから削除されたとき
+	s.session.AddHandler(func(d *discordgo.Session, g *discordgo.GuildDelete) {
+		event.GuildDelete(g.Guild.ID)
+	})
+
+	// コマンドを受け付けたとき
 	s.session.AddHandler(func(d *discordgo.Session, i *discordgo.InteractionCreate) {
 		request := i.ApplicationCommandData()
 		command := s.router.Route(request.Name)
