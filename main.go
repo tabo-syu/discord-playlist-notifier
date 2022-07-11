@@ -77,14 +77,13 @@ func main() {
 	if err := server.Serve(); err != nil {
 		log.Fatalf("Cannot open the session: %v", err)
 	}
+	defer server.Stop()
 
 	registerer := registerer.NewRegisterer(dc, GUILD_ID, commands)
 	if err := registerer.Register(); err != nil {
 		log.Fatalf("Cannot register commands: %v", err)
 	}
-
 	defer registerer.Unregister()
-	defer server.Stop()
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)
