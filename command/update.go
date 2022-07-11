@@ -16,6 +16,6 @@ var updateSubCommand = &discordgo.ApplicationCommandOption{
 	},
 }
 
-func update(repository repository.YouTubeRepository, playlistId string, needMention bool) string {
+func update(db repository.DBRepository, playlistId string, needMention bool) string {
 	return "update"
 }

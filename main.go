@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"discord-playlist-notifier/command"
+	"discord-playlist-notifier/domain"
 	"discord-playlist-notifier/registerer"
 	"discord-playlist-notifier/repository"
 	"discord-playlist-notifier/router"
@@ -55,6 +56,10 @@ func init() {
 	if err != nil {
 		log.Fatalf("Could not connect the db: %v", err)
 	}
+	err = db.AutoMigrate(&domain.Guild{}, &domain.Playlist{}, &domain.Video{})
+	if err != nil {
+		log.Fatalf("Could not migrate tables: %v", err)
+	}
 
 	dc, err = discordgo.New("Bot " + DISCORD_TOKEN)
 	if err != nil {
@@ -71,9 +76,12 @@ func init() {
 func main() {
 	commands := []*command.Command{&command.PlaylistNotifier}
 
-	router := router.NewRouter(commands)
-	repository := repository.NewYouTubeRepository(yt)
-	server := server.NewServer(dc, router, repository)
+	server := server.NewServer(
+		dc,
+		repository.NewDBRepository(db),
+		repository.NewYouTubeRepository(yt),
+		router.NewRouter(commands),
+	)
 	if err := server.Serve(); err != nil {
 		log.Fatalf("Cannot open the session: %v", err)
 	}

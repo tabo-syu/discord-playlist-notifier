@@ -13,13 +13,14 @@ type Server interface {
 }
 
 type server struct {
-	session    *discordgo.Session
-	router     router.Router
-	repository repository.YouTubeRepository
+	session *discordgo.Session
+	db      repository.DBRepository
+	youtube repository.YouTubeRepository
+	router  router.Router
 }
 
-func NewServer(session *discordgo.Session, router router.Router, repository repository.YouTubeRepository) *server {
-	return &server{session, router, repository}
+func NewServer(session *discordgo.Session, db repository.DBRepository, youtube repository.YouTubeRepository, router router.Router) *server {
+	return &server{session, db, youtube, router}
 }
 
 func (s *server) Serve() error {
@@ -30,7 +31,7 @@ func (s *server) Serve() error {
 			return
 		}
 
-		response := command(&request, s.repository)
+		response := command(&request, s.db, s.youtube)
 
 		d.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,

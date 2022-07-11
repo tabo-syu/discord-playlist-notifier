@@ -16,12 +16,16 @@ var addSubCommand = &discordgo.ApplicationCommandOption{
 	},
 }
 
-func add(repository repository.YouTubeRepository, playlistId string, needMention bool) string {
-	res, err := repository.GetPlaylist(playlistId)
+func add(db repository.DBRepository, youtube repository.YouTubeRepository, playlistId string, needMention bool) string {
+	playlists, err := youtube.GetPlaylists(playlistId)
 	if err != nil {
-		return ""
+		return "error"
 	}
 
-	return res
+	// プレイリストは一度に一個しか登録できない
+	playlist := playlists[0]
+	playlist.Mention = needMention
+
+	return "hoge"
 	// return fmt.Sprintf("%s, %#v", playlistId, needMention)
 }

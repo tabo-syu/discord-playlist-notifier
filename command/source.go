@@ -1,8 +1,6 @@
 package command
 
 import (
-	"discord-playlist-notifier/repository"
-
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -12,6 +10,6 @@ var sourceSubCommand = &discordgo.ApplicationCommandOption{
 	Description: "この Bot のリポジトリへのリンクを表示します。",
 }
 
-func source(repository repository.YouTubeRepository) string {
+func source() string {
 	return "https://github.com/tabo-syu/discord-playlist-notifier"
 }

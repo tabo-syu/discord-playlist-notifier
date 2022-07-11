@@ -15,6 +15,6 @@ var deleteSubCommand = &discordgo.ApplicationCommandOption{
 	},
 }
 
-func delete(repository repository.YouTubeRepository, playlistId string) string {
+func delete(db repository.DBRepository, playlistId string) string {
 	return "delete"
 }
