@@ -2,6 +2,7 @@ package command
 
 import (
 	"discord-playlist-notifier/repository"
+	"fmt"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -16,7 +17,7 @@ var addSubCommand = &discordgo.ApplicationCommandOption{
 	},
 }
 
-func add(db repository.DBRepository, youtube repository.YouTubeRepository, playlistId string, needMention bool) string {
+func add(db repository.DBRepository, youtube repository.YouTubeRepository, guildId string, playlistId string, needMention bool) string {
 	playlists, err := youtube.GetPlaylists(playlistId)
 	if err != nil {
 		return "error"
@@ -26,6 +27,10 @@ func add(db repository.DBRepository, youtube repository.YouTubeRepository, playl
 	playlist := playlists[0]
 	playlist.Mention = needMention
 
-	return "hoge"
-	// return fmt.Sprintf("%s, %#v", playlistId, needMention)
+	if err = db.AddPlaylist(guildId, playlist); err != nil {
+		fmt.Println(err)
+		return "Error!"
+	}
+
+	return fmt.Sprintf("登録しました！\nhttps://www.youtube.com/playlist?list=%s", playlistId)
 }

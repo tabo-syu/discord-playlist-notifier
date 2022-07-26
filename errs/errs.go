@@ -9,4 +9,8 @@ var (
 
 	// YouTube
 	ErrPlaylistCouldNotFound = errors.New("playlist could not found")
+
+	// DB
+	ErrRecordAlreadyCreated = errors.New("record already created")
+	ErrRecordCouldNotFound  = errors.New("record could not found")
 )
