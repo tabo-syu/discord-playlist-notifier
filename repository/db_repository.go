@@ -14,6 +14,7 @@ type DBRepository interface {
 	AddGuild(string) error
 	// Playlist
 	ExistPlaylist(string, string) (bool, error)
+	GetPlaylistsByDiscordId(string) (*[]domain.Playlist, error)
 	AddPlaylist(string, *domain.Playlist) error
 }
 
@@ -88,6 +89,24 @@ func (r *dbRepository) ExistPlaylist(guildId string, playlistId string) (bool, e
 	}
 
 	return true, nil
+}
+
+func (r *dbRepository) GetPlaylistsByDiscordId(guildId string) (*[]domain.Playlist, error) {
+	var guild domain.Guild
+	var playlists []domain.Playlist
+	r.db.Where(domain.Guild{DiscordID: guildId}).Find(&guild)
+	err := r.db.Model(&guild).
+		Association("Playlists").
+		Find(&playlists)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(playlists) == 0 {
+		return nil, errs.ErrRecordCouldNotFound
+	}
+
+	return &playlists, nil
 }
 
 func (r *dbRepository) AddPlaylist(guildId string, playlist *domain.Playlist) error {
