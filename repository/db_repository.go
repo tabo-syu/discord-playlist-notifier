@@ -3,7 +3,6 @@ package repository
 import (
 	"discord-playlist-notifier/domain"
 	"discord-playlist-notifier/errs"
-	"fmt"
 
 	"gorm.io/gorm"
 )
@@ -84,8 +83,6 @@ func (r *dbRepository) ExistPlaylist(guildId string, playlistId string) (bool, e
 		return false, err
 	}
 
-	fmt.Printf("%#v\n", guild)
-
 	if len(guild.Playlists) == 0 {
 		return false, nil
 	}
@@ -98,14 +95,12 @@ func (r *dbRepository) AddPlaylist(guildId string, playlist *domain.Playlist) er
 	if err != nil {
 		return err
 	}
-	fmt.Println("guildExist:", guildExist)
 
 	playlistExist, err := r.ExistPlaylist(guildId, playlist.YoutubeID)
 	if err != nil {
 		return err
 	}
 	if playlistExist {
-		fmt.Println("hoge")
 		return errs.ErrRecordAlreadyCreated
 	}
 

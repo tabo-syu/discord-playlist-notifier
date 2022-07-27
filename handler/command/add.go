@@ -27,6 +27,7 @@ func add(db repository.DBRepository, youtube repository.YouTubeRepository, guild
 	playlist := playlists[0]
 	playlist.Mention = needMention
 
+	// TODO: エラーごとのエラーメッセージを返す
 	if err = db.AddPlaylist(guildId, playlist); err != nil {
 		fmt.Println(err)
 		return "Error!"
