@@ -1,7 +1,9 @@
 package command
 
 import (
+	"discord-playlist-notifier/errs"
 	"discord-playlist-notifier/repository"
+	"errors"
 	"fmt"
 
 	"github.com/bwmarrin/discordgo"
@@ -19,19 +21,26 @@ var addSubCommand = &discordgo.ApplicationCommandOption{
 
 func add(db repository.DBRepository, youtube repository.YouTubeRepository, guildId string, playlistId string, needMention bool) string {
 	playlists, err := youtube.GetPlaylists(playlistId)
+	if errors.Is(err, errs.ErrPlaylistCouldNotFound) {
+		return "該当するプレイリストが見つかりませんでした..."
+	}
 	if err != nil {
-		return "error"
+		return "YouTube API のサービス状況を確認してください！"
 	}
 
 	// プレイリストは一度に一個しか登録できない
 	playlist := playlists[0]
 	playlist.Mention = needMention
 
-	// TODO: エラーごとのエラーメッセージを返す
-	if err = db.AddPlaylist(guildId, playlist); err != nil {
-		fmt.Println(err)
-		return "Error!"
+	var message string
+	switch db.AddPlaylist(guildId, playlist) {
+	case nil:
+		message = fmt.Sprintf("通知登録しました！\nhttps://www.youtube.com/playlist?list=%s", playlistId)
+	case errs.ErrRecordAlreadyCreated:
+		message = "既に通知登録されているプレイリストです。"
+	default:
+		message = ""
 	}
 
-	return fmt.Sprintf("登録しました！\nhttps://www.youtube.com/playlist?list=%s", playlistId)
+	return message
 }
