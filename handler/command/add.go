@@ -22,10 +22,10 @@ var addSubCommand = &discordgo.ApplicationCommandOption{
 func add(db repository.DBRepository, youtube repository.YouTubeRepository, guildId string, playlistId string, needMention bool) string {
 	playlists, err := youtube.GetPlaylists(playlistId)
 	if errors.Is(err, errs.ErrPlaylistCouldNotFound) {
-		return "該当するプレイリストが見つかりませんでした..."
+		return "該当するプレイリストが見つかりませんでした...\n非公開のプレイリストではありませんか？"
 	}
 	if err != nil {
-		return "YouTube API のサービス状況を確認してください！"
+		return "YouTube API のサービス状況を確認してください。"
 	}
 
 	// プレイリストは一度に一個しか登録できない
@@ -39,7 +39,7 @@ func add(db repository.DBRepository, youtube repository.YouTubeRepository, guild
 	case errs.ErrRecordAlreadyCreated:
 		message = "既に通知登録されているプレイリストです。"
 	default:
-		message = ""
+		message = "エラー！システムに問題があります！"
 	}
 
 	return message
