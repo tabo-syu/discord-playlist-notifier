@@ -1,8 +1,6 @@
 package command
 
 import (
-	"discord-playlist-notifier/repository"
-
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -15,6 +13,6 @@ var deleteSubCommand = &discordgo.ApplicationCommandOption{
 	},
 }
 
-func delete(db repository.DBRepository, playlistId string) string {
+func delete(playlistId string) string {
 	return "delete"
 }

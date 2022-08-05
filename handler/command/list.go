@@ -2,7 +2,7 @@ package command
 
 import (
 	"discord-playlist-notifier/errs"
-	"discord-playlist-notifier/repository"
+	"discord-playlist-notifier/service"
 	"errors"
 	"fmt"
 
@@ -15,9 +15,9 @@ var listSubCommand = &discordgo.ApplicationCommandOption{
 	Description: "通知するプレイリストを一覧表示します。",
 }
 
-func list(db repository.DBRepository, guildId string) string {
-	playlists, err := db.GetPlaylistsByDiscordId(guildId)
-	if errors.Is(err, errs.ErrRecordCouldNotFound) {
+func list(playlist service.PlaylistService, guildId string) string {
+	playlists, err := playlist.FindByDiscordId(guildId)
+	if errors.Is(err, errs.ErrDBRecordCouldNotFound) {
 		return "通知登録されているプレイリストが存在しません。"
 	}
 	if err != nil {

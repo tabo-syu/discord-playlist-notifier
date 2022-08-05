@@ -19,7 +19,7 @@ type registerer struct {
 	commands []*command.Command
 }
 
-func NewRegisterer(session *discordgo.Session, guild string, commands []*command.Command) *registerer {
+func NewRegisterer(session *discordgo.Session, guild string, commands []*command.Command) Registerer {
 	return &registerer{session, guild, commands}
 }
 
@@ -27,7 +27,7 @@ func (r *registerer) Register() error {
 	for i, command := range r.commands {
 		registered, err := r.session.ApplicationCommandCreate(r.session.State.User.ID, r.guild, command.Info)
 		if err != nil {
-			return errs.ErrCommandCouldNotCreate
+			return errs.ErrDiscordCommandCouldNotCreate
 		}
 
 		r.commands[i].Info = registered
@@ -41,7 +41,7 @@ func (r *registerer) Unregister() error {
 	for _, command := range r.commands {
 		err := r.session.ApplicationCommandDelete(r.session.State.User.ID, r.guild, command.Info.ID)
 		if err != nil {
-			return errs.ErrCommandCouldNotDelete
+			return errs.ErrDiscordCommandCouldNotDelete
 		}
 
 		fmt.Println("Command Deleted:", command.Info.Name)

@@ -1,8 +1,6 @@
 package command
 
 import (
-	"discord-playlist-notifier/repository"
-
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -16,6 +14,6 @@ var updateSubCommand = &discordgo.ApplicationCommandOption{
 	},
 }
 
-func update(db repository.DBRepository, playlistId string, needMention bool) string {
+func update(playlistId string, needMention bool) string {
 	return "update"
 }

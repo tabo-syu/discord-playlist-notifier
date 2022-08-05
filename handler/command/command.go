@@ -1,12 +1,12 @@
 package command
 
 import (
-	"discord-playlist-notifier/repository"
+	"discord-playlist-notifier/service"
 
 	"github.com/bwmarrin/discordgo"
 )
 
-type Handle func(string, *discordgo.ApplicationCommandInteractionData, repository.DBRepository, repository.YouTubeRepository) string
+type Handle func(string, *discordgo.ApplicationCommandInteractionData, service.PlaylistService) string
 type Command struct {
 	Info   *discordgo.ApplicationCommand
 	Handle Handle
@@ -27,7 +27,7 @@ var PlaylistNotifier = Command{
 	Handle: handle,
 }
 
-func handle(guildId string, data *discordgo.ApplicationCommandInteractionData, db repository.DBRepository, youtube repository.YouTubeRepository) string {
+func handle(guildId string, data *discordgo.ApplicationCommandInteractionData, playlist service.PlaylistService) string {
 	playlistId := ""
 	mention := false
 
@@ -41,13 +41,13 @@ func handle(guildId string, data *discordgo.ApplicationCommandInteractionData, d
 	var message string
 	switch subcommand.Name {
 	case "list":
-		message = list(db, guildId)
+		message = list(playlist, guildId)
 	case "add":
-		message = add(db, youtube, guildId, playlistId, mention)
+		message = add(playlist, guildId, playlistId, mention)
 	case "update":
-		message = update(db, playlistId, mention)
+		message = update(playlistId, mention)
 	case "delete":
-		message = delete(db, playlistId)
+		message = delete(playlistId)
 	case "source":
 		message = source()
 	}

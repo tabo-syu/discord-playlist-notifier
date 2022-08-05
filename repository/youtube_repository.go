@@ -10,18 +10,18 @@ import (
 const MAX_RESULTS = 20
 
 type YouTubeRepository interface {
-	GetPlaylists(...string) ([]*domain.Playlist, error)
+	Find(...string) ([]*domain.Playlist, error)
 }
 
 type youTubeRepository struct {
 	youtube *youtube.Service
 }
 
-func NewYouTubeRepository(yt *youtube.Service) *youTubeRepository {
+func NewYouTubeRepository(yt *youtube.Service) YouTubeRepository {
 	return &youTubeRepository{yt}
 }
 
-func (r *youTubeRepository) GetPlaylists(ids ...string) ([]*domain.Playlist, error) {
+func (r *youTubeRepository) Find(ids ...string) ([]*domain.Playlist, error) {
 	// TODO: if len(ids) > MAX_RESULTS {} の時のロギング
 	lists, err := r.youtube.Playlists.List([]string{"id"}).MaxResults(MAX_RESULTS).
 		Id(ids...).Do()
@@ -29,7 +29,7 @@ func (r *youTubeRepository) GetPlaylists(ids ...string) ([]*domain.Playlist, err
 		return nil, err
 	}
 	if len(lists.Items) == 0 {
-		return nil, errs.ErrPlaylistCouldNotFound
+		return nil, errs.ErrYouTubePlaylistCouldNotFound
 	}
 
 	var response = []*domain.Playlist{}

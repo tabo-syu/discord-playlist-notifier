@@ -8,6 +8,7 @@ import (
 	"discord-playlist-notifier/repository"
 	"discord-playlist-notifier/router"
 	"discord-playlist-notifier/server"
+	"discord-playlist-notifier/service"
 	"fmt"
 	"log"
 	"os"
@@ -75,11 +76,13 @@ func init() {
 
 func main() {
 	commands := []*command.Command{&command.PlaylistNotifier}
-
 	server := server.NewServer(
 		dc,
-		repository.NewDBRepository(db),
+		service.NewPlaylistService(
 		repository.NewYouTubeRepository(yt),
+			repository.NewPlaylistRepository(db),
+			repository.NewGuildRepository(db),
+		),
 		router.NewRouter(commands),
 	)
 	if err := server.Serve(); err != nil {

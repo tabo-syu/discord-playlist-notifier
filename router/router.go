@@ -12,7 +12,7 @@ type router struct {
 	routes map[string]command.Handle
 }
 
-func NewRouter(commands []*command.Command) *router {
+func NewRouter(commands []*command.Command) Router {
 	routes := map[string]command.Handle{}
 	for _, command := range commands {
 		routes[command.Info.Name] = command.Handle
