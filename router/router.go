@@ -5,23 +5,23 @@ import (
 )
 
 type Router interface {
-	Route(string) command.Handle
+	Route(string) command.HandleType
 }
 
 type router struct {
-	routes map[string]command.Handle
+	routes map[string]command.HandleType
 }
 
-func NewRouter(commands []*command.Command) Router {
-	routes := map[string]command.Handle{}
+func NewRouter(commands []command.Command) Router {
+	routes := map[string]command.HandleType{}
 	for _, command := range commands {
-		routes[command.Info.Name] = command.Handle
+		routes[command.GetCommand().Name] = command.Handle
 	}
 
 	return &router{routes}
 }
 
-func (r *router) Route(commandName string) command.Handle {
+func (r *router) Route(commandName string) command.HandleType {
 	if h, ok := r.routes[commandName]; ok {
 		return h
 	}

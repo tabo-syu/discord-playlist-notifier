@@ -1,4 +1,4 @@
-package command
+package playlist_notifier
 
 import (
 	"github.com/bwmarrin/discordgo"
@@ -13,6 +13,6 @@ var deleteSubCommand = &discordgo.ApplicationCommandOption{
 	},
 }
 
-func delete(playlistId string) string {
+func (c *playlistNotifier) delete(playlistId string) string {
 	return "delete"
 }

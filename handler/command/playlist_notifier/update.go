@@ -1,4 +1,4 @@
-package command
+package playlist_notifier
 
 import (
 	"github.com/bwmarrin/discordgo"
@@ -14,6 +14,6 @@ var updateSubCommand = &discordgo.ApplicationCommandOption{
 	},
 }
 
-func update(playlistId string, needMention bool) string {
+func (c *playlistNotifier) update(playlistId string, needMention bool) string {
 	return "update"
 }

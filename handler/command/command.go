@@ -1,79 +1,20 @@
 package command
 
 import (
-	"discord-playlist-notifier/service"
-
 	"github.com/bwmarrin/discordgo"
 )
 
-type Handle func(string, *discordgo.ApplicationCommandInteractionData, service.PlaylistService) string
-type Command struct {
-	Info   *discordgo.ApplicationCommand
-	Handle Handle
+type HandleType func(request *discordgo.ApplicationCommandInteractionData, guildId string) string
+
+type Command interface {
+	Handle(request *discordgo.ApplicationCommandInteractionData, guildId string) string
+	GetCommand() *discordgo.ApplicationCommand
+	SetCommand(*discordgo.ApplicationCommand)
 }
-
-var PlaylistNotifier = Command{
-	Info: &discordgo.ApplicationCommand{
-		Name:        "playlist-notifier",
-		Description: "テキストチャンネルに YouTube のプレイリストの更新を通知します。",
-		Options: []*discordgo.ApplicationCommandOption{
-			listSubCommand,
-			addSubCommand,
-			updateSubCommand,
-			deleteSubCommand,
-			sourceSubCommand,
-		},
-	},
-	Handle: handle,
-}
-
-func handle(guildId string, data *discordgo.ApplicationCommandInteractionData, playlist service.PlaylistService) string {
-	playlistId := ""
-	mention := false
-
-	subcommand := data.Options[0]
-	if len(subcommand.Options) > 0 {
-		options := parseCommandArguments(subcommand.Options)
-		playlistId = options["playlist-id"].StringValue()
-		mention = options["mention"].BoolValue()
-	}
-
-	var message string
-	switch subcommand.Name {
-	case "list":
-		message = list(playlist, guildId)
-	case "add":
-		message = add(playlist, guildId, playlistId, mention)
-	case "update":
-		message = update(playlistId, mention)
-	case "delete":
-		message = delete(playlistId)
-	case "source":
-		message = source()
-	}
-
-	return message
-}
-
-var (
-	playlistIdOption = &discordgo.ApplicationCommandOption{
-		Type:        discordgo.ApplicationCommandOptionString,
-		Name:        "playlist-id",
-		Description: "YouTube のプレイリストページの URL 末尾に付く ID を入力します。",
-		Required:    true,
-	}
-
-	mentionOption = &discordgo.ApplicationCommandOption{
-		Type:        discordgo.ApplicationCommandOptionBoolean,
-		Name:        "mention",
-		Description: "このサーバーに参加しているユーザー全員にメンションするか否か。",
-		Required:    true,
-	}
-)
 
 type Options map[string]*discordgo.ApplicationCommandInteractionDataOption
 
-func parseCommandArguments(args []*discordgo.ApplicationCommandInteractionDataOption) Options {
+func ParseArguments(args []*discordgo.ApplicationCommandInteractionDataOption) Options {
 	options := make(Options, len(args))
 	for _, arg := range args {
 		options[arg.Name] = arg

@@ -4,6 +4,7 @@ import (
 	"context"
 	"discord-playlist-notifier/domain"
 	"discord-playlist-notifier/handler/command"
+	"discord-playlist-notifier/handler/command/playlist_notifier"
 	"discord-playlist-notifier/registerer"
 	"discord-playlist-notifier/repository"
 	"discord-playlist-notifier/router"
@@ -75,16 +76,17 @@ func init() {
 }
 
 func main() {
-	commands := []*command.Command{&command.PlaylistNotifier}
-	server := server.NewServer(
-		dc,
-		service.NewPlaylistService(
-		repository.NewYouTubeRepository(yt),
-			repository.NewPlaylistRepository(db),
-			repository.NewGuildRepository(db),
+	commands := []command.Command{
+		playlist_notifier.NewPlaylistNotifier(
+			service.NewPlaylistService(
+				repository.NewYouTubeRepository(yt),
+				repository.NewPlaylistRepository(db),
+				repository.NewGuildRepository(db),
+			),
 		),
-		router.NewRouter(commands),
-	)
+	}
+
+	server := server.NewServer(dc, router.NewRouter(commands))
 	if err := server.Serve(); err != nil {
 		log.Fatalf("Cannot open the session: %v", err)
 	}
