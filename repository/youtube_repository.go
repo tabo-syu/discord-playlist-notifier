@@ -10,7 +10,7 @@ import (
 const MAX_RESULTS = 20
 
 type YouTubeRepository interface {
-	Find(...string) ([]*domain.Playlist, error)
+	FindPlaylists(...string) ([]*domain.Playlist, error)
 }
 
 type youTubeRepository struct {
@@ -21,7 +21,7 @@ func NewYouTubeRepository(yt *youtube.Service) YouTubeRepository {
 	return &youTubeRepository{yt}
 }
 
-func (r *youTubeRepository) Find(ids ...string) ([]*domain.Playlist, error) {
+func (r *youTubeRepository) FindPlaylists(ids ...string) ([]*domain.Playlist, error) {
 	// TODO: if len(ids) > MAX_RESULTS {} の時のロギング
 	lists, err := r.youtube.Playlists.List([]string{"id"}).MaxResults(MAX_RESULTS).
 		Id(ids...).Do()

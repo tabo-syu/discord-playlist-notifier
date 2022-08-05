@@ -8,7 +8,7 @@ import (
 )
 
 type PlaylistService interface {
-	FindByDiscordId(guildId string) (*[]domain.Playlist, error)
+	FindByDiscordId(guildId string) ([]*domain.Playlist, error)
 	Register(guildId string, playlistId string, needMention bool) error
 	// Unregister() error
 }
@@ -23,12 +23,12 @@ func NewPlaylistService(y repository.YouTubeRepository, p repository.PlaylistRep
 	return &playlistService{y, p, g}
 }
 
-func (s *playlistService) FindByDiscordId(guildId string) (*[]domain.Playlist, error) {
+func (s *playlistService) FindByDiscordId(guildId string) ([]*domain.Playlist, error) {
 	return s.playlist.FindByDiscordId(guildId)
 }
 
 func (s *playlistService) Register(guildId string, playlistId string, needMention bool) error {
-	playlists, err := s.youtube.Find(playlistId)
+	playlists, err := s.youtube.FindPlaylists(playlistId)
 	if errors.Is(err, errs.ErrYouTubePlaylistCouldNotFound) {
 		return err
 	}

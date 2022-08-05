@@ -10,7 +10,7 @@ import (
 type PlaylistRepository interface {
 	Exist(guildId string, playlistId string) (bool, error)
 	Add(*domain.Playlist) error
-	FindByDiscordId(guildId string) (*[]domain.Playlist, error)
+	FindByDiscordId(guildId string) ([]*domain.Playlist, error)
 }
 
 type playlistRepository struct {
@@ -36,9 +36,9 @@ func (r *playlistRepository) Exist(guildId string, playlistId string) (bool, err
 	return true, nil
 }
 
-func (r *playlistRepository) FindByDiscordId(guildId string) (*[]domain.Playlist, error) {
+func (r *playlistRepository) FindByDiscordId(guildId string) ([]*domain.Playlist, error) {
 	var guild domain.Guild
-	var playlists []domain.Playlist
+	var playlists []*domain.Playlist
 	r.db.Where(domain.Guild{DiscordID: guildId}).Find(&guild)
 	err := r.db.Model(&guild).Association("Playlists").Find(&playlists)
 	if err != nil {
@@ -49,7 +49,7 @@ func (r *playlistRepository) FindByDiscordId(guildId string) (*[]domain.Playlist
 		return nil, errs.ErrDBRecordCouldNotFound
 	}
 
-	return &playlists, nil
+	return playlists, nil
 }
 
 func (r *playlistRepository) Add(playlist *domain.Playlist) error {

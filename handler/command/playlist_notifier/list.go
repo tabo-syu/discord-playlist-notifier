@@ -24,7 +24,7 @@ func (c *playlistNotifier) list(guildId string) string {
 	}
 
 	message := "通知登録されているプレイリスト一覧\n"
-	for _, playlist := range *playlists {
+	for _, playlist := range playlists {
 		message += fmt.Sprintf("https://www.youtube.com/playlist?list=%s\n", playlist.YoutubeID)
 	}
 
