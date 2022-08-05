@@ -28,7 +28,7 @@ var (
 	}
 )
 
-func NewPlaylistNotifier(playlist service.PlaylistService) cmd.Command {
+func NewPlaylistNotifier(p service.PlaylistService) cmd.Command {
 	return &playlistNotifier{
 		&discordgo.ApplicationCommand{
 			Name:        "playlist-notifier",
@@ -41,7 +41,7 @@ func NewPlaylistNotifier(playlist service.PlaylistService) cmd.Command {
 				sourceSubCommand,
 			},
 		},
-		playlist,
+		p,
 	}
 }
 

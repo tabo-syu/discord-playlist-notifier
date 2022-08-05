@@ -15,17 +15,17 @@ type Registerer interface {
 
 type registerer struct {
 	session  *discordgo.Session
-	guild    string
+	guildId  string
 	commands []command.Command
 }
 
-func NewRegisterer(session *discordgo.Session, guild string, commands []command.Command) Registerer {
-	return &registerer{session, guild, commands}
+func NewRegisterer(s *discordgo.Session, guildId string, cs []command.Command) Registerer {
+	return &registerer{s, guildId, cs}
 }
 
 func (r *registerer) Register() error {
 	for i, command := range r.commands {
-		registered, err := r.session.ApplicationCommandCreate(r.session.State.User.ID, r.guild, command.GetCommand())
+		registered, err := r.session.ApplicationCommandCreate(r.session.State.User.ID, r.guildId, command.GetCommand())
 		if err != nil {
 			return errs.ErrDiscordCommandCouldNotCreate
 		}
@@ -39,7 +39,7 @@ func (r *registerer) Register() error {
 
 func (r *registerer) Unregister() error {
 	for _, command := range r.commands {
-		err := r.session.ApplicationCommandDelete(r.session.State.User.ID, r.guild, command.GetCommand().ID)
+		err := r.session.ApplicationCommandDelete(r.session.State.User.ID, r.guildId, command.GetCommand().ID)
 		if err != nil {
 			return errs.ErrDiscordCommandCouldNotDelete
 		}
