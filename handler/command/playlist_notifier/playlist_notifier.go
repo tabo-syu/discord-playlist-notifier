@@ -58,28 +58,28 @@ func (c *playlistNotifier) Handle(data *discordgo.ApplicationCommandInteractionD
 
 	var message string
 	switch subcommand.Name {
-	case "list":
+	case listSubCommand.Name:
 		message = c.list(guildId)
-	case "add":
+	case addSubCommand.Name:
 		options := cmd.ParseArguments(subcommand.Options)
 		message = c.add(
 			guildId,
 			options[playlistIdOption.Name].StringValue(),
 			options[mentionOption.Name].BoolValue(),
 		)
-	case "update":
+	case updateSubCommand.Name:
 		options := cmd.ParseArguments(subcommand.Options)
 		message = c.update(
 			options[playlistIdOption.Name].StringValue(),
 			options[mentionOption.Name].BoolValue(),
 		)
-	case "delete":
+	case deleteSubCommand.Name:
 		options := cmd.ParseArguments(subcommand.Options)
 		message = c.delete(
 			guildId,
 			options[playlistIdOption.Name].StringValue(),
 		)
-	case "source":
+	case sourceSubCommand.Name:
 		message = c.source()
 	}
 
