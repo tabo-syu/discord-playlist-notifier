@@ -11,6 +11,7 @@ type PlaylistRepository interface {
 	Exist(guildId string, playlistId string) (bool, error)
 	Add(*domain.Playlist) error
 	FindByDiscordId(guildId string) ([]*domain.Playlist, error)
+	DeleteAll([]*domain.Playlist) error
 }
 
 type playlistRepository struct {
@@ -37,12 +38,23 @@ func (r *playlistRepository) Exist(guildId string, playlistId string) (bool, err
 }
 
 func (r *playlistRepository) FindByDiscordId(guildId string) ([]*domain.Playlist, error) {
+	// プレイリストを取得
 	var guild domain.Guild
 	var playlists []*domain.Playlist
 	r.db.Where(domain.Guild{DiscordID: guildId}).Find(&guild)
 	err := r.db.Model(&guild).Association("Playlists").Find(&playlists)
 	if err != nil {
 		return nil, err
+	}
+
+	// プレイリストに紐づく動画も取得
+	for _, playlist := range playlists {
+		var videos []domain.Video
+		err := r.db.Model(&playlist).Association("Videos").Find(&videos)
+		if err != nil {
+			return nil, err
+		}
+		playlist.Videos = videos
 	}
 
 	if len(playlists) == 0 {
@@ -55,6 +67,29 @@ func (r *playlistRepository) FindByDiscordId(guildId string) ([]*domain.Playlist
 func (r *playlistRepository) Add(playlist *domain.Playlist) error {
 	result := r.db.Save(&playlist)
 	if err := result.Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *playlistRepository) DeleteAll(playlists []*domain.Playlist) error {
+	var pids, vids []uint
+	var videos []domain.Video
+	for _, playlist := range playlists {
+		pids = append(pids, playlist.ID)
+		for _, video := range playlist.Videos {
+			vids = append(vids, video.ID)
+			videos = append(videos, video)
+		}
+	}
+
+	err := r.db.Delete(playlists, pids).Error
+	if err != nil {
+		return err
+	}
+	err = r.db.Delete(videos, vids).Error
+	if err != nil {
 		return err
 	}
 

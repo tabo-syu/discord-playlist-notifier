@@ -5,6 +5,7 @@ import (
 	"discord-playlist-notifier/domain"
 	"discord-playlist-notifier/handler/command"
 	"discord-playlist-notifier/handler/command/playlist_notifier"
+	"discord-playlist-notifier/handler/event"
 	"discord-playlist-notifier/registerer"
 	"discord-playlist-notifier/repository"
 	"discord-playlist-notifier/router"
@@ -81,13 +82,13 @@ func main() {
 	pr := repository.NewPlaylistRepository(db)
 
 	ps := service.NewPlaylistService(yr, pr, gr)
-	// gs := service.NewGuildService(gr)
+	gs := service.NewGuildService(gr, pr)
 
 	commands := []command.Command{playlist_notifier.NewPlaylistNotifier(ps)}
-
 	server := server.NewServer(
 		dc,
 		registerer.NewRegisterer(dc, commands),
+		event.NewEvent(gs),
 		router.NewRouter(commands),
 	)
 	if err := server.Serve(); err != nil {
