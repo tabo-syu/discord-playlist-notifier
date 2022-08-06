@@ -31,7 +31,6 @@ var (
 	DB_PASSWORD = os.Getenv("DB_PASSWORD")
 	DB_TIMEZONE = os.Getenv("DB_TIMEZONE")
 
-	GUILD_ID      = os.Getenv("GUILD_ID")
 	DISCORD_TOKEN = os.Getenv("DISCORD_ACCESS_TOKEN")
 	YOUTUBE_TOKEN = os.Getenv("YOUTUBE_APIKEY")
 )
