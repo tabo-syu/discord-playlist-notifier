@@ -2,7 +2,6 @@ package event
 
 import (
 	"discord-playlist-notifier/service"
-	"fmt"
 )
 
 type Event interface {
@@ -24,8 +23,6 @@ func (e *event) GuildCreate(guildId string) error {
 		return err
 	}
 
-	fmt.Println("Guild record created:", guildId)
-
 	return nil
 }
 
@@ -34,8 +31,6 @@ func (e *event) GuildDelete(guildId string) error {
 	if err != nil {
 		return err
 	}
-
-	fmt.Println("Guild record deleted:", guildId)
 
 	return nil
 }

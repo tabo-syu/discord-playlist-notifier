@@ -3,7 +3,6 @@ package registerer
 import (
 	"discord-playlist-notifier/errs"
 	"discord-playlist-notifier/handler/command"
-	"fmt"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -31,7 +30,6 @@ func (r *registerer) Register(guildId string) error {
 		}
 
 		r.guildCommands[guildId] = append(r.guildCommands[guildId], registered)
-		fmt.Println("Command Registerd:", command.GetCommand().Name, "at", guildId)
 	}
 
 	return nil
@@ -42,11 +40,8 @@ func (r *registerer) Unregister() {
 		for _, command := range commands {
 			err := r.session.ApplicationCommandDelete(r.session.State.User.ID, guildId, command.ID)
 			if err != nil {
-				fmt.Println("Command could not delete at", guildId)
-
 				continue
 			}
-			fmt.Println("Command deleted:", command.Name, "at", guildId)
 		}
 	}
 }

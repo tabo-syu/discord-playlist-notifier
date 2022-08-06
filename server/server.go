@@ -4,6 +4,7 @@ import (
 	"discord-playlist-notifier/handler/event"
 	"discord-playlist-notifier/registerer"
 	"discord-playlist-notifier/router"
+	"log"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -27,13 +28,26 @@ func NewServer(s *discordgo.Session, rg registerer.Registerer, e event.Event, rt
 func (s *server) Serve() error {
 	// Bot がサーバーに参加したとき
 	s.session.AddHandler(func(d *discordgo.Session, g *discordgo.GuildCreate) {
-		s.registerer.Register(g.Guild.ID)
-		s.event.GuildCreate(g.Guild.ID)
+		if err := s.registerer.Register(g.Guild.ID); err != nil {
+			log.Println("Commands could not register:", g.Guild.ID, "cause:", err)
+		} else {
+			log.Println("Commands registered:", g.Guild.ID)
+		}
+
+		if err := s.event.GuildCreate(g.Guild.ID); err != nil {
+			log.Println("Guild record could not create:", g.Guild.ID, "cause:", err)
+		} else {
+			log.Println("Guild record created:", g.Guild.ID)
+		}
 	})
 
 	// Bot がサーバーから削除されたとき
 	s.session.AddHandler(func(d *discordgo.Session, g *discordgo.GuildDelete) {
-		s.event.GuildDelete(g.Guild.ID)
+		if err := s.event.GuildDelete(g.Guild.ID); err != nil {
+			log.Println("Guild record could not delete:", g.Guild.ID, "cause:", err)
+		} else {
+			log.Println("Guild record deleted:", g.Guild.ID)
+		}
 	})
 
 	// コマンドを受け付けたとき
@@ -54,11 +68,22 @@ func (s *server) Serve() error {
 		})
 	})
 
-	return s.session.Open()
+	if err := s.session.Open(); err != nil {
+		return err
+	}
+	log.Println("Started server")
+
+	return nil
 }
 
 func (s *server) Stop() error {
 	s.registerer.Unregister()
+	log.Println("Commands unregistered")
 
-	return s.session.Close()
+	if err := s.session.Close(); err != nil {
+		return err
+	}
+	log.Println("Stopped server")
+
+	return nil
 }
