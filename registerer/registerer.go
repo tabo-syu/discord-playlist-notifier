@@ -9,43 +9,44 @@ import (
 )
 
 type Registerer interface {
-	Register() error
-	Unregister() error
+	Register(guildId string) error
+	Unregister()
 }
 
 type registerer struct {
-	session  *discordgo.Session
-	guildId  string
-	commands []command.Command
+	session       *discordgo.Session
+	commands      []command.Command
+	guildCommands map[string][]*discordgo.ApplicationCommand
 }
 
-func NewRegisterer(s *discordgo.Session, guildId string, cs []command.Command) Registerer {
-	return &registerer{s, guildId, cs}
+func NewRegisterer(s *discordgo.Session, cs []command.Command) Registerer {
+	return &registerer{s, cs, map[string][]*discordgo.ApplicationCommand{}}
 }
 
-func (r *registerer) Register() error {
-	for i, command := range r.commands {
-		registered, err := r.session.ApplicationCommandCreate(r.session.State.User.ID, r.guildId, command.GetCommand())
+func (r *registerer) Register(guildId string) error {
+	for _, command := range r.commands {
+		registered, err := r.session.ApplicationCommandCreate(r.session.State.User.ID, guildId, command.GetCommand())
 		if err != nil {
 			return errs.ErrDiscordCommandCouldNotCreate
 		}
 
-		r.commands[i].SetCommand(registered)
-		fmt.Println("Command Registerd:", command.GetCommand().Name)
+		r.guildCommands[guildId] = append(r.guildCommands[guildId], registered)
+		fmt.Println("Command Registerd:", command.GetCommand().Name, "at", guildId)
 	}
 
 	return nil
 }
 
-func (r *registerer) Unregister() error {
-	for _, command := range r.commands {
-		err := r.session.ApplicationCommandDelete(r.session.State.User.ID, r.guildId, command.GetCommand().ID)
-		if err != nil {
-			return errs.ErrDiscordCommandCouldNotDelete
+func (r *registerer) Unregister() {
+	for guildId, commands := range r.guildCommands {
+		for _, command := range commands {
+			err := r.session.ApplicationCommandDelete(r.session.State.User.ID, guildId, command.ID)
+			if err != nil {
+				fmt.Println("Command could not delete at", guildId)
+
+				continue
+			}
+			fmt.Println("Command deleted:", command.Name, "at", guildId)
 		}
-
-		fmt.Println("Command Deleted:", command.GetCommand().Name)
 	}
-
-	return nil
 }

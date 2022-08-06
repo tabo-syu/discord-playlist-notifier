@@ -1,7 +1,7 @@
 package server
 
 import (
-	"discord-playlist-notifier/handler/event"
+	"discord-playlist-notifier/registerer"
 	"discord-playlist-notifier/router"
 
 	"github.com/bwmarrin/discordgo"
@@ -13,23 +13,25 @@ type Server interface {
 }
 
 type server struct {
-	session *discordgo.Session
-	router  router.Router
+	session    *discordgo.Session
+	registerer registerer.Registerer
+	router     router.Router
 }
 
-func NewServer(session *discordgo.Session, router router.Router) Server {
-	return &server{session, router}
+func NewServer(s *discordgo.Session, rg registerer.Registerer, rt router.Router) Server {
+	return &server{s, rg, rt}
 }
 
 func (s *server) Serve() error {
 	// Bot がサーバーに参加したとき
 	s.session.AddHandler(func(d *discordgo.Session, g *discordgo.GuildCreate) {
-		event.GuildCreate(g.Guild.ID)
+		s.registerer.Register(g.Guild.ID)
+		// event.GuildCreate(g.Guild.ID)
 	})
 
 	// Bot がサーバーから削除されたとき
 	s.session.AddHandler(func(d *discordgo.Session, g *discordgo.GuildDelete) {
-		event.GuildDelete(g.Guild.ID)
+		// event.GuildDelete(g.Guild.ID)
 	})
 
 	// コマンドを受け付けたとき
@@ -54,5 +56,7 @@ func (s *server) Serve() error {
 }
 
 func (s *server) Stop() error {
+	s.registerer.Unregister()
+
 	return s.session.Close()
 }

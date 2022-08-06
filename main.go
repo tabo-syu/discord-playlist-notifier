@@ -76,27 +76,24 @@ func init() {
 }
 
 func main() {
-	commands := []command.Command{
-		playlist_notifier.NewPlaylistNotifier(
-			service.NewPlaylistService(
-				repository.NewYouTubeRepository(yt),
-				repository.NewPlaylistRepository(db),
-				repository.NewGuildRepository(db),
-			),
-		),
-	}
+	yr := repository.NewYouTubeRepository(yt)
+	gr := repository.NewGuildRepository(db)
+	pr := repository.NewPlaylistRepository(db)
 
-	server := server.NewServer(dc, router.NewRouter(commands))
+	ps := service.NewPlaylistService(yr, pr, gr)
+	// gs := service.NewGuildService(gr)
+
+	commands := []command.Command{playlist_notifier.NewPlaylistNotifier(ps)}
+
+	server := server.NewServer(
+		dc,
+		registerer.NewRegisterer(dc, commands),
+		router.NewRouter(commands),
+	)
 	if err := server.Serve(); err != nil {
 		log.Fatalf("Cannot open the session: %v", err)
 	}
 	defer server.Stop()
-
-	registerer := registerer.NewRegisterer(dc, GUILD_ID, commands)
-	if err := registerer.Register(); err != nil {
-		log.Fatalf("Cannot register commands: %v", err)
-	}
-	defer registerer.Unregister()
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)
