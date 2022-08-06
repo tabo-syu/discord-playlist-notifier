@@ -1,6 +1,8 @@
 package playlist_notifier
 
 import (
+	"discord-playlist-notifier/errs"
+
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -13,6 +15,16 @@ var deleteSubCommand = &discordgo.ApplicationCommandOption{
 	},
 }
 
-func (c *playlistNotifier) delete(playlistId string) string {
-	return "delete"
+func (c *playlistNotifier) delete(guildId string, playlistId string) string {
+	var message string
+	switch c.playlist.Unregister(guildId, playlistId) {
+	case nil:
+		message = "指定されたプレイリストを削除しました。"
+	case errs.ErrDBRecordCouldNotFound:
+		message = "通知登録されていないプレイリストです。"
+	default:
+		message = "エラー！システムに問題があります！"
+	}
+
+	return message
 }

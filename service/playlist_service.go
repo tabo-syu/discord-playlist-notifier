@@ -10,7 +10,7 @@ import (
 type PlaylistService interface {
 	FindByDiscordId(guildId string) ([]*domain.Playlist, error)
 	Register(guildId string, playlistId string, needMention bool) error
-	// Unregister() error
+	Unregister(guildId string, playlistId string) error
 }
 
 type playlistService struct {
@@ -54,4 +54,33 @@ func (s *playlistService) Register(guildId string, playlistId string, needMentio
 	playlist.Guild = *guild
 
 	return s.playlist.Add(playlist)
+}
+
+func (s *playlistService) Unregister(guildId string, playlistId string) error {
+	playlistExist, err := s.playlist.Exist(guildId, playlistId)
+	if err != nil {
+		return err
+	}
+	if !playlistExist {
+		return errs.ErrDBRecordCouldNotFound
+	}
+
+	playlists, err := s.playlist.FindByDiscordId(guildId)
+	if err != nil {
+		return err
+	}
+
+	var target *domain.Playlist
+	for _, playlist := range playlists {
+		if playlist.YoutubeID == playlistId {
+			target = playlist
+		}
+	}
+
+	err = s.playlist.DeleteAll([]*domain.Playlist{target})
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
