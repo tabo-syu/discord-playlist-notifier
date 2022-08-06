@@ -6,17 +6,21 @@ import (
 	"discord-playlist-notifier/handler/command"
 	"discord-playlist-notifier/handler/command/playlist_notifier"
 	"discord-playlist-notifier/handler/event"
+	"discord-playlist-notifier/handler/schedule"
 	"discord-playlist-notifier/registerer"
 	"discord-playlist-notifier/repository"
 	"discord-playlist-notifier/router"
+	"discord-playlist-notifier/scheduler"
 	"discord-playlist-notifier/server"
 	"discord-playlist-notifier/service"
 	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/go-co-op/gocron"
 	"google.golang.org/api/option"
 	"google.golang.org/api/youtube/v3"
 	"gorm.io/driver/postgres"
@@ -36,14 +40,20 @@ var (
 )
 
 var (
-	ctx context.Context
-	db  *gorm.DB
-	dc  *discordgo.Session
-	yt  *youtube.Service
+	sr *gocron.Scheduler
+	db *gorm.DB
+	dc *discordgo.Session
+	yt *youtube.Service
 )
 
 func init() {
 	var err error
+
+	jst, err := time.LoadLocation("Asia/Tokyo")
+	if err != nil {
+		log.Fatalf("Could not load time location: %v", err)
+	}
+	sr = gocron.NewScheduler(jst)
 
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable Timezone=%s",
@@ -68,8 +78,7 @@ func init() {
 		log.Fatalf("Invalid discord token: %v", err)
 	}
 
-	ctx = context.Background()
-	yt, err = youtube.NewService(ctx, option.WithAPIKey(YOUTUBE_TOKEN))
+	yt, err = youtube.NewService(context.Background(), option.WithAPIKey(YOUTUBE_TOKEN))
 	if err != nil {
 		log.Fatalf("Invalid youtube token: %v", err)
 	}
@@ -94,6 +103,10 @@ func main() {
 		log.Fatalf("Cannot open the session: %v", err)
 	}
 	defer server.Stop()
+
+	scheduler := scheduler.NewScheduler(sr, schedule.NewSchedule(dc))
+	scheduler.Start()
+	defer scheduler.Stop()
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)
