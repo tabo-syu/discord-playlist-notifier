@@ -47,6 +47,10 @@ func (r *playlistRepository) FindByDiscordId(guildId string) ([]*domain.Playlist
 		return nil, err
 	}
 
+	if len(playlists) == 0 {
+		return nil, errs.ErrDBRecordCouldNotFound
+	}
+
 	// プレイリストに紐づく動画も取得
 	for _, playlist := range playlists {
 		var videos []domain.Video
@@ -55,10 +59,6 @@ func (r *playlistRepository) FindByDiscordId(guildId string) ([]*domain.Playlist
 			return nil, err
 		}
 		playlist.Videos = videos
-	}
-
-	if len(playlists) == 0 {
-		return nil, errs.ErrDBRecordCouldNotFound
 	}
 
 	return playlists, nil
@@ -88,7 +88,8 @@ func (r *playlistRepository) DeleteAll(playlists []*domain.Playlist) error {
 	if err != nil {
 		return err
 	}
-	err = r.db.Delete(videos, vids).Error
+	// 物理削除
+	err = r.db.Unscoped().Delete(videos, vids).Error
 	if err != nil {
 		return err
 	}
