@@ -4,10 +4,10 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-type HandleType func(request *discordgo.ApplicationCommandInteractionData, guildId string) string
+type HandleType func(request *discordgo.ApplicationCommandInteractionData, guildId string, channelId string) string
 
 type Command interface {
-	Handle(request *discordgo.ApplicationCommandInteractionData, guildId string) string
+	Handle(request *discordgo.ApplicationCommandInteractionData, guildId string, channelId string) string
 	GetCommand() *discordgo.ApplicationCommand
 	SetCommand(*discordgo.ApplicationCommand)
 }

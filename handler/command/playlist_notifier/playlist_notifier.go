@@ -46,7 +46,7 @@ func (c *playlistNotifier) SetCommand(cmd *discordgo.ApplicationCommand) {
 	c.command = cmd
 }
 
-func (c *playlistNotifier) Handle(data *discordgo.ApplicationCommandInteractionData, guildId string) string {
+func (c *playlistNotifier) Handle(data *discordgo.ApplicationCommandInteractionData, guildId string, channelId string) string {
 	subcommand := data.Options[0]
 
 	var message string
@@ -57,6 +57,7 @@ func (c *playlistNotifier) Handle(data *discordgo.ApplicationCommandInteractionD
 		options := cmd.ParseArguments(subcommand.Options)
 		message = c.add(
 			guildId,
+			channelId,
 			options[playlistIdOption.Name].StringValue(),
 		)
 	case updateSubCommand.Name:

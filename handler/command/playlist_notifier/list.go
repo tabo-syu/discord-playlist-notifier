@@ -15,7 +15,7 @@ var listSubCommand = &discordgo.ApplicationCommandOption{
 }
 
 func (c *playlistNotifier) list(guildId string) string {
-	playlists, err := c.playlist.FindByDiscordId(guildId)
+	playlists, err := c.playlist.FindByGuild(guildId)
 	if errors.Is(err, errs.ErrDBRecordCouldNotFound) {
 		return "通知登録されているプレイリストが存在しません。"
 	}

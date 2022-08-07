@@ -58,7 +58,7 @@ func (s *server) Serve() error {
 			return
 		}
 
-		response := command(&request, i.GuildID)
+		response := command(&request, i.GuildID, i.ChannelID)
 
 		d.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,

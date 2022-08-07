@@ -9,7 +9,7 @@ import (
 
 type PlaylistService interface {
 	FindByDiscordId(guildId string) ([]*domain.Playlist, error)
-	Register(guildId string, playlistId string, needMention bool) error
+	Register(guildId string, channelId string, playlistId string) error
 	Unregister(guildId string, playlistId string) error
 }
 
@@ -27,7 +27,7 @@ func (s *playlistService) FindByDiscordId(guildId string) ([]*domain.Playlist, e
 	return s.playlist.FindByDiscordId(guildId)
 }
 
-func (s *playlistService) Register(guildId string, playlistId string, needMention bool) error {
+func (s *playlistService) Register(guildId string, channelId string, playlistId string) error {
 	playlists, err := s.youtube.FindPlaylists(playlistId)
 	if errors.Is(err, errs.ErrYouTubePlaylistCouldNotFound) {
 		return err
@@ -51,6 +51,7 @@ func (s *playlistService) Register(guildId string, playlistId string, needMentio
 		return err
 	}
 	playlist.Guild = *guild
+	playlist.SendChannelID = channelId
 
 	return s.playlist.Add(playlist)
 }

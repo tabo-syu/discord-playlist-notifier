@@ -16,9 +16,9 @@ var addSubCommand = &discordgo.ApplicationCommandOption{
 	},
 }
 
-func (c *playlistNotifier) add(guildId string, playlistId string) string {
+func (c *playlistNotifier) add(guildId string, channelId string, playlistId string) string {
 	var message string
-	switch c.playlist.Register(guildId, playlistId) {
+	switch c.playlist.Register(guildId, channelId, playlistId) {
 	case nil:
 		message = fmt.Sprintf("通知登録しました！\nhttps://www.youtube.com/playlist?list=%s", playlistId)
 	case errs.ErrYouTubePlaylistCouldNotFound:
