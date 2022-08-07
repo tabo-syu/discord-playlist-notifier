@@ -37,7 +37,6 @@ func (s *playlistService) Register(guildId string, playlistId string, needMentio
 	}
 
 	playlist := playlists[0]
-	playlist.Mention = needMention
 
 	playlistExist, err := s.playlist.Exist(guildId, playlist.YoutubeID)
 	if err != nil {

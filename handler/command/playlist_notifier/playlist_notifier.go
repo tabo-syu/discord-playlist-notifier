@@ -19,13 +19,6 @@ var (
 		Description: "YouTube のプレイリストページの URL 末尾に付く ID を入力します。",
 		Required:    true,
 	}
-
-	mentionOption = &discordgo.ApplicationCommandOption{
-		Type:        discordgo.ApplicationCommandOptionBoolean,
-		Name:        "mention",
-		Description: "このサーバーに参加しているユーザー全員にメンションするか否か。",
-		Required:    true,
-	}
 )
 
 func NewPlaylistNotifier(p service.PlaylistService) cmd.Command {
@@ -65,13 +58,11 @@ func (c *playlistNotifier) Handle(data *discordgo.ApplicationCommandInteractionD
 		message = c.add(
 			guildId,
 			options[playlistIdOption.Name].StringValue(),
-			options[mentionOption.Name].BoolValue(),
 		)
 	case updateSubCommand.Name:
 		options := cmd.ParseArguments(subcommand.Options)
 		message = c.update(
 			options[playlistIdOption.Name].StringValue(),
-			options[mentionOption.Name].BoolValue(),
 		)
 	case deleteSubCommand.Name:
 		options := cmd.ParseArguments(subcommand.Options)

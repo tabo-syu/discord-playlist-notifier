@@ -10,10 +10,9 @@ var updateSubCommand = &discordgo.ApplicationCommandOption{
 	Description: "プレイリストの通知設定を更新します。",
 	Options: []*discordgo.ApplicationCommandOption{
 		playlistIdOption,
-		mentionOption,
 	},
 }
 
-func (c *playlistNotifier) update(playlistId string, needMention bool) string {
+func (c *playlistNotifier) update(playlistId string) string {
 	return "update"
 }

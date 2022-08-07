@@ -50,7 +50,6 @@ func (r *youTubeRepository) FindPlaylists(ids ...string) ([]*domain.Playlist, er
 
 		response = append(response, &domain.Playlist{
 			YoutubeID: playlist.Id,
-			Mention:   false,
 			Videos:    videos,
 		})
 	}

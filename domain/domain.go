@@ -12,7 +12,6 @@ type Guild struct {
 type Playlist struct {
 	gorm.Model
 	YoutubeID string
-	Mention   bool
 	Videos    []Video
 	// foreign
 	GuildID uint
