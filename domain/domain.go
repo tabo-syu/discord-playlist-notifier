@@ -16,11 +16,11 @@ type Guild struct {
 type Playlist struct {
 	gorm.Model
 	YoutubeID     string
-	Videos        []Video
 	SendChannelID string
 	// foreign
 	GuildID uint
 	Guild   Guild
+	Videos  []Video
 }
 
 type Video struct {
