@@ -5,12 +5,17 @@ import (
 	"discord-playlist-notifier/errs"
 	"discord-playlist-notifier/repository"
 	"errors"
+	"log"
+	"time"
 )
 
 type PlaylistService interface {
+	FindAll() ([]*domain.Playlist, error)
 	FindByGuild(guildId string) ([]*domain.Playlist, error)
+	UpdateUpdatedAt(*domain.Playlist, time.Time) error
 	Register(guildId string, channelId string, playlistId string) error
 	Unregister(guildId string, playlistId string) error
+	GetDiffFromLatest(playlist []*domain.Playlist) ([]*domain.Playlist, error)
 }
 
 type playlistService struct {
@@ -23,9 +28,18 @@ func NewPlaylistService(y repository.YouTubeRepository, p repository.PlaylistRep
 	return &playlistService{y, p, g}
 }
 
+func (s *playlistService) FindAll() ([]*domain.Playlist, error) {
+	return s.playlist.FindAll()
+}
 
 func (s *playlistService) FindByGuild(guildId string) ([]*domain.Playlist, error) {
 	return s.playlist.FindByDiscordId(guildId)
+}
+
+func (s *playlistService) UpdateUpdatedAt(playlist *domain.Playlist, time time.Time) error {
+	playlist.UpdatedAt = time
+
+	return s.playlist.Update(playlist)
 }
 
 func (s *playlistService) Register(guildId string, channelId string, playlistId string) error {
@@ -84,4 +98,45 @@ func (s *playlistService) Unregister(guildId string, playlistId string) error {
 	}
 
 	return nil
+}
+
+func (s *playlistService) GetDiffFromLatest(lastPlaylists []*domain.Playlist) ([]*domain.Playlist, error) {
+	var pids []string
+	for _, playlist := range lastPlaylists {
+		pids = append(pids, playlist.YoutubeID)
+	}
+	latestPlaylists, err := s.youtube.FindPlaylists(pids...)
+	if err != nil {
+		return nil, err
+	}
+
+	var updatedPlaylists []*domain.Playlist
+	for _, last := range lastPlaylists {
+		wasFound := false
+		for _, latest := range latestPlaylists {
+			if last.YoutubeID != latest.YoutubeID {
+				continue
+			}
+			wasFound = true
+
+			var updated []domain.Video
+			for _, video := range latest.Videos {
+				if video.PublishedAt.After(last.UpdatedAt) {
+					updated = append(updated, video)
+				}
+			}
+			if len(updated) != 0 {
+				last.Videos = updated
+				updatedPlaylists = append(updatedPlaylists, last)
+			}
+
+			break
+		}
+
+		if !wasFound {
+			log.Println("Playlist(ID:", last.YoutubeID, ") may have been deleted from YouTube")
+		}
+	}
+
+	return updatedPlaylists, nil
 }
