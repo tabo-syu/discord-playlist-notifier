@@ -3,11 +3,15 @@ package repository
 import (
 	"discord-playlist-notifier/domain"
 	"discord-playlist-notifier/errs"
+	"time"
 
 	"google.golang.org/api/youtube/v3"
 )
 
-const MAX_RESULTS = 20
+const (
+	YOUTUBE_TIMEFORMAT = "2006-01-02T15:04:05Z"
+	MAX_RESULTS        = 20
+)
 
 type YouTubeRepository interface {
 	FindPlaylists(...string) ([]*domain.Playlist, error)
@@ -42,9 +46,11 @@ func (r *youTubeRepository) FindPlaylists(ids ...string) ([]*domain.Playlist, er
 
 		var videos = []domain.Video{}
 		for _, video := range item.Items {
+			publishedAt, _ := time.Parse(YOUTUBE_TIMEFORMAT, video.Snippet.PublishedAt)
 			videos = append(videos, domain.Video{
-				YoutubeID: video.Snippet.ResourceId.VideoId,
-				Title:     video.Snippet.Title,
+				YoutubeID:   video.Snippet.ResourceId.VideoId,
+				Title:       video.Snippet.Title,
+				PublishedAt: publishedAt,
 			})
 		}
 

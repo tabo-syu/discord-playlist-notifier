@@ -1,6 +1,10 @@
 package domain
 
-import "gorm.io/gorm"
+import (
+	"time"
+
+	"gorm.io/gorm"
+)
 
 type Guild struct {
 	gorm.Model
@@ -21,8 +25,9 @@ type Playlist struct {
 
 type Video struct {
 	gorm.Model
-	YoutubeID string
-	Title     string
+	YoutubeID   string
+	Title       string
+	PublishedAt time.Time
 	// foreign
 	PlaylistID uint
 	Playlist   Playlist
