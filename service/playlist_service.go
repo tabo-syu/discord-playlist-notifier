@@ -105,7 +105,7 @@ func (s *playlistService) GetDiffFromLatest(lastPlaylists []*domain.Playlist) ([
 	for _, playlist := range lastPlaylists {
 		pids = append(pids, playlist.YoutubeID)
 	}
-	latestPlaylists, err := s.youtube.FindPlaylists(pids...)
+	latestPlaylists, err := s.youtube.FindPlaylistsWithVideos(pids...)
 	if err != nil {
 		return nil, err
 	}

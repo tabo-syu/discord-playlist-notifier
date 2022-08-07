@@ -15,6 +15,7 @@ const (
 
 type YouTubeRepository interface {
 	FindPlaylists(...string) ([]*domain.Playlist, error)
+	FindPlaylistsWithVideos(...string) ([]*domain.Playlist, error)
 }
 
 type youTubeRepository struct {
@@ -26,6 +27,26 @@ func NewYouTubeRepository(yt *youtube.Service) YouTubeRepository {
 }
 
 func (r *youTubeRepository) FindPlaylists(ids ...string) ([]*domain.Playlist, error) {
+	lists, err := r.youtube.Playlists.List([]string{"id"}).MaxResults(MAX_RESULTS).
+		Id(ids...).Do()
+	if err != nil {
+		return nil, err
+	}
+	if len(lists.Items) == 0 {
+		return nil, errs.ErrYouTubePlaylistCouldNotFound
+	}
+
+	var response = []*domain.Playlist{}
+	for _, playlist := range lists.Items {
+		response = append(response, &domain.Playlist{
+			YoutubeID: playlist.Id,
+		})
+	}
+
+	return response, nil
+}
+
+func (r *youTubeRepository) FindPlaylistsWithVideos(ids ...string) ([]*domain.Playlist, error) {
 	// TODO: if len(ids) > MAX_RESULTS {} の時のロギング
 	lists, err := r.youtube.Playlists.List([]string{"id"}).MaxResults(MAX_RESULTS).
 		Id(ids...).Do()
