@@ -17,6 +17,7 @@ type Playlist struct {
 	gorm.Model
 	YoutubeID     string
 	SendChannelID string
+	Title         string
 	// foreign
 	GuildID uint
 	Guild   Guild

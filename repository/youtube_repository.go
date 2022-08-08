@@ -27,7 +27,7 @@ func NewYouTubeRepository(yt *youtube.Service) YouTubeRepository {
 }
 
 func (r *youTubeRepository) FindPlaylists(ids ...string) ([]*domain.Playlist, error) {
-	lists, err := r.youtube.Playlists.List([]string{"id"}).MaxResults(MAX_RESULTS).
+	lists, err := r.youtube.Playlists.List([]string{"id", "snippet"}).MaxResults(MAX_RESULTS).
 		Id(ids...).Do()
 	if err != nil {
 		return nil, err
@@ -40,6 +40,7 @@ func (r *youTubeRepository) FindPlaylists(ids ...string) ([]*domain.Playlist, er
 	for _, playlist := range lists.Items {
 		response = append(response, &domain.Playlist{
 			YoutubeID: playlist.Id,
+			Title:     playlist.Snippet.Title,
 		})
 	}
 
@@ -48,7 +49,7 @@ func (r *youTubeRepository) FindPlaylists(ids ...string) ([]*domain.Playlist, er
 
 func (r *youTubeRepository) FindPlaylistsWithVideos(ids ...string) ([]*domain.Playlist, error) {
 	// TODO: if len(ids) > MAX_RESULTS {} の時のロギング
-	lists, err := r.youtube.Playlists.List([]string{"id"}).MaxResults(MAX_RESULTS).
+	lists, err := r.youtube.Playlists.List([]string{"id", "snippet"}).MaxResults(MAX_RESULTS).
 		Id(ids...).Do()
 	if err != nil {
 		return nil, err
@@ -77,6 +78,7 @@ func (r *youTubeRepository) FindPlaylistsWithVideos(ids ...string) ([]*domain.Pl
 
 		response = append(response, &domain.Playlist{
 			YoutubeID: playlist.Id,
+			Title:     playlist.Snippet.Title,
 			Videos:    videos,
 		})
 	}

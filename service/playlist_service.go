@@ -126,6 +126,7 @@ func (s *playlistService) GetDiffFromLatest(lastPlaylists []*domain.Playlist) ([
 				}
 			}
 			if len(updated) != 0 {
+				last.Title = latest.Title
 				last.Videos = updated
 				updatedPlaylists = append(updatedPlaylists, last)
 			}

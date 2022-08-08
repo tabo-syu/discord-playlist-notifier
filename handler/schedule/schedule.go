@@ -44,7 +44,7 @@ func (s *schedule) Notify() {
 	}
 
 	for _, playlist := range diffs {
-		message := "動画がプレイリストに追加されました！\n"
+		message := "動画が" + playlist.Title + "に追加されました！\n"
 		for _, video := range playlist.Videos {
 			message += fmt.Sprintf("https://www.youtube.com/watch?v=%s&list=%s\n", video.YoutubeID, playlist.YoutubeID)
 		}
