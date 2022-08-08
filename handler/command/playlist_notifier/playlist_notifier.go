@@ -29,7 +29,6 @@ func NewPlaylistNotifier(p service.PlaylistService) cmd.Command {
 			Options: []*discordgo.ApplicationCommandOption{
 				listSubCommand,
 				addSubCommand,
-				updateSubCommand,
 				deleteSubCommand,
 				sourceSubCommand,
 			},
@@ -58,11 +57,6 @@ func (c *playlistNotifier) Handle(data *discordgo.ApplicationCommandInteractionD
 		message = c.add(
 			guildId,
 			channelId,
-			options[playlistIdOption.Name].StringValue(),
-		)
-	case updateSubCommand.Name:
-		options := cmd.ParseArguments(subcommand.Options)
-		message = c.update(
 			options[playlistIdOption.Name].StringValue(),
 		)
 	case deleteSubCommand.Name:
