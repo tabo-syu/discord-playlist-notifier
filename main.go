@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"discord-playlist-notifier/domain"
+	"discord-playlist-notifier/env"
 	"discord-playlist-notifier/handler/command"
 	"discord-playlist-notifier/handler/command/playlist_notifier"
 	"discord-playlist-notifier/handler/event"
@@ -28,18 +29,6 @@ import (
 )
 
 var (
-	DB_HOST     = os.Getenv("DB_HOST")
-	DB_PORT     = os.Getenv("DB_PORT")
-	DB_NAME     = os.Getenv("DB_NAME")
-	DB_USER     = os.Getenv("DB_USER")
-	DB_PASSWORD = os.Getenv("DB_PASSWORD")
-	DB_TIMEZONE = os.Getenv("DB_TIMEZONE")
-
-	DISCORD_TOKEN = os.Getenv("DISCORD_ACCESS_TOKEN")
-	YOUTUBE_TOKEN = os.Getenv("YOUTUBE_APIKEY")
-)
-
-var (
 	sr *gocron.Scheduler
 	db *gorm.DB
 	dc *discordgo.Session
@@ -49,20 +38,20 @@ var (
 func init() {
 	var err error
 
-	jst, err := time.LoadLocation("Asia/Tokyo")
+	location, err := time.LoadLocation(env.DB_TIMEZONE)
 	if err != nil {
 		log.Fatalf("Could not load time location: %v", err)
 	}
-	sr = gocron.NewScheduler(jst)
+	sr = gocron.NewScheduler(location)
 
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable Timezone=%s",
-		DB_HOST,
-		DB_USER,
-		DB_PASSWORD,
-		DB_NAME,
-		DB_PORT,
-		DB_TIMEZONE,
+		env.DB_HOST,
+		env.DB_USER,
+		env.DB_PASSWORD,
+		env.DB_NAME,
+		env.DB_PORT,
+		env.DB_TIMEZONE,
 	)
 	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
@@ -73,12 +62,12 @@ func init() {
 		log.Fatalf("Could not migrate tables: %v", err)
 	}
 
-	dc, err = discordgo.New("Bot " + DISCORD_TOKEN)
+	dc, err = discordgo.New("Bot " + env.DISCORD_TOKEN)
 	if err != nil {
 		log.Fatalf("Invalid discord token: %v", err)
 	}
 
-	yt, err = youtube.NewService(context.Background(), option.WithAPIKey(YOUTUBE_TOKEN))
+	yt, err = youtube.NewService(context.Background(), option.WithAPIKey(env.YOUTUBE_TOKEN))
 	if err != nil {
 		log.Fatalf("Invalid youtube token: %v", err)
 	}
