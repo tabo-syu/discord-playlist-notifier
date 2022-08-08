@@ -10,7 +10,7 @@ import (
 )
 
 type Schedule interface {
-	Notify()
+	Notify(*time.Location)
 }
 
 type schedule struct {
@@ -22,7 +22,7 @@ func NewSchedule(s *discordgo.Session, y service.PlaylistService) Schedule {
 	return &schedule{s, y}
 }
 
-func (s *schedule) Notify() {
+func (s *schedule) Notify(location *time.Location) {
 	playlists, err := s.playlist.FindAll()
 	if err != nil {
 		log.Println("Could not notify cause:", err)
@@ -54,7 +54,7 @@ func (s *schedule) Notify() {
 			message += fmt.Sprintf(
 				"https://www.youtube.com/watch?v=%s&list=%s (%s)\n",
 				// 世界標準時のため、9時間プラスして JST に合わせる
-				video.YoutubeID, playlist.YoutubeID, video.PublishedAt.Add(9*time.Hour).Format("2006-01-02 15:04:05"),
+				video.YoutubeID, playlist.YoutubeID, video.PublishedAt.In(location).Format("2006-01-02 15:04:05"),
 			)
 		}
 		// 登録済みの各チャンネルへの送信処理
