@@ -22,9 +22,8 @@ func NewScheduler(sdr *gocron.Scheduler, sdl schedule.Schedule) Scheduler {
 }
 
 func (s *scheduler) Start() {
-	s.schedule.Notify()
-	// s.scheduler.Every(10).Second().Do()
-	// s.scheduler.StartAsync()
+	s.scheduler.Every(1).Day().At("18:00").Do(s.schedule.Notify)
+	s.scheduler.StartAsync()
 
 	log.Println("Scheduler started")
 }
