@@ -60,34 +60,57 @@ func (r *youTubeRepository) FindPlaylistsWithVideos(ids ...string) ([]*domain.Pl
 
 	var response = []*domain.Playlist{}
 	for _, playlist := range lists.Items {
-		listChan, err := r.youtube.PlaylistItems.List([]string{"snippet"}).MaxResults(MAX_RESULTS).
-			PlaylistId(playlist.Id).Do()
+		playlistItems, err := r.youtube.PlaylistItems.List([]string{"snippet"}).MaxResults(MAX_RESULTS).PlaylistId(playlist.Id).Do()
+		if err != nil {
+			return nil, err
+		}
+
+		var vids []string
+		for _, item := range playlistItems.Items {
+			vids = append(vids, item.Snippet.ResourceId.VideoId)
+		}
+		videos, err := r.youtube.Videos.List([]string{"id", "snippet", "statistics"}).MaxResults(MAX_RESULTS).Id(vids...).Do()
+		if err != nil {
+			return nil, err
+		}
+
+		var cids []string
+		for _, item := range videos.Items {
+			cids = append(cids, item.Snippet.ChannelId)
+		}
+		channels, err := r.youtube.Channels.List([]string{"id", "snippet"}).MaxResults(MAX_RESULTS).Id(cids...).Do()
 		if err != nil {
 			return nil, err
 		}
 
 		var listVideos = []domain.Video{}
-		for _, listVideo := range listChan.Items {
-			video, err := r.youtube.Videos.List([]string{"snippet", "statistics"}).MaxResults(MAX_RESULTS).
-				Id(listVideo.Snippet.ResourceId.VideoId).Do()
-			if err != nil {
-				return nil, err
+		for _, listVideo := range playlistItems.Items {
+			var video *youtube.Video
+			for _, v := range videos.Items {
+				if v.Id == listVideo.Snippet.ResourceId.VideoId {
+					video = v
+
+					break
+				}
 			}
-			channels, err := r.youtube.Channels.List([]string{"snippet"}).MaxResults(MAX_RESULTS).
-				Id(video.Items[0].Snippet.ChannelId).Do()
-			if err != nil {
-				return nil, err
+			var channel *youtube.Channel
+			for _, c := range channels.Items {
+				if c.Id == video.Snippet.ChannelId {
+					channel = c
+
+					break
+				}
 			}
 
 			publishedAt, _ := time.Parse(YOUTUBE_TIMEFORMAT, listVideo.Snippet.PublishedAt)
-			ownerPublishedAt, _ := time.Parse(YOUTUBE_TIMEFORMAT, video.Items[0].Snippet.PublishedAt)
+			ownerPublishedAt, _ := time.Parse(YOUTUBE_TIMEFORMAT, video.Snippet.PublishedAt)
 			listVideos = append(listVideos, domain.Video{
 				YoutubeID:        listVideo.Snippet.ResourceId.VideoId,
 				Title:            listVideo.Snippet.Title,
-				Views:            video.Items[0].Statistics.ViewCount,
+				Views:            video.Statistics.ViewCount,
 				Thumbnail:        listVideo.Snippet.Thumbnails.High.Url,
-				ChannelName:      channels.Items[0].Snippet.Title,
-				ChannelIcon:      channels.Items[0].Snippet.Thumbnails.Default.Url,
+				ChannelName:      channel.Snippet.Title,
+				ChannelIcon:      channel.Snippet.Thumbnails.Default.Url,
 				PublishedAt:      publishedAt,
 				OwnerPublishedAt: ownerPublishedAt,
 			})
