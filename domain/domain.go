@@ -26,9 +26,14 @@ type Playlist struct {
 
 type Video struct {
 	gorm.Model
-	YoutubeID   string
-	Title       string
-	PublishedAt time.Time
+	YoutubeID        string
+	Title            string
+	Views            uint64
+	Thumbnail        string
+	ChannelName      string
+	ChannelIcon      string
+	PublishedAt      time.Time
+	OwnerPublishedAt time.Time
 	// foreign
 	PlaylistID uint
 	Playlist   Playlist

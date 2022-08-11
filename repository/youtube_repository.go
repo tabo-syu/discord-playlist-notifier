@@ -60,26 +60,43 @@ func (r *youTubeRepository) FindPlaylistsWithVideos(ids ...string) ([]*domain.Pl
 
 	var response = []*domain.Playlist{}
 	for _, playlist := range lists.Items {
-		item, err := r.youtube.PlaylistItems.List([]string{"snippet"}).MaxResults(MAX_RESULTS).
+		listChan, err := r.youtube.PlaylistItems.List([]string{"snippet"}).MaxResults(MAX_RESULTS).
 			PlaylistId(playlist.Id).Do()
 		if err != nil {
 			return nil, err
 		}
 
-		var videos = []domain.Video{}
-		for _, video := range item.Items {
-			publishedAt, _ := time.Parse(YOUTUBE_TIMEFORMAT, video.Snippet.PublishedAt)
-			videos = append(videos, domain.Video{
-				YoutubeID:   video.Snippet.ResourceId.VideoId,
-				Title:       video.Snippet.Title,
-				PublishedAt: publishedAt,
+		var listVideos = []domain.Video{}
+		for _, listVideo := range listChan.Items {
+			video, err := r.youtube.Videos.List([]string{"snippet", "statistics"}).MaxResults(MAX_RESULTS).
+				Id(listVideo.Snippet.ResourceId.VideoId).Do()
+			if err != nil {
+				return nil, err
+			}
+			channels, err := r.youtube.Channels.List([]string{"snippet"}).MaxResults(MAX_RESULTS).
+				Id(video.Items[0].Snippet.ChannelId).Do()
+			if err != nil {
+				return nil, err
+			}
+
+			publishedAt, _ := time.Parse(YOUTUBE_TIMEFORMAT, listVideo.Snippet.PublishedAt)
+			ownerPublishedAt, _ := time.Parse(YOUTUBE_TIMEFORMAT, video.Items[0].Snippet.PublishedAt)
+			listVideos = append(listVideos, domain.Video{
+				YoutubeID:        listVideo.Snippet.ResourceId.VideoId,
+				Title:            listVideo.Snippet.Title,
+				Views:            video.Items[0].Statistics.ViewCount,
+				Thumbnail:        listVideo.Snippet.Thumbnails.High.Url,
+				ChannelName:      channels.Items[0].Snippet.Title,
+				ChannelIcon:      channels.Items[0].Snippet.Thumbnails.Default.Url,
+				PublishedAt:      publishedAt,
+				OwnerPublishedAt: ownerPublishedAt,
 			})
 		}
 
 		response = append(response, &domain.Playlist{
 			YoutubeID: playlist.Id,
 			Title:     playlist.Snippet.Title,
-			Videos:    videos,
+			Videos:    listVideos,
 		})
 	}
 
