@@ -9,6 +9,7 @@ import (
 	"discord-playlist-notifier/handler/event"
 	"discord-playlist-notifier/handler/schedule"
 	"discord-playlist-notifier/registerer"
+	"discord-playlist-notifier/renderer"
 	"discord-playlist-notifier/repository"
 	"discord-playlist-notifier/router"
 	"discord-playlist-notifier/scheduler"
@@ -80,6 +81,7 @@ func main() {
 
 	ps := service.NewPlaylistService(yr, pr, gr)
 	gs := service.NewGuildService(gr, pr)
+	rr := renderer.NewRenderer(dc)
 
 	commands := []command.Command{playlist_notifier.NewPlaylistNotifier(ps)}
 	server := server.NewServer(
@@ -93,7 +95,7 @@ func main() {
 	}
 	defer server.Stop()
 
-	scheduler := scheduler.NewScheduler(sr, schedule.NewSchedule(dc, ps))
+	scheduler := scheduler.NewScheduler(sr, schedule.NewSchedule(ps, rr))
 	scheduler.Start()
 	defer scheduler.Stop()
 
