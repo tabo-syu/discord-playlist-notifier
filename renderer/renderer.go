@@ -75,7 +75,7 @@ func (r *renderer) RenderUpdatedVideo(playlist *domain.Playlist, location *time.
 				IconURL: video.ChannelIcon,
 			},
 			// 世界標準時を渡すことでユーザーの適切なタイムゾーンに変換してくれる
-			Timestamp: video.OwnerPublishedAt.Format(time.RFC1123),
+			Timestamp: video.OwnerPublishedAt.Format("2006-01-02 15:04:05"),
 		}
 
 		embeds = append(embeds, embed)
