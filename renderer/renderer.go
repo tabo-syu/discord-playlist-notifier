@@ -60,7 +60,7 @@ func (r *renderer) RenderUpdatedVideo(playlist *domain.Playlist, location *time.
 			Fields: []*discordgo.MessageEmbedField{
 				{
 					Name:   "追加日時",
-					Value:  video.PublishedAt.In(location).Format("2006-01-02 15:04:05"),
+					Value:  video.PublishedAt.In(location).Format("2006/01/02 15:04:05"),
 					Inline: true,
 				},
 				{
