@@ -18,8 +18,6 @@ services:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       TZ: ${DB_TIMEZONE}
-    ports:
-      - ${DB_PORT}:5432
     volumes:
       - "db-data:/var/lib/postgresql/data"
 
