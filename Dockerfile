@@ -1,4 +1,4 @@
-FROM golang:1.18-bullseye
+FROM golang:1.22-bookworm
 
 WORKDIR /go/src/bot
 
