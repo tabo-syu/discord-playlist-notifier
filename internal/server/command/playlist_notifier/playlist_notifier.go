@@ -1,7 +1,7 @@
 package playlist_notifier
 
 import (
-	cmd "github.com/tabo-syu/discord-playlist-notifier/internal/handler/command"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/server/command"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/service"
 
 	"github.com/bwmarrin/discordgo"
@@ -21,7 +21,7 @@ var (
 	}
 )
 
-func NewPlaylistNotifier(p service.PlaylistService) cmd.Command {
+func NewPlaylistNotifier(p service.PlaylistService) command.Command {
 	return &playlistNotifier{
 		&discordgo.ApplicationCommand{
 			Name:        "playlist-notifier",
@@ -53,14 +53,14 @@ func (c *playlistNotifier) Handle(data *discordgo.ApplicationCommandInteractionD
 	case listSubCommand.Name:
 		message = c.list(guildId)
 	case addSubCommand.Name:
-		options := cmd.ParseArguments(subcommand.Options)
+		options := command.ParseArguments(subcommand.Options)
 		message = c.add(
 			guildId,
 			channelId,
 			options[playlistIdOption.Name].StringValue(),
 		)
 	case deleteSubCommand.Name:
-		options := cmd.ParseArguments(subcommand.Options)
+		options := command.ParseArguments(subcommand.Options)
 		message = c.delete(
 			guildId,
 			options[playlistIdOption.Name].StringValue(),

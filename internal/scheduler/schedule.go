@@ -1,10 +1,9 @@
-package schedule
+package scheduler
 
 import (
 	"log"
 	"time"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/renderer"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/service"
 )
 
@@ -14,10 +13,10 @@ type Schedule interface {
 
 type schedule struct {
 	playlist service.PlaylistService
-	renderer renderer.Renderer
+	renderer Renderer
 }
 
-func NewSchedule(s service.PlaylistService, r renderer.Renderer) Schedule {
+func NewSchedule(s service.PlaylistService, r Renderer) Schedule {
 	return &schedule{s, r}
 }
 

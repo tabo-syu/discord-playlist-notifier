@@ -1,4 +1,4 @@
-package event
+package server
 
 import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/service"

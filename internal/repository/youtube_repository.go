@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/errs"
 
 	"google.golang.org/api/youtube/v3"
 )
@@ -34,7 +33,7 @@ func (r *youTubeRepository) FindPlaylists(ids ...string) ([]*domain.Playlist, er
 		return nil, err
 	}
 	if len(lists.Items) == 0 {
-		return nil, errs.ErrYouTubePlaylistCouldNotFound
+		return nil, domain.ErrYouTubePlaylistCouldNotFound
 	}
 
 	var response = []*domain.Playlist{}
@@ -56,7 +55,7 @@ func (r *youTubeRepository) FindPlaylistsWithVideos(ids ...string) ([]*domain.Pl
 		return nil, err
 	}
 	if len(lists.Items) == 0 {
-		return nil, errs.ErrYouTubePlaylistCouldNotFound
+		return nil, domain.ErrYouTubePlaylistCouldNotFound
 	}
 
 	var response = []*domain.Playlist{}

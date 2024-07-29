@@ -1,9 +1,8 @@
 package playlist_notifier
 
 import (
-	"github.com/tabo-syu/discord-playlist-notifier/internal/errs"
-
 	"github.com/bwmarrin/discordgo"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 )
 
 var deleteSubCommand = &discordgo.ApplicationCommandOption{
@@ -20,7 +19,7 @@ func (c *playlistNotifier) delete(guildId string, playlistId string) string {
 	switch c.playlist.Unregister(guildId, playlistId) {
 	case nil:
 		message = "指定されたプレイリストを削除しました。"
-	case errs.ErrDBRecordCouldNotFound:
+	case domain.ErrDBRecordCouldNotFound:
 		message = "通知登録されていないプレイリストです。"
 	default:
 		message = "エラー！システムに問題があります！"

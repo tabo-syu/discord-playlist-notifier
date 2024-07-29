@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/errs"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/repository"
 )
 
@@ -45,11 +44,11 @@ func (s *playlistService) UpdateUpdatedAt(playlist *domain.Playlist, time time.T
 
 func (s *playlistService) Register(guildId string, channelId string, playlistId string) error {
 	playlists, err := s.youtube.FindPlaylists(playlistId)
-	if errors.Is(err, errs.ErrYouTubePlaylistCouldNotFound) {
+	if errors.Is(err, domain.ErrYouTubePlaylistCouldNotFound) {
 		return err
 	}
 	if err != nil {
-		return errs.ErrYouTubeGeneralError
+		return domain.ErrYouTubeGeneralError
 	}
 
 	playlist := playlists[0]
@@ -59,7 +58,7 @@ func (s *playlistService) Register(guildId string, channelId string, playlistId 
 		return err
 	}
 	if playlistExist {
-		return errs.ErrDBRecordAlreadyCreated
+		return domain.ErrDBRecordAlreadyCreated
 	}
 
 	guild, err := s.guild.GetByDiscordId(guildId)
@@ -78,7 +77,7 @@ func (s *playlistService) Unregister(guildId string, playlistId string) error {
 		return err
 	}
 	if !playlistExist {
-		return errs.ErrDBRecordCouldNotFound
+		return domain.ErrDBRecordCouldNotFound
 	}
 
 	playlists, err := s.playlist.FindByDiscordId(guildId)

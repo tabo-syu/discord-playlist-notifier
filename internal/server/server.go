@@ -3,10 +3,6 @@ package server
 import (
 	"log"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/handler/event"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/registerer"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/router"
-
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -17,12 +13,12 @@ type Server interface {
 
 type server struct {
 	session    *discordgo.Session
-	registerer registerer.Registerer
-	event      event.Event
-	router     router.Router
+	registerer Registrar
+	event      Event
+	router     Router
 }
 
-func NewServer(s *discordgo.Session, rg registerer.Registerer, e event.Event, rt router.Router) Server {
+func NewServer(s *discordgo.Session, rg Registrar, e Event, rt Router) Server {
 	return &server{s, rg, e, rt}
 }
 

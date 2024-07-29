@@ -1,7 +1,7 @@
-package router
+package server
 
 import (
-	"github.com/tabo-syu/discord-playlist-notifier/internal/handler/command"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/server/command"
 )
 
 type Router interface {

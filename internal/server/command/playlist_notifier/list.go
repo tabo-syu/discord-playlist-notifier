@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/errs"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -17,7 +17,7 @@ var listSubCommand = &discordgo.ApplicationCommandOption{
 
 func (c *playlistNotifier) list(guildId string) string {
 	playlists, err := c.playlist.FindByGuild(guildId)
-	if errors.Is(err, errs.ErrDBRecordCouldNotFound) {
+	if errors.Is(err, domain.ErrDBRecordCouldNotFound) {
 		return "通知登録されているプレイリストが存在しません。"
 	}
 	if err != nil {

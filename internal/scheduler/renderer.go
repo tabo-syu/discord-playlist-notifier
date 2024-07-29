@@ -1,4 +1,4 @@
-package renderer
+package scheduler
 
 import (
 	"fmt"
@@ -10,29 +10,6 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 )
-
-func color(hex string) int {
-	color, _ := strconv.ParseInt(hex, 16, 0)
-
-	return int(color)
-}
-
-func separator(integer uint64) string {
-	arr := strings.Split(fmt.Sprintf("%d", integer), "")
-	var (
-		str string
-		i2  int
-	)
-	for i := len(arr) - 1; i >= 0; i-- {
-		if i2 > 2 && i2%3 == 0 {
-			str = fmt.Sprintf(",%s", str)
-		}
-		str = fmt.Sprintf("%s%s", arr[i], str)
-		i2++
-	}
-
-	return str
-}
 
 type Renderer interface {
 	RenderUpdatedVideo(playlist *domain.Playlist, location *time.Location) error
@@ -88,4 +65,27 @@ func (r *renderer) RenderUpdatedVideo(playlist *domain.Playlist, location *time.
 	}
 
 	return nil
+}
+
+func color(hex string) int {
+	color, _ := strconv.ParseInt(hex, 16, 0)
+
+	return int(color)
+}
+
+func separator(integer uint64) string {
+	arr := strings.Split(fmt.Sprintf("%d", integer), "")
+	var (
+		str string
+		i2  int
+	)
+	for i := len(arr) - 1; i >= 0; i-- {
+		if i2 > 2 && i2%3 == 0 {
+			str = fmt.Sprintf(",%s", str)
+		}
+		str = fmt.Sprintf("%s%s", arr[i], str)
+		i2++
+	}
+
+	return str
 }

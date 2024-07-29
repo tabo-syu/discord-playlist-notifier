@@ -10,16 +10,11 @@ import (
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/env"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/handler/command"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/handler/command/playlist_notifier"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/handler/event"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/handler/schedule"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/registerer"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/renderer"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/repository"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/router"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/scheduler"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/server"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/server/command"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/server/command/playlist_notifier"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/service"
 
 	"github.com/bwmarrin/discordgo"
@@ -82,21 +77,21 @@ func main() {
 
 	ps := service.NewPlaylistService(yr, pr, gr)
 	gs := service.NewGuildService(gr, pr)
-	rr := renderer.NewRenderer(dc)
+	rr := scheduler.NewRenderer(dc)
 
 	commands := []command.Command{playlist_notifier.NewPlaylistNotifier(ps)}
 	server := server.NewServer(
 		dc,
-		registerer.NewRegisterer(dc, commands),
-		event.NewEvent(gs),
-		router.NewRouter(commands),
+		server.NewRegisterer(dc, commands),
+		server.NewEvent(gs),
+		server.NewRouter(commands),
 	)
 	if err := server.Serve(); err != nil {
 		log.Fatalf("Cannot open the session: %v", err)
 	}
 	defer server.Stop()
 
-	scheduler := scheduler.NewScheduler(sr, schedule.NewSchedule(ps, rr))
+	scheduler := scheduler.NewScheduler(sr, scheduler.NewSchedule(ps, rr))
 	scheduler.Start()
 	defer scheduler.Stop()
 

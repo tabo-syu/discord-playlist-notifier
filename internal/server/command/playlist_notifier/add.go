@@ -3,9 +3,8 @@ package playlist_notifier
 import (
 	"fmt"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/errs"
-
 	"github.com/bwmarrin/discordgo"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 )
 
 var addSubCommand = &discordgo.ApplicationCommandOption{
@@ -22,11 +21,11 @@ func (c *playlistNotifier) add(guildId string, channelId string, playlistId stri
 	switch c.playlist.Register(guildId, channelId, playlistId) {
 	case nil:
 		message = fmt.Sprintf("通知登録しました！\nhttps://www.youtube.com/playlist?list=%s", playlistId)
-	case errs.ErrYouTubePlaylistCouldNotFound:
+	case domain.ErrYouTubePlaylistCouldNotFound:
 		message = "該当するプレイリストが見つかりませんでした...\n非公開のプレイリストではありませんか？"
-	case errs.ErrDBRecordAlreadyCreated:
+	case domain.ErrDBRecordAlreadyCreated:
 		message = "既に通知登録されているプレイリストです。"
-	case errs.ErrYouTubeGeneralError:
+	case domain.ErrYouTubeGeneralError:
 		message = "YouTube API のサービス状況を確認してください。"
 	default:
 		message = "エラー！システムに問題があります！"

@@ -2,7 +2,6 @@ package repository
 
 import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/errs"
 
 	"gorm.io/gorm"
 )
@@ -47,7 +46,7 @@ func (r *playlistRepository) FindAll() ([]*domain.Playlist, error) {
 	}
 
 	if len(playlists) == 0 {
-		return nil, errs.ErrDBRecordCouldNotFound
+		return nil, domain.ErrDBRecordCouldNotFound
 	}
 
 	// プレイリストに紐づく動画も取得
@@ -74,7 +73,7 @@ func (r *playlistRepository) FindByDiscordId(guildId string) ([]*domain.Playlist
 	}
 
 	if len(playlists) == 0 {
-		return nil, errs.ErrDBRecordCouldNotFound
+		return nil, domain.ErrDBRecordCouldNotFound
 	}
 
 	// プレイリストに紐づく動画も取得
@@ -92,7 +91,7 @@ func (r *playlistRepository) FindByDiscordId(guildId string) ([]*domain.Playlist
 
 func (r *playlistRepository) Add(playlist *domain.Playlist) error {
 	if playlist.ID != 0 {
-		return errs.ErrDBRecordAlreadyCreated
+		return domain.ErrDBRecordAlreadyCreated
 	}
 
 	result := r.db.Save(&playlist)
@@ -105,7 +104,7 @@ func (r *playlistRepository) Add(playlist *domain.Playlist) error {
 
 func (r *playlistRepository) Update(playlist *domain.Playlist) error {
 	if playlist.ID == 0 {
-		return errs.ErrDBRecordCouldNotFound
+		return domain.ErrDBRecordCouldNotFound
 	}
 
 	result := r.db.Save(&playlist)
@@ -121,12 +120,12 @@ func (r *playlistRepository) DeleteAll(playlists []*domain.Playlist) error {
 	var videos []domain.Video
 	for _, playlist := range playlists {
 		if playlist.ID == 0 {
-			return errs.ErrDBRecordCouldNotFound
+			return domain.ErrDBRecordCouldNotFound
 		}
 		pids = append(pids, playlist.ID)
 		for _, video := range playlist.Videos {
 			if video.ID == 0 {
-				return errs.ErrDBRecordCouldNotFound
+				return domain.ErrDBRecordCouldNotFound
 			}
 			vids = append(vids, video.ID)
 			videos = append(videos, video)

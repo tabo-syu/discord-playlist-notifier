@@ -3,8 +3,6 @@ package scheduler
 import (
 	"log"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/handler/schedule"
-
 	"github.com/go-co-op/gocron"
 )
 
@@ -15,10 +13,10 @@ type Scheduler interface {
 
 type scheduler struct {
 	scheduler *gocron.Scheduler
-	schedule  schedule.Schedule
+	schedule  Schedule
 }
 
-func NewScheduler(sdr *gocron.Scheduler, sdl schedule.Schedule) Scheduler {
+func NewScheduler(sdr *gocron.Scheduler, sdl Schedule) Scheduler {
 	return &scheduler{sdr, sdl}
 }
 
