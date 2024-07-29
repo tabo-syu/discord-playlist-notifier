@@ -1,7 +1,7 @@
 package event
 
 import (
-	"discord-playlist-notifier/service"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/service"
 )
 
 type Event interface {

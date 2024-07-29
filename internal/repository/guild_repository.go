@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"discord-playlist-notifier/domain"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 
 	"gorm.io/gorm"
 )

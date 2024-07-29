@@ -1,8 +1,8 @@
 package registerer
 
 import (
-	"discord-playlist-notifier/errs"
-	"discord-playlist-notifier/handler/command"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/errs"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/handler/command"
 
 	"github.com/bwmarrin/discordgo"
 )

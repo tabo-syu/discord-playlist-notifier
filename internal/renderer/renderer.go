@@ -1,11 +1,12 @@
 package renderer
 
 import (
-	"discord-playlist-notifier/domain"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 
 	"github.com/bwmarrin/discordgo"
 )

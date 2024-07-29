@@ -1,10 +1,11 @@
 package schedule
 
 import (
-	"discord-playlist-notifier/renderer"
-	"discord-playlist-notifier/service"
 	"log"
 	"time"
+
+	"github.com/tabo-syu/discord-playlist-notifier/internal/renderer"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/service"
 )
 
 type Schedule interface {

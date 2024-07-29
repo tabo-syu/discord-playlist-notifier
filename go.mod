@@ -1,4 +1,4 @@
-module discord-playlist-notifier
+module github.com/tabo-syu/discord-playlist-notifier
 
 go 1.18
 

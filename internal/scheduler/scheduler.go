@@ -1,8 +1,9 @@
 package scheduler
 
 import (
-	"discord-playlist-notifier/handler/schedule"
 	"log"
+
+	"github.com/tabo-syu/discord-playlist-notifier/internal/handler/schedule"
 
 	"github.com/go-co-op/gocron"
 )

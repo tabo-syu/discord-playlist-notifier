@@ -1,8 +1,8 @@
 package playlist_notifier
 
 import (
-	cmd "discord-playlist-notifier/handler/command"
-	"discord-playlist-notifier/service"
+	cmd "github.com/tabo-syu/discord-playlist-notifier/internal/handler/command"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/service"
 
 	"github.com/bwmarrin/discordgo"
 )

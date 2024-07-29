@@ -1,12 +1,13 @@
 package service
 
 import (
-	"discord-playlist-notifier/domain"
-	"discord-playlist-notifier/errs"
-	"discord-playlist-notifier/repository"
 	"errors"
 	"log"
 	"time"
+
+	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/errs"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/repository"
 )
 
 type PlaylistService interface {

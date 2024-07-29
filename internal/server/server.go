@@ -1,10 +1,11 @@
 package server
 
 import (
-	"discord-playlist-notifier/handler/event"
-	"discord-playlist-notifier/registerer"
-	"discord-playlist-notifier/router"
 	"log"
+
+	"github.com/tabo-syu/discord-playlist-notifier/internal/handler/event"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/registerer"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/router"
 
 	"github.com/bwmarrin/discordgo"
 )

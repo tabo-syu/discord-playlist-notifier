@@ -1,9 +1,10 @@
 package playlist_notifier
 
 import (
-	"discord-playlist-notifier/errs"
 	"errors"
 	"fmt"
+
+	"github.com/tabo-syu/discord-playlist-notifier/internal/errs"
 
 	"github.com/bwmarrin/discordgo"
 )
