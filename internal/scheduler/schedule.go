@@ -7,16 +7,12 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/service"
 )
 
-type Schedule interface {
-	Notify(*time.Location)
-}
-
 type schedule struct {
-	playlist service.PlaylistService
-	renderer Renderer
+	playlist *service.PlaylistService
+	renderer *renderer
 }
 
-func NewSchedule(s service.PlaylistService, r Renderer) Schedule {
+func NewSchedule(s *service.PlaylistService, r *renderer) *schedule {
 	return &schedule{s, r}
 }
 

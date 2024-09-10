@@ -10,6 +10,6 @@ var sourceSubCommand = &discordgo.ApplicationCommandOption{
 	Description: "この Bot のリポジトリへのリンクを表示します。",
 }
 
-func (c *playlistNotifier) source() string {
+func (c *PlaylistNotifier) source() string {
 	return "https://github.com/tabo-syu/discord-playlist-notifier"
 }

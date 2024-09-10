@@ -7,9 +7,9 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-type playlistNotifier struct {
+type PlaylistNotifier struct {
 	command  *discordgo.ApplicationCommand
-	playlist service.PlaylistService
+	playlist *service.PlaylistService
 }
 
 var (
@@ -21,8 +21,8 @@ var (
 	}
 )
 
-func NewPlaylistNotifier(p service.PlaylistService) command.Command {
-	return &playlistNotifier{
+func NewPlaylistNotifier(p *service.PlaylistService) *PlaylistNotifier {
+	return &PlaylistNotifier{
 		&discordgo.ApplicationCommand{
 			Name:        "playlist-notifier",
 			Description: "テキストチャンネルに YouTube のプレイリストの更新を通知します。",
@@ -37,15 +37,15 @@ func NewPlaylistNotifier(p service.PlaylistService) command.Command {
 	}
 }
 
-func (c *playlistNotifier) GetCommand() *discordgo.ApplicationCommand {
+func (c *PlaylistNotifier) GetCommand() *discordgo.ApplicationCommand {
 	return c.command
 }
 
-func (c *playlistNotifier) SetCommand(cmd *discordgo.ApplicationCommand) {
+func (c *PlaylistNotifier) SetCommand(cmd *discordgo.ApplicationCommand) {
 	c.command = cmd
 }
 
-func (c *playlistNotifier) Handle(data *discordgo.ApplicationCommandInteractionData, guildId string, channelId string) string {
+func (c *PlaylistNotifier) Handle(data *discordgo.ApplicationCommandInteractionData, guildId string, channelId string) string {
 	subcommand := data.Options[0]
 
 	var message string

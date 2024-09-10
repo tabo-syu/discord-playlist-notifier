@@ -11,15 +11,11 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-type Renderer interface {
-	RenderUpdatedVideo(playlist *domain.Playlist, location *time.Location) error
-}
-
 type renderer struct {
 	session *discordgo.Session
 }
 
-func NewRenderer(s *discordgo.Session) Renderer {
+func NewRenderer(s *discordgo.Session) *renderer {
 	return &renderer{s}
 }
 

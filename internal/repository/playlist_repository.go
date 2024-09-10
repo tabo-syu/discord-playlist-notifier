@@ -19,7 +19,7 @@ type playlistRepository struct {
 	db *gorm.DB
 }
 
-func NewPlaylistRepository(db *gorm.DB) PlaylistRepository {
+func NewPlaylistRepository(db *gorm.DB) *playlistRepository {
 	return &playlistRepository{db}
 }
 

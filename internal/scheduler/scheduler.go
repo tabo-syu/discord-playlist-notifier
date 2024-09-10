@@ -6,17 +6,12 @@ import (
 	"github.com/go-co-op/gocron"
 )
 
-type Scheduler interface {
-	Start()
-	Stop()
-}
-
 type scheduler struct {
 	scheduler *gocron.Scheduler
-	schedule  Schedule
+	schedule  *schedule
 }
 
-func NewScheduler(sdr *gocron.Scheduler, sdl Schedule) Scheduler {
+func NewScheduler(sdr *gocron.Scheduler, sdl *schedule) *scheduler {
 	return &scheduler{sdr, sdl}
 }
 

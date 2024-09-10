@@ -4,16 +4,11 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/service"
 )
 
-type Event interface {
-	GuildCreate(guildId string) error
-	GuildDelete(guildId string) error
-}
-
 type event struct {
-	guild service.GuildService
+	guild *service.GuildService
 }
 
-func NewEvent(g service.GuildService) Event {
+func NewEvent(g *service.GuildService) *event {
 	return &event{g}
 }
 

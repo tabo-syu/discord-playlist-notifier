@@ -16,7 +16,7 @@ var addSubCommand = &discordgo.ApplicationCommandOption{
 	},
 }
 
-func (c *playlistNotifier) add(guildId string, channelId string, playlistId string) string {
+func (c *PlaylistNotifier) add(guildId string, channelId string, playlistId string) string {
 	var message string
 	switch c.playlist.Register(guildId, channelId, playlistId) {
 	case nil:

@@ -9,40 +9,31 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/repository"
 )
 
-type PlaylistService interface {
-	FindAll() ([]*domain.Playlist, error)
-	FindByGuild(guildId string) ([]*domain.Playlist, error)
-	UpdateUpdatedAt(*domain.Playlist, time.Time) error
-	Register(guildId string, channelId string, playlistId string) error
-	Unregister(guildId string, playlistId string) error
-	GetDiffFromLatest(playlist []*domain.Playlist) ([]*domain.Playlist, error)
-}
-
-type playlistService struct {
+type PlaylistService struct {
 	youtube  repository.YouTubeRepository
 	playlist repository.PlaylistRepository
 	guild    repository.GuildRepository
 }
 
-func NewPlaylistService(y repository.YouTubeRepository, p repository.PlaylistRepository, g repository.GuildRepository) PlaylistService {
-	return &playlistService{y, p, g}
+func NewPlaylistService(y repository.YouTubeRepository, p repository.PlaylistRepository, g repository.GuildRepository) *PlaylistService {
+	return &PlaylistService{y, p, g}
 }
 
-func (s *playlistService) FindAll() ([]*domain.Playlist, error) {
+func (s *PlaylistService) FindAll() ([]*domain.Playlist, error) {
 	return s.playlist.FindAll()
 }
 
-func (s *playlistService) FindByGuild(guildId string) ([]*domain.Playlist, error) {
+func (s *PlaylistService) FindByGuild(guildId string) ([]*domain.Playlist, error) {
 	return s.playlist.FindByDiscordId(guildId)
 }
 
-func (s *playlistService) UpdateUpdatedAt(playlist *domain.Playlist, time time.Time) error {
+func (s *PlaylistService) UpdateUpdatedAt(playlist *domain.Playlist, time time.Time) error {
 	playlist.UpdatedAt = time
 
 	return s.playlist.Update(playlist)
 }
 
-func (s *playlistService) Register(guildId string, channelId string, playlistId string) error {
+func (s *PlaylistService) Register(guildId string, channelId string, playlistId string) error {
 	playlists, err := s.youtube.FindPlaylists(playlistId)
 	if errors.Is(err, domain.ErrYouTubePlaylistCouldNotFound) {
 		return err
@@ -71,7 +62,7 @@ func (s *playlistService) Register(guildId string, channelId string, playlistId 
 	return s.playlist.Add(playlist)
 }
 
-func (s *playlistService) Unregister(guildId string, playlistId string) error {
+func (s *PlaylistService) Unregister(guildId string, playlistId string) error {
 	playlistExist, err := s.playlist.Exist(guildId, playlistId)
 	if err != nil {
 		return err
@@ -100,7 +91,7 @@ func (s *playlistService) Unregister(guildId string, playlistId string) error {
 	return nil
 }
 
-func (s *playlistService) GetDiffFromLatest(lastPlaylists []*domain.Playlist) ([]*domain.Playlist, error) {
+func (s *PlaylistService) GetDiffFromLatest(lastPlaylists []*domain.Playlist) ([]*domain.Playlist, error) {
 	var pids []string
 	for _, playlist := range lastPlaylists {
 		pids = append(pids, playlist.YoutubeID)

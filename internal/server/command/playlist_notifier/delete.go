@@ -14,7 +14,7 @@ var deleteSubCommand = &discordgo.ApplicationCommandOption{
 	},
 }
 
-func (c *playlistNotifier) delete(guildId string, playlistId string) string {
+func (c *PlaylistNotifier) delete(guildId string, playlistId string) string {
 	var message string
 	switch c.playlist.Unregister(guildId, playlistId) {
 	case nil:

@@ -6,23 +6,18 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-type Server interface {
-	Serve() error
-	Stop() error
-}
-
-type server struct {
+type Server struct {
 	session    *discordgo.Session
-	registerer Registrar
-	event      Event
-	router     Router
+	registerer *registrar
+	event      *event
+	router     *router
 }
 
-func NewServer(s *discordgo.Session, rg Registrar, e Event, rt Router) Server {
-	return &server{s, rg, e, rt}
+func NewServer(s *discordgo.Session, rg *registrar, e *event, rt *router) *Server {
+	return &Server{s, rg, e, rt}
 }
 
-func (s *server) Serve() error {
+func (s *Server) Serve() error {
 	// Bot がサーバーに参加したとき
 	s.session.AddHandler(func(d *discordgo.Session, g *discordgo.GuildCreate) {
 		if err := s.registerer.Register(g.Guild.ID); err != nil {
@@ -73,7 +68,7 @@ func (s *server) Serve() error {
 	return nil
 }
 
-func (s *server) Stop() error {
+func (s *Server) Stop() error {
 	s.registerer.Unregister()
 	log.Println("Commands unregistered")
 

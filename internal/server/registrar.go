@@ -7,11 +7,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-type Registrar interface {
-	Register(guildId string) error
-	Unregister()
-}
-
 type guildID string
 
 type registrar struct {
@@ -20,7 +15,7 @@ type registrar struct {
 	guildCommands map[guildID][]*discordgo.ApplicationCommand
 }
 
-func NewRegisterer(s *discordgo.Session, cs []command.Command) Registrar {
+func NewRegisterer(s *discordgo.Session, cs []command.Command) *registrar {
 	return &registrar{s, cs, map[guildID][]*discordgo.ApplicationCommand{}}
 }
 

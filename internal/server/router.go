@@ -4,15 +4,11 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/server/command"
 )
 
-type Router interface {
-	Route(string) command.HandleType
-}
-
 type router struct {
 	routes map[string]command.HandleType
 }
 
-func NewRouter(cs []command.Command) Router {
+func NewRouter(cs []command.Command) *router {
 	routes := map[string]command.HandleType{}
 	for _, command := range cs {
 		routes[command.GetCommand().Name] = command.Handle

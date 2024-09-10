@@ -22,7 +22,7 @@ type youTubeRepository struct {
 	youtube *youtube.Service
 }
 
-func NewYouTubeRepository(yt *youtube.Service) YouTubeRepository {
+func NewYouTubeRepository(yt *youtube.Service) *youTubeRepository {
 	return &youTubeRepository{yt}
 }
 

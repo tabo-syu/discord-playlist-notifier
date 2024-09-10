@@ -5,26 +5,20 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/repository"
 )
 
-type GuildService interface {
-	GetByDiscordId(guildId string) (*domain.Guild, error)
-	Register(guildId string) error
-	Unregister(guildId string) error
-}
-
-type guildService struct {
+type GuildService struct {
 	guild    repository.GuildRepository
 	playlist repository.PlaylistRepository
 }
 
-func NewGuildService(g repository.GuildRepository, p repository.PlaylistRepository) GuildService {
-	return &guildService{g, p}
+func NewGuildService(g repository.GuildRepository, p repository.PlaylistRepository) *GuildService {
+	return &GuildService{g, p}
 }
 
-func (s *guildService) GetByDiscordId(guildId string) (*domain.Guild, error) {
+func (s *GuildService) GetByDiscordId(guildId string) (*domain.Guild, error) {
 	return s.guild.GetByDiscordId(guildId)
 }
 
-func (s *guildService) Register(guildId string) error {
+func (s *GuildService) Register(guildId string) error {
 	guildExist, err := s.guild.Exist(guildId)
 	if err != nil {
 		return err
@@ -36,7 +30,7 @@ func (s *guildService) Register(guildId string) error {
 	return s.guild.Add(guildId)
 }
 
-func (s *guildService) Unregister(guildId string) error {
+func (s *GuildService) Unregister(guildId string) error {
 	guildExist, err := s.guild.Exist(guildId)
 	if err != nil {
 		return err
