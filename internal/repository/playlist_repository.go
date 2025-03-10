@@ -46,7 +46,7 @@ func (r *playlistRepository) FindAll() ([]*domain.Playlist, error) {
 	}
 
 	if len(playlists) == 0 {
-		return nil, domain.ErrDBRecordCouldNotFound
+		return nil, domain.ErrDBRecordNotFound
 	}
 
 	// プレイリストに紐づく動画も取得
@@ -73,7 +73,7 @@ func (r *playlistRepository) FindByDiscordId(guildId string) ([]*domain.Playlist
 	}
 
 	if len(playlists) == 0 {
-		return nil, domain.ErrDBRecordCouldNotFound
+		return nil, domain.ErrDBRecordNotFound
 	}
 
 	// プレイリストに紐づく動画も取得
@@ -104,7 +104,7 @@ func (r *playlistRepository) Add(playlist *domain.Playlist) error {
 
 func (r *playlistRepository) Update(playlist *domain.Playlist) error {
 	if playlist.ID == 0 {
-		return domain.ErrDBRecordCouldNotFound
+		return domain.ErrDBRecordNotFound
 	}
 
 	result := r.db.Save(&playlist)
@@ -120,12 +120,12 @@ func (r *playlistRepository) DeleteAll(playlists []*domain.Playlist) error {
 	var videos []domain.Video
 	for _, playlist := range playlists {
 		if playlist.ID == 0 {
-			return domain.ErrDBRecordCouldNotFound
+			return domain.ErrDBRecordNotFound
 		}
 		pids = append(pids, playlist.ID)
 		for _, video := range playlist.Videos {
 			if video.ID == 0 {
-				return domain.ErrDBRecordCouldNotFound
+				return domain.ErrDBRecordNotFound
 			}
 			vids = append(vids, video.ID)
 			videos = append(videos, video)

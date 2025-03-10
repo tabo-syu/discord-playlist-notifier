@@ -35,7 +35,7 @@ func (s *PlaylistService) UpdateUpdatedAt(playlist *domain.Playlist, time time.T
 
 func (s *PlaylistService) Register(guildId string, channelId string, playlistId string) error {
 	playlists, err := s.youtube.FindPlaylists(playlistId)
-	if errors.Is(err, domain.ErrYouTubePlaylistCouldNotFound) {
+	if errors.Is(err, domain.ErrYouTubePlaylistNotFound) {
 		return err
 	}
 	if err != nil {
@@ -68,7 +68,7 @@ func (s *PlaylistService) Unregister(guildId string, playlistId string) error {
 		return err
 	}
 	if !playlistExist {
-		return domain.ErrDBRecordCouldNotFound
+		return domain.ErrDBRecordNotFound
 	}
 
 	playlists, err := s.playlist.FindByDiscordId(guildId)
@@ -112,7 +112,8 @@ func (s *PlaylistService) GetDiffFromLatest(lastPlaylists []*domain.Playlist) ([
 
 			var updated []domain.Video
 			for _, video := range latest.Videos {
-				if video.PublishedAt.After(last.UpdatedAt) {
+				// Use !Before instead of After to include videos published at exactly the same time
+				if !video.PublishedAt.Before(last.UpdatedAt) {
 					updated = append(updated, video)
 				}
 			}

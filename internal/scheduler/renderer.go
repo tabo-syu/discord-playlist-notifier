@@ -27,18 +27,18 @@ func (r *renderer) RenderUpdatedVideo(playlist *domain.Playlist, location *time.
 		embed := &discordgo.MessageEmbed{
 			Color: red,
 			Author: &discordgo.MessageEmbedAuthor{
-				Name: playlist.Title + " に追加されました！",
+				Name: "Added to " + playlist.Title + "!",
 			},
 			Title: video.Title,
 			URL:   fmt.Sprintf("https://www.youtube.com/watch?v=%s&list=%s", video.YoutubeID, playlist.YoutubeID),
 			Fields: []*discordgo.MessageEmbedField{
 				{
-					Name:   "追加日時",
+					Name:   "Date Added",
 					Value:  video.PublishedAt.In(location).Format("2006/01/02 15:04:05"),
 					Inline: true,
 				},
 				{
-					Name:   "再生回数",
+					Name:   "View Count",
 					Value:  separator(video.Views),
 					Inline: true,
 				},
@@ -48,8 +48,8 @@ func (r *renderer) RenderUpdatedVideo(playlist *domain.Playlist, location *time.
 				Text:    video.ChannelName,
 				IconURL: video.ChannelIcon,
 			},
-			// 世界標準時を渡すことでユーザーの適切なタイムゾーンに変換してくれる
-			Timestamp: video.OwnerPublishedAt.Format("2006-01-02 15:04:05"),
+			// Passing UTC time allows Discord to convert to the user's appropriate timezone
+			Timestamp: video.OwnerPublishedAt.Format(time.RFC3339),
 		}
 
 		embeds = append(embeds, embed)
@@ -64,24 +64,34 @@ func (r *renderer) RenderUpdatedVideo(playlist *domain.Playlist, location *time.
 }
 
 func color(hex string) int {
-	color, _ := strconv.ParseInt(hex, 16, 0)
+	color, err := strconv.ParseInt(hex, 16, 0)
+	if err != nil {
+		// Default to red if there's an error
+		return 0xff0000
+	}
 
 	return int(color)
 }
 
 func separator(integer uint64) string {
-	arr := strings.Split(fmt.Sprintf("%d", integer), "")
-	var (
-		str string
-		i2  int
-	)
-	for i := len(arr) - 1; i >= 0; i-- {
-		if i2 > 2 && i2%3 == 0 {
-			str = fmt.Sprintf(",%s", str)
+	// Use a more efficient approach with strings.Builder
+	var sb strings.Builder
+	str := fmt.Sprintf("%d", integer)
+
+	// Calculate the number of commas needed
+	commas := (len(str) - 1) / 3
+
+	// Pre-allocate the buffer to avoid reallocations
+	sb.Grow(len(str) + commas)
+
+	// Add digits with commas
+	for i, char := range str {
+		// Add a comma before every 3rd digit from the right, except at the beginning
+		if i > 0 && (len(str)-i)%3 == 0 {
+			sb.WriteByte(',')
 		}
-		str = fmt.Sprintf("%s%s", arr[i], str)
-		i2++
+		sb.WriteRune(char)
 	}
 
-	return str
+	return sb.String()
 }

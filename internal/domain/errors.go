@@ -5,15 +5,15 @@ import "errors"
 var (
 	// Discord
 	ErrDiscordGeneralError          = errors.New("discord general error")
-	ErrDiscordCommandCouldNotCreate = errors.New("command could not create")
-	ErrDiscordCommandCouldNotDelete = errors.New("command could not delete")
+	ErrDiscordCommandCouldNotCreate = errors.New("command could not be created")
+	ErrDiscordCommandCouldNotDelete = errors.New("command could not be deleted")
 
 	// YouTube
-	ErrYouTubeGeneralError          = errors.New("youtube general error")
-	ErrYouTubePlaylistCouldNotFound = errors.New("playlist could not found")
+	ErrYouTubeGeneralError     = errors.New("youtube general error")
+	ErrYouTubePlaylistNotFound = errors.New("playlist not found")
 
 	// DB
 	ErrDBGeneralError         = errors.New("db general error")
 	ErrDBRecordAlreadyCreated = errors.New("record already created")
-	ErrDBRecordCouldNotFound  = errors.New("record could not found")
+	ErrDBRecordNotFound       = errors.New("record not found")
 )

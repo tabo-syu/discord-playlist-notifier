@@ -16,7 +16,7 @@ var (
 	playlistIdOption = &discordgo.ApplicationCommandOption{
 		Type:        discordgo.ApplicationCommandOptionString,
 		Name:        "playlist-id",
-		Description: "YouTube のプレイリストページの URL 末尾に付く ID を入力します。",
+		Description: "Enter the ID that appears at the end of the YouTube playlist page URL.",
 		Required:    true,
 	}
 )
@@ -25,7 +25,7 @@ func NewPlaylistNotifier(p *service.PlaylistService) *PlaylistNotifier {
 	return &PlaylistNotifier{
 		&discordgo.ApplicationCommand{
 			Name:        "playlist-notifier",
-			Description: "テキストチャンネルに YouTube のプレイリストの更新を通知します。",
+			Description: "Sends notifications to text channels when YouTube playlists are updated.",
 			Options: []*discordgo.ApplicationCommandOption{
 				listSubCommand,
 				addSubCommand,
@@ -46,7 +46,16 @@ func (c *PlaylistNotifier) SetCommand(cmd *discordgo.ApplicationCommand) {
 }
 
 func (c *PlaylistNotifier) Handle(data *discordgo.ApplicationCommandInteractionData, guildId string, channelId string) string {
+	// Check if Options array is empty
+	if len(data.Options) == 0 {
+		return "Error: No subcommand provided. Please use one of the available subcommands."
+	}
+
 	subcommand := data.Options[0]
+	// Verify that the option is a subcommand
+	if subcommand.Type != discordgo.ApplicationCommandOptionSubCommand {
+		return "Error: Invalid command format. Please use one of the available subcommands."
+	}
 
 	var message string
 	switch subcommand.Name {
@@ -54,19 +63,36 @@ func (c *PlaylistNotifier) Handle(data *discordgo.ApplicationCommandInteractionD
 		message = c.list(guildId)
 	case addSubCommand.Name:
 		options := command.ParseArguments(subcommand.Options)
-		message = c.add(
-			guildId,
-			channelId,
-			options[playlistIdOption.Name].StringValue(),
-		)
+		// Check if the required option exists
+		playlistOption, exists := options[playlistIdOption.Name]
+		if !exists {
+			return "Error: Playlist ID is required."
+		}
+		
+		playlistId := playlistOption.StringValue()
+		if playlistId == "" {
+			return "Error: Playlist ID cannot be empty."
+		}
+		
+		message = c.add(guildId, channelId, playlistId)
 	case deleteSubCommand.Name:
 		options := command.ParseArguments(subcommand.Options)
-		message = c.delete(
-			guildId,
-			options[playlistIdOption.Name].StringValue(),
-		)
+		// Check if the required option exists
+		playlistOption, exists := options[playlistIdOption.Name]
+		if !exists {
+			return "Error: Playlist ID is required."
+		}
+		
+		playlistId := playlistOption.StringValue()
+		if playlistId == "" {
+			return "Error: Playlist ID cannot be empty."
+		}
+		
+		message = c.delete(guildId, playlistId)
 	case sourceSubCommand.Name:
 		message = c.source()
+	default:
+		message = "Error: Unknown subcommand. Please use one of the available subcommands."
 	}
 
 	return message

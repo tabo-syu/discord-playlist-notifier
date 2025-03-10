@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"fmt"
+	"log"
 	"time"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
@@ -9,8 +11,9 @@ import (
 )
 
 const (
-	YOUTUBE_TIMEFORMAT = "2006-01-02T15:04:05Z"
-	MAX_RESULTS        = 20
+	YOUTUBE_TIMEFORMAT   = "2006-01-02T15:04:05Z"
+	MAX_RESULTS_PER_PAGE = 50 // Maximum allowed by YouTube API
+	MAX_BATCH_SIZE       = 50 // Maximum number of IDs per API call
 )
 
 type YouTubeRepository interface {
@@ -27,117 +30,237 @@ func NewYouTubeRepository(yt *youtube.Service) *youTubeRepository {
 }
 
 func (r *youTubeRepository) FindPlaylists(ids ...string) ([]*domain.Playlist, error) {
-	lists, err := r.youtube.Playlists.List([]string{"id", "snippet"}).MaxResults(MAX_RESULTS).
-		Id(ids...).Do()
-	if err != nil {
-		return nil, err
-	}
-	if len(lists.Items) == 0 {
-		return nil, domain.ErrYouTubePlaylistCouldNotFound
+	var response = []*domain.Playlist{}
+
+	// Process playlists in batches to respect YouTube API limits
+	for i := 0; i < len(ids); i += MAX_BATCH_SIZE {
+		end := i + MAX_BATCH_SIZE
+		if end > len(ids) {
+			end = len(ids)
+		}
+
+		batchIds := ids[i:end]
+		lists, err := r.youtube.Playlists.List([]string{"id", "snippet"}).
+			MaxResults(int64(len(batchIds))).
+			Id(batchIds...).Do()
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch playlists: %w", err)
+		}
+
+		if len(lists.Items) == 0 && len(ids) == 1 {
+			return nil, domain.ErrYouTubePlaylistNotFound
+		}
+
+		for _, playlist := range lists.Items {
+			response = append(response, &domain.Playlist{
+				YoutubeID: playlist.Id,
+				Title:     playlist.Snippet.Title,
+			})
+		}
 	}
 
-	var response = []*domain.Playlist{}
-	for _, playlist := range lists.Items {
-		response = append(response, &domain.Playlist{
-			YoutubeID: playlist.Id,
-			Title:     playlist.Snippet.Title,
-		})
+	if len(response) == 0 {
+		return nil, domain.ErrYouTubePlaylistNotFound
 	}
 
 	return response, nil
 }
 
 func (r *youTubeRepository) FindPlaylistsWithVideos(ids ...string) ([]*domain.Playlist, error) {
-	// TODO: if len(ids) > MAX_RESULTS {} の時のロギング
-	lists, err := r.youtube.Playlists.List([]string{"id", "snippet"}).MaxResults(MAX_RESULTS).
-		Id(ids...).Do()
-	if err != nil {
-		return nil, err
-	}
-	if len(lists.Items) == 0 {
-		return nil, domain.ErrYouTubePlaylistCouldNotFound
+	// Log if there are too many IDs
+	if len(ids) > MAX_BATCH_SIZE {
+		log.Printf("Warning: %d playlist IDs provided, processing in batches of %d", len(ids), MAX_BATCH_SIZE)
 	}
 
 	var response = []*domain.Playlist{}
-	for _, playlist := range lists.Items {
-		playlistItems, err := r.youtube.PlaylistItems.List([]string{"snippet"}).MaxResults(MAX_RESULTS).PlaylistId(playlist.Id).Do()
-		if err != nil {
-			return nil, err
+
+	// Process playlists in batches to respect YouTube API limits
+	for i := 0; i < len(ids); i += MAX_BATCH_SIZE {
+		end := i + MAX_BATCH_SIZE
+		if end > len(ids) {
+			end = len(ids)
 		}
-		// 動画の登録されていないプレイリストはスキップ
-		if len(playlistItems.Items) == 0 {
+
+		batchIds := ids[i:end]
+		lists, err := r.youtube.Playlists.List([]string{"id", "snippet"}).
+			MaxResults(int64(len(batchIds))).
+			Id(batchIds...).Do()
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch playlists: %w", err)
+		}
+
+		if len(lists.Items) == 0 {
+			if len(ids) == 1 {
+				return nil, domain.ErrYouTubePlaylistNotFound
+			}
 			continue
 		}
 
-		var vids []string
-		for _, item := range playlistItems.Items {
-			vids = append(vids, item.Snippet.ResourceId.VideoId)
-		}
-		videos, err := r.youtube.Videos.List([]string{"id", "snippet", "statistics"}).MaxResults(MAX_RESULTS).Id(vids...).Do()
-		if err != nil {
-			return nil, err
-		}
-		// プレイリストに登録されているがすべての動画が削除されている場合はスキップ
-		if len(videos.Items) == 0 {
-			continue
-		}
+		// Process each playlist
+		for _, playlist := range lists.Items {
+			// Fetch all playlist items with pagination
+			var allPlaylistItems []*youtube.PlaylistItem
+			nextPageToken := ""
 
-		var cids []string
-		for _, item := range videos.Items {
-			cids = append(cids, item.Snippet.ChannelId)
-		}
-		channels, err := r.youtube.Channels.List([]string{"id", "snippet"}).MaxResults(MAX_RESULTS).Id(cids...).Do()
-		if err != nil {
-			return nil, err
-		}
-		// プレイリストに登録されているがすべてのチャンネルが削除されている場合はスキップ
-		if len(channels.Items) == 0 {
-			continue
-		}
+			for {
+				call := r.youtube.PlaylistItems.List([]string{"snippet"}).
+					MaxResults(MAX_RESULTS_PER_PAGE).
+					PlaylistId(playlist.Id)
 
-		var listVideos = []domain.Video{}
-		for _, listVideo := range playlistItems.Items {
-			var video *youtube.Video
-			for _, v := range videos.Items {
-				if v.Id == listVideo.Snippet.ResourceId.VideoId {
-					video = v
+				if nextPageToken != "" {
+					call = call.PageToken(nextPageToken)
+				}
 
+				playlistItems, err := call.Do()
+				if err != nil {
+					return nil, fmt.Errorf("failed to fetch playlist items: %w", err)
+				}
+
+				allPlaylistItems = append(allPlaylistItems, playlistItems.Items...)
+
+				nextPageToken = playlistItems.NextPageToken
+				if nextPageToken == "" {
 					break
 				}
 			}
-			// 動画が削除されている場合は次の動画へ
-			if video == nil {
+
+			// Skip playlists with no videos
+			if len(allPlaylistItems) == 0 {
+				log.Printf("Playlist %s has no videos, skipping", playlist.Id)
 				continue
 			}
 
-			var channel *youtube.Channel
-			for _, c := range channels.Items {
-				if c.Id == video.Snippet.ChannelId {
-					channel = c
+			// Collect video IDs
+			var vids []string
+			for _, item := range allPlaylistItems {
+				vids = append(vids, item.Snippet.ResourceId.VideoId)
+			}
 
-					break
+			// Process video IDs in batches
+			var allVideos []*youtube.Video
+			for j := 0; j < len(vids); j += MAX_BATCH_SIZE {
+				endJ := j + MAX_BATCH_SIZE
+				if endJ > len(vids) {
+					endJ = len(vids)
+				}
+
+				batchVids := vids[j:endJ]
+				videos, err := r.youtube.Videos.List([]string{"id", "snippet", "statistics"}).
+					MaxResults(int64(len(batchVids))).
+					Id(batchVids...).Do()
+				if err != nil {
+					return nil, fmt.Errorf("failed to fetch videos: %w", err)
+				}
+
+				allVideos = append(allVideos, videos.Items...)
+			}
+
+			// Skip if all videos were deleted
+			if len(allVideos) == 0 {
+				log.Printf("All videos in playlist %s have been deleted, skipping", playlist.Id)
+				continue
+			}
+
+			// Collect channel IDs
+			var cids []string
+			for _, item := range allVideos {
+				cids = append(cids, item.Snippet.ChannelId)
+			}
+
+			// Remove duplicate channel IDs
+			uniqueCids := make(map[string]bool)
+			var uniqueCidsList []string
+			for _, cid := range cids {
+				if !uniqueCids[cid] {
+					uniqueCids[cid] = true
+					uniqueCidsList = append(uniqueCidsList, cid)
 				}
 			}
 
-			publishedAt, _ := time.Parse(YOUTUBE_TIMEFORMAT, listVideo.Snippet.PublishedAt)
-			ownerPublishedAt, _ := time.Parse(YOUTUBE_TIMEFORMAT, video.Snippet.PublishedAt)
-			listVideos = append(listVideos, domain.Video{
-				YoutubeID:        listVideo.Snippet.ResourceId.VideoId,
-				Title:            listVideo.Snippet.Title,
-				Views:            video.Statistics.ViewCount,
-				Thumbnail:        video.Snippet.Thumbnails.High.Url,
-				ChannelName:      channel.Snippet.Title,
-				ChannelIcon:      channel.Snippet.Thumbnails.Default.Url,
-				PublishedAt:      publishedAt,
-				OwnerPublishedAt: ownerPublishedAt,
+			// Process channel IDs in batches
+			var allChannels []*youtube.Channel
+			for j := 0; j < len(uniqueCidsList); j += MAX_BATCH_SIZE {
+				endJ := j + MAX_BATCH_SIZE
+				if endJ > len(uniqueCidsList) {
+					endJ = len(uniqueCidsList)
+				}
+
+				batchCids := uniqueCidsList[j:endJ]
+				channels, err := r.youtube.Channels.List([]string{"id", "snippet"}).
+					MaxResults(int64(len(batchCids))).
+					Id(batchCids...).Do()
+				if err != nil {
+					return nil, fmt.Errorf("failed to fetch channels: %w", err)
+				}
+
+				allChannels = append(allChannels, channels.Items...)
+			}
+
+			// Skip if all channels were deleted
+			if len(allChannels) == 0 {
+				log.Printf("All channels for playlist %s have been deleted, skipping", playlist.Id)
+				continue
+			}
+
+			// Create a map for faster lookups
+			videoMap := make(map[string]*youtube.Video)
+			for _, v := range allVideos {
+				videoMap[v.Id] = v
+			}
+
+			channelMap := make(map[string]*youtube.Channel)
+			for _, c := range allChannels {
+				channelMap[c.Id] = c
+			}
+
+			var listVideos = []domain.Video{}
+			for _, listVideo := range allPlaylistItems {
+				videoId := listVideo.Snippet.ResourceId.VideoId
+				video, videoExists := videoMap[videoId]
+				if !videoExists {
+					// Video was deleted, skip
+					continue
+				}
+
+				channelId := video.Snippet.ChannelId
+				channel, channelExists := channelMap[channelId]
+				if !channelExists {
+					// Channel was deleted, skip
+					continue
+				}
+
+				publishedAt, err := time.Parse(YOUTUBE_TIMEFORMAT, listVideo.Snippet.PublishedAt)
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse video publish time: %w", err)
+				}
+
+				ownerPublishedAt, err := time.Parse(YOUTUBE_TIMEFORMAT, video.Snippet.PublishedAt)
+				if err != nil {
+					return nil, fmt.Errorf("failed to parse video owner publish time: %w", err)
+				}
+
+				listVideos = append(listVideos, domain.Video{
+					YoutubeID:        videoId,
+					Title:            listVideo.Snippet.Title,
+					Views:            video.Statistics.ViewCount,
+					Thumbnail:        video.Snippet.Thumbnails.High.Url,
+					ChannelName:      channel.Snippet.Title,
+					ChannelIcon:      channel.Snippet.Thumbnails.Default.Url,
+					PublishedAt:      publishedAt,
+					OwnerPublishedAt: ownerPublishedAt,
+				})
+			}
+
+			response = append(response, &domain.Playlist{
+				YoutubeID: playlist.Id,
+				Title:     playlist.Snippet.Title,
+				Videos:    listVideos,
 			})
 		}
+	}
 
-		response = append(response, &domain.Playlist{
-			YoutubeID: playlist.Id,
-			Title:     playlist.Snippet.Title,
-			Videos:    listVideos,
-		})
+	if len(response) == 0 {
+		return nil, domain.ErrYouTubePlaylistNotFound
 	}
 
 	return response, nil

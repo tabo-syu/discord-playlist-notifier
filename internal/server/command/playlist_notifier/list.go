@@ -3,6 +3,7 @@ package playlist_notifier
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 
@@ -12,22 +13,23 @@ import (
 var listSubCommand = &discordgo.ApplicationCommandOption{
 	Type:        discordgo.ApplicationCommandOptionSubCommand,
 	Name:        "list",
-	Description: "通知するプレイリストを一覧表示します。",
+	Description: "List playlists that are being notified.",
 }
 
 func (c *PlaylistNotifier) list(guildId string) string {
 	playlists, err := c.playlist.FindByGuild(guildId)
-	if errors.Is(err, domain.ErrDBRecordCouldNotFound) {
-		return "通知登録されているプレイリストが存在しません。"
+	if errors.Is(err, domain.ErrDBRecordNotFound) {
+		return "No playlists are registered for notifications."
 	}
 	if err != nil {
-		return "エラー！システムに問題があります！"
+		return "Error! There is a problem with the system."
 	}
 
-	message := "通知登録されているプレイリスト一覧\n"
+	var sb strings.Builder
+	sb.WriteString("List of playlists registered for notifications:\n")
 	for _, playlist := range playlists {
-		message += fmt.Sprintf("https://www.youtube.com/playlist?list=%s\n", playlist.YoutubeID)
+		sb.WriteString(fmt.Sprintf("https://www.youtube.com/playlist?list=%s\n", playlist.YoutubeID))
 	}
 
-	return message
+	return sb.String()
 }

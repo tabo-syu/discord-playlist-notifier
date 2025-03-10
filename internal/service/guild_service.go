@@ -36,7 +36,7 @@ func (s *GuildService) Unregister(guildId string) error {
 		return err
 	}
 	if !guildExist {
-		return domain.ErrDBRecordCouldNotFound
+		return domain.ErrDBRecordNotFound
 	}
 
 	guild, err := s.guild.GetByDiscordId(guildId)
