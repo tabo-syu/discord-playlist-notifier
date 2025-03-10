@@ -16,7 +16,7 @@ var (
 	playlistIdOption = &discordgo.ApplicationCommandOption{
 		Type:        discordgo.ApplicationCommandOptionString,
 		Name:        "playlist-id",
-		Description: "Enter the ID that appears at the end of the YouTube playlist page URL.",
+		Description: "YouTube のプレイリストページの URL 末尾に付く ID を入力します。",
 		Required:    true,
 	}
 )
@@ -25,7 +25,7 @@ func NewPlaylistNotifier(p *service.PlaylistService) *PlaylistNotifier {
 	return &PlaylistNotifier{
 		&discordgo.ApplicationCommand{
 			Name:        "playlist-notifier",
-			Description: "Sends notifications to text channels when YouTube playlists are updated.",
+			Description: "テキストチャンネルに YouTube のプレイリストの更新を通知します。",
 			Options: []*discordgo.ApplicationCommandOption{
 				listSubCommand,
 				addSubCommand,
@@ -68,12 +68,12 @@ func (c *PlaylistNotifier) Handle(data *discordgo.ApplicationCommandInteractionD
 		if !exists {
 			return "Error: Playlist ID is required."
 		}
-		
+
 		playlistId := playlistOption.StringValue()
 		if playlistId == "" {
 			return "Error: Playlist ID cannot be empty."
 		}
-		
+
 		message = c.add(guildId, channelId, playlistId)
 	case deleteSubCommand.Name:
 		options := command.ParseArguments(subcommand.Options)
@@ -82,12 +82,12 @@ func (c *PlaylistNotifier) Handle(data *discordgo.ApplicationCommandInteractionD
 		if !exists {
 			return "Error: Playlist ID is required."
 		}
-		
+
 		playlistId := playlistOption.StringValue()
 		if playlistId == "" {
 			return "Error: Playlist ID cannot be empty."
 		}
-		
+
 		message = c.delete(guildId, playlistId)
 	case sourceSubCommand.Name:
 		message = c.source()

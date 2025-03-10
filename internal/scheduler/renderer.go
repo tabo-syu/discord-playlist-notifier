@@ -27,18 +27,18 @@ func (r *renderer) RenderUpdatedVideo(playlist *domain.Playlist, location *time.
 		embed := &discordgo.MessageEmbed{
 			Color: red,
 			Author: &discordgo.MessageEmbedAuthor{
-				Name: "Added to " + playlist.Title + "!",
+				Name: playlist.Title + " に追加されました！",
 			},
 			Title: video.Title,
 			URL:   fmt.Sprintf("https://www.youtube.com/watch?v=%s&list=%s", video.YoutubeID, playlist.YoutubeID),
 			Fields: []*discordgo.MessageEmbedField{
 				{
-					Name:   "Date Added",
+					Name:   "追加日時",
 					Value:  video.PublishedAt.In(location).Format("2006/01/02 15:04:05"),
 					Inline: true,
 				},
 				{
-					Name:   "View Count",
+					Name:   "再生回数",
 					Value:  separator(video.Views),
 					Inline: true,
 				},

@@ -10,7 +10,7 @@ import (
 var addSubCommand = &discordgo.ApplicationCommandOption{
 	Type:        discordgo.ApplicationCommandOptionSubCommand,
 	Name:        "add",
-	Description: "Add a playlist to be notified.",
+	Description: "通知するプレイリストを追加します。",
 	Options: []*discordgo.ApplicationCommandOption{
 		playlistIdOption,
 	},
@@ -20,15 +20,15 @@ func (c *PlaylistNotifier) add(guildId string, channelId string, playlistId stri
 	var message string
 	switch c.playlist.Register(guildId, channelId, playlistId) {
 	case nil:
-		message = fmt.Sprintf("Notification registered!\nhttps://www.youtube.com/playlist?list=%s", playlistId)
+		message = fmt.Sprintf("通知登録しました！\nhttps://www.youtube.com/playlist?list=%s", playlistId)
 	case domain.ErrYouTubePlaylistNotFound:
-		message = "Playlist not found. Is it a private playlist?"
+		message = "該当するプレイリストが見つかりませんでした...\n非公開のプレイリストではありませんか？"
 	case domain.ErrDBRecordAlreadyCreated:
-		message = "This playlist is already registered for notifications."
+		message = "既に通知登録されているプレイリストです。"
 	case domain.ErrYouTubeGeneralError:
-		message = "Please check the YouTube API service status."
+		message = "YouTube API のサービス状況を確認してください。"
 	default:
-		message = "Error! There is a problem with the system."
+		message = "エラー！システムに問題があります！"
 	}
 
 	return message

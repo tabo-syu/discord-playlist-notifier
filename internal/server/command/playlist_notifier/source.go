@@ -7,7 +7,7 @@ import (
 var sourceSubCommand = &discordgo.ApplicationCommandOption{
 	Type:        discordgo.ApplicationCommandOptionSubCommand,
 	Name:        "source",
-	Description: "Display a link to this bot's repository.",
+	Description: "この Bot のリポジトリへのリンクを表示します。",
 }
 
 func (c *PlaylistNotifier) source() string {

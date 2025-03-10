@@ -8,7 +8,7 @@ import (
 var deleteSubCommand = &discordgo.ApplicationCommandOption{
 	Type:        discordgo.ApplicationCommandOptionSubCommand,
 	Name:        "delete",
-	Description: "Delete a playlist from notifications.",
+	Description: "通知するプレイリストを削除します。",
 	Options: []*discordgo.ApplicationCommandOption{
 		playlistIdOption,
 	},
@@ -18,11 +18,11 @@ func (c *PlaylistNotifier) delete(guildId string, playlistId string) string {
 	var message string
 	switch c.playlist.Unregister(guildId, playlistId) {
 	case nil:
-		message = "The specified playlist has been deleted."
+		message = "指定されたプレイリストを削除しました。"
 	case domain.ErrDBRecordNotFound:
-		message = "This playlist is not registered for notifications."
+		message = "通知登録されていないプレイリストです。"
 	default:
-		message = "Error! There is a problem with the system."
+		message = "エラー！システムに問題があります！"
 	}
 
 	return message
