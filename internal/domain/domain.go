@@ -34,6 +34,10 @@ type Video struct {
 	ChannelIcon      string
 	PublishedAt      time.Time
 	OwnerPublishedAt time.Time
+	// Information about who added the video to the playlist
+	AddedByChannelID   string
+	AddedByChannelName string
+	AddedByChannelIcon string
 	// foreign
 	PlaylistID uint
 	Playlist   Playlist

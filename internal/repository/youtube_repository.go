@@ -239,15 +239,51 @@ func (r *youTubeRepository) FindPlaylistsWithVideos(ids ...string) ([]*domain.Pl
 					return nil, fmt.Errorf("failed to parse video owner publish time: %w", err)
 				}
 
+				// Get the channel that added the video to the playlist
+				addedByChannelId := listVideo.Snippet.ChannelId
+				var addedByChannelName string
+				var addedByChannelIcon string
+
+				// If the channel that added the video is already in our map, use that
+				if addedByChannel, exists := channelMap[addedByChannelId]; exists {
+					addedByChannelName = addedByChannel.Snippet.Title
+					addedByChannelIcon = addedByChannel.Snippet.Thumbnails.Default.Url
+				} else {
+					// Otherwise, fetch the channel information
+					addedByChannels, err := r.youtube.Channels.List([]string{"id", "snippet"}).
+						Id(addedByChannelId).
+						MaxResults(1).
+						Do()
+					if err != nil {
+						log.Printf("Failed to fetch channel info for %s: %v", addedByChannelId, err)
+						// Use placeholder values if we can't fetch the channel info
+						addedByChannelName = "Unknown User"
+						addedByChannelIcon = ""
+					} else if len(addedByChannels.Items) > 0 {
+						addedByChannel := addedByChannels.Items[0]
+						addedByChannelName = addedByChannel.Snippet.Title
+						addedByChannelIcon = addedByChannel.Snippet.Thumbnails.Default.Url
+						// Add to our map for future use
+						channelMap[addedByChannelId] = addedByChannel
+					} else {
+						// Channel not found
+						addedByChannelName = "Unknown User"
+						addedByChannelIcon = ""
+					}
+				}
+
 				listVideos = append(listVideos, domain.Video{
-					YoutubeID:        videoId,
-					Title:            listVideo.Snippet.Title,
-					Views:            video.Statistics.ViewCount,
-					Thumbnail:        video.Snippet.Thumbnails.High.Url,
-					ChannelName:      channel.Snippet.Title,
-					ChannelIcon:      channel.Snippet.Thumbnails.Default.Url,
-					PublishedAt:      publishedAt,
-					OwnerPublishedAt: ownerPublishedAt,
+					YoutubeID:          videoId,
+					Title:              listVideo.Snippet.Title,
+					Views:              video.Statistics.ViewCount,
+					Thumbnail:          video.Snippet.Thumbnails.High.Url,
+					ChannelName:        channel.Snippet.Title,
+					ChannelIcon:        channel.Snippet.Thumbnails.Default.Url,
+					PublishedAt:        publishedAt,
+					OwnerPublishedAt:   ownerPublishedAt,
+					AddedByChannelID:   addedByChannelId,
+					AddedByChannelName: addedByChannelName,
+					AddedByChannelIcon: addedByChannelIcon,
 				})
 			}
 
