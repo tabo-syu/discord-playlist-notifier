@@ -15,7 +15,8 @@
 		"vscode": {
 			"extensions": [
 				"ms-azuretools.vscode-docker",
-				"golang.go"
+				"golang.go",
+				"RooVeterinaryInc.roo-cline"
 			],
 			"settings": {
 				"editor.formatOnSave": true,
