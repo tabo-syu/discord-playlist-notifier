@@ -1,227 +1,237 @@
 # CLAUDE.md
 
-Guidance for AI assistants working in this repository.
+このリポジトリで作業する AI アシスタント向けのガイドです。
 
-## What this project is
+## このプロジェクトについて
 
-A Discord bot (Go) that polls YouTube playlists every 5 minutes and posts an
-embed to a Discord text channel whenever a new video is added to a watched
-playlist. State lives in PostgreSQL via GORM. Configuration is per-guild via
-the `/playlist-notifier` slash command.
+YouTube のプレイリストを 5 分ごとにポーリングし、新しい動画が追加されたら
+Discord のテキストチャンネルに Embed を投稿する Discord ボット（Go 製）です。
+状態は GORM を通して PostgreSQL に永続化します。設定はサーバー（ギルド）ごとに
+`/playlist-notifier` スラッシュコマンドで行います。
 
-Module path: `github.com/tabo-syu/discord-playlist-notifier`
+モジュールパス: `github.com/tabo-syu/discord-playlist-notifier`
 
-## Commands
+## コマンド
 
 ```bash
-# Build / static checks (no test suite exists — see "Testing")
+# ビルド / 静的チェック（テストスイートは存在しない。「テスト」の節を参照）
 go build ./...
 go vet ./...
-gofmt -l .          # must print nothing; see "Known quirks"
+gofmt -l .          # 何も出力されないこと。「既知の挙動」の節も参照
 
-# Run the whole stack (bot + postgres). This is the normal path.
-cp .env.example .env   # then fill in real values
+# スタック全体（ボット + PostgreSQL）を起動する。通常はこちらを使う
+cp .env.example .env   # コピー後、実際の値を記入する
 docker compose up -d
 docker compose logs -f bot
 
-# Run the bot directly. Requires a reachable Postgres and all env vars
-# exported in the shell — the app does NOT read a .env file (see "Configuration").
+# ボットを直接実行する。到達可能な PostgreSQL と、シェルにエクスポートされた
+# 全ての環境変数が必要（アプリは .env を読み込まない。「設定」の節を参照）
 go run cmd/server/main.go
 ```
 
-There is no Makefile, no CI workflow, and no golangci-lint config in the repo.
-The devcontainer sets `go.lintTool: golangci-lint` in VS Code settings only, so
-lint is editor-side and not enforced anywhere.
+Makefile、CI ワークフロー、golangci-lint の設定ファイルはいずれもリポジトリに
+ありません。devcontainer が VS Code の設定として `go.lintTool: golangci-lint` を
+指定しているだけなので、lint はエディタ側の機能であり、どこでも強制されていません。
 
-## Architecture
+## アーキテクチャ
 
-Strict one-way layering; nothing lower ever imports something higher.
+一方向の厳密なレイヤ構成です。下位のレイヤが上位のレイヤを import することは
+ありません。
 
 ```
-cmd/server/main.go            composition root — constructs and wires everything
+cmd/server/main.go            コンポジションルート — 全ての組み立てと依存注入
         │
-        ├── internal/server/          Discord gateway: session, events, slash commands
-        │       └── command/          command definitions + handlers
-        ├── internal/scheduler/       5-minute polling loop + Discord embed rendering
+        ├── internal/server/          Discord ゲートウェイ: セッション、イベント、コマンド
+        │       └── command/          コマンド定義とハンドラ
+        ├── internal/scheduler/       5 分間隔のポーリングと Embed の描画
         │
-        ├── internal/service/         business logic (orchestrates repositories)
-        ├── internal/repository/      data access: Postgres (GORM) and YouTube Data API v3
-        ├── internal/domain/          GORM models + sentinel errors
-        └── internal/env/             process env vars
+        ├── internal/service/         ビジネスロジック（リポジトリを組み合わせる）
+        ├── internal/repository/      データアクセス: PostgreSQL (GORM) と YouTube Data API v3
+        ├── internal/domain/          GORM のモデルとセンチネルエラー
+        └── internal/env/             プロセスの環境変数
 ```
 
-Two independent entry paths drive the app:
+アプリを駆動する経路は独立して 2 つあります。
 
-1. **Interactive** — Discord gateway events → `internal/server` → `service` → `repository`.
-2. **Scheduled** — gocron every 5 min → `scheduler.schedule.Notify` → `service` → `repository` → `scheduler.renderer` posts to Discord.
+1. **対話的な経路** — Discord ゲートウェイのイベント → `internal/server` → `service` → `repository`
+2. **定期実行の経路** — gocron が 5 分ごとに `scheduler.schedule.Notify` を呼ぶ → `service` → `repository` → `scheduler.renderer` が Discord に投稿
 
-### Wiring
+### 依存の組み立て
 
-`cmd/server/main.go` is the only place dependencies are constructed. `init()`
-builds the four package-level singletons (`sr` gocron, `db` GORM, `dc` discordgo,
-`yt` YouTube service) and `log.Fatalf`s on any failure; `main()` then assembles
-repositories → services → server/scheduler and blocks on `SIGINT`. Adding a new
-dependency means adding it here — there is no DI container or config framework.
+依存関係を構築している場所は `cmd/server/main.go` だけです。`init()` が 4 つの
+パッケージレベルのシングルトン（`sr` gocron、`db` GORM、`dc` discordgo、
+`yt` YouTube サービス）を構築し、失敗時は全て `log.Fatalf` で落とします。
+その後 `main()` がリポジトリ → サービス → server/scheduler の順に組み立て、
+`SIGINT` を待ってブロックします。新しい依存を追加する場合はここに書きます。
+DI コンテナや設定フレームワークの類はありません。
 
 ### `internal/server`
 
-- `server.go` — owns the discordgo session and registers three handlers:
-  `GuildCreate` (register slash commands + create the guild row), `GuildDelete`
-  (delete the guild row), `InteractionCreate` (route to a command handler).
-- `registrar.go` — registers commands **per guild** (`ApplicationCommandCreate`
-  with a guild ID, not globally) and remembers them in memory so `Stop()` can
-  delete them. Consequence: commands only exist while the bot is running, and
-  they are re-created on every `GuildCreate` (i.e. on every reconnect).
-- `router.go` — maps top-level command name → `command.HandleType`.
-- `event.go` — thin adapter from gateway events to `GuildService`.
+- `server.go` — discordgo のセッションを保持し、3 つのハンドラを登録します。
+  `GuildCreate`（スラッシュコマンドの登録 + ギルドレコードの作成）、
+  `GuildDelete`（ギルドレコードの削除）、`InteractionCreate`（コマンドハンドラへのルーティング）。
+- `registrar.go` — コマンドを**ギルドごとに**登録し（グローバル登録ではなく
+  ギルド ID 付きの `ApplicationCommandCreate`）、`Stop()` で削除できるように
+  メモリ上に保持します。結果として、コマンドはボットの稼働中しか存在せず、
+  `GuildCreate` のたび（＝再接続のたび）に登録し直されます。
+- `router.go` — トップレベルのコマンド名から `command.HandleType` へのマップ。
+- `event.go` — ゲートウェイイベントと `GuildService` をつなぐ薄いアダプタ。
 
 ### `internal/server/command`
 
-`Command` is the interface every command implements (`Handle`, `GetCommand`,
-`SetCommand`). Handlers have the signature:
+`Command` は全てのコマンドが実装するインターフェースです（`Handle`、
+`GetCommand`、`SetCommand`）。ハンドラのシグネチャは次のとおりです。
 
 ```go
 func(request *discordgo.ApplicationCommandInteractionData, guildId, channelId string) string
 ```
 
-**Handlers return a plain string and never touch the Discord session.**
-`server.go` wraps the returned string in an `InteractionResponse`. Keep it that
-way — it is what makes handlers trivially testable.
+**ハンドラは文字列を返すだけで、Discord のセッションには一切触れません。**
+返された文字列を `InteractionResponse` にくるむのは `server.go` の役目です。
+この形を保ってください。ハンドラが容易にテストできるのはこの設計のおかげです。
 
-`playlist_notifier/` shows the subcommand layout: `playlist_notifier.go` declares
-the top-level command and dispatches on `data.Options[0].Name`; each subcommand
-gets its own file holding both its `*discordgo.ApplicationCommandOption` var and
-its method on `*PlaylistNotifier` (`add.go`, `list.go`, `delete.go`, `source.go`).
+サブコマンドの構成は `playlist_notifier/` が手本になります。
+`playlist_notifier.go` がトップレベルのコマンドを宣言し、`data.Options[0].Name`
+でディスパッチします。各サブコマンドは自身のファイルを持ち、
+`*discordgo.ApplicationCommandOption` の変数と `*PlaylistNotifier` のメソッドを
+同じファイルにまとめます（`add.go`、`list.go`、`delete.go`、`source.go`）。
 
 ### `internal/scheduler`
 
-- `scheduler.go` — the 5-minute cadence (`Every(5).Minutes()`), passing the
-  scheduler's `*time.Location` into the job.
-- `schedule.go` — `Notify`: load all playlists → diff against YouTube → bump
-  `UpdatedAt` → render. Note the order: the timestamp is persisted **before**
-  the message is sent, and only playlists whose update succeeded are notified.
-  This trades a possible missed notification for never double-notifying.
-- `renderer.go` — builds `discordgo.MessageEmbed`s (Japanese labels) and calls
-  `ChannelMessageSendEmbeds`.
+- `scheduler.go` — 5 分間隔の設定（`Every(5).Minutes()`）。スケジューラの
+  `*time.Location` をジョブに渡します。
+- `schedule.go` — `Notify`: 全プレイリストを読み込む → YouTube と差分を取る →
+  `UpdatedAt` を更新する → 描画する、という流れです。順序に意味があります。
+  タイムスタンプの永続化はメッセージ送信の**前**に行われ、更新に成功した
+  プレイリストだけが通知対象になります。通知を取りこぼす可能性と引き換えに、
+  二重通知が起きないようにしています。
+- `renderer.go` — `discordgo.MessageEmbed`（ラベルは日本語）を組み立て、
+  `ChannelMessageSendEmbeds` を呼びます。
 
-### How "new video" is detected
+### 「新しい動画」の判定方法
 
-There is no per-video diffing against stored rows. `Playlist.UpdatedAt` is the
-watermark: `PlaylistService.GetDiffFromLatest` treats a video as new when
-`!video.PublishedAt.Before(last.UpdatedAt)` (`!Before`, deliberately, so videos
-published at exactly the watermark are included). `PublishedAt` is the
-*playlist item's* timestamp (when it was added to the playlist), while
-`OwnerPublishedAt` is the video's own upload time.
+保存済みのレコードと動画単位で突き合わせる処理はありません。基準となるのは
+`Playlist.UpdatedAt` です。`PlaylistService.GetDiffFromLatest` は
+`!video.PublishedAt.Before(last.UpdatedAt)` が真の動画を新着とみなします。
+`After` ではなく `!Before` なのは意図的で、基準時刻とちょうど同時刻に公開された
+動画を含めるためです。`PublishedAt` は*プレイリストアイテムの*タイムスタンプ
+（プレイリストに追加された時刻）で、`OwnerPublishedAt` が動画自体の投稿時刻です。
 
-`Video` rows are persisted as a side effect: `UpdateUpdatedAt` calls
-`playlist.Update` → `db.Save`, and GORM cascades the `Videos` association that
-`GetDiffFromLatest` attached. Nothing reads those rows back for deduplication.
+`Video` のレコードは副作用として保存されます。`UpdateUpdatedAt` が
+`playlist.Update` → `db.Save` を呼び、`GetDiffFromLatest` が設定した `Videos`
+のアソシエーションを GORM がカスケード保存します。保存されたレコードを
+重複排除のために読み返している箇所はありません。
 
-## Conventions
+## 規約
 
-### Go style
+### Go のスタイル
 
-- **Accept interfaces, return structs** (commit `0a14cd7`). Repository
-  interfaces are declared in `internal/repository`; constructors return the
-  unexported concrete type (`*playlistRepository`, `*registrar`, `*router`,
-  `*scheduler`, `*schedule`, `*renderer`, `*event`). Follow this — do not export
-  the struct types just to make them nameable.
-- Constructors are `NewX(...)` taking already-built dependencies, assigned
-  positionally in a bare composite literal (`return &Server{s, rg, e, rt}`).
-- Errors are **sentinel values** in `internal/domain/errors.go`, grouped by
-  source (Discord / YouTube / DB). Repositories and services return these;
-  the command layer maps them to user-facing text.
-- Logging is stdlib `log` with space-separated fields
-  (`log.Println("Guild record created:", guildId)`). No structured logger.
+- **インターフェースを受け取り、構造体を返す**（コミット `0a14cd7`）。
+  リポジトリのインターフェースは `internal/repository` で宣言し、コンストラクタは
+  非公開の具象型を返します（`*playlistRepository`、`*registrar`、`*router`、
+  `*scheduler`、`*schedule`、`*renderer`、`*event`）。これに倣ってください。
+  型名を参照したいという理由だけで構造体を公開しないこと。
+- コンストラクタは構築済みの依存を受け取る `NewX(...)` の形で、複合リテラルに
+  位置指定で代入します（`return &Server{s, rg, e, rt}`）。
+- エラーは `internal/domain/errors.go` に置いた**センチネル値**で、発生源
+  （Discord / YouTube / DB）ごとにグループ分けされています。リポジトリと
+  サービスがこれを返し、コマンド層がユーザー向けの文言に変換します。
+- ログは標準ライブラリの `log` を使い、フィールドをスペース区切りで並べます
+  （`log.Println("Guild record created:", guildId)`）。構造化ロガーは使いません。
 
-### Language
+### 言語
 
-- **User-facing text is Japanese** — slash command descriptions, command reply
-  strings, embed field labels. Match the existing tone (e.g.
-  `"エラー！システムに問題があります！"`).
-- **Logs and code comments are English** (a few older Japanese comments survive
-  in `playlist_repository.go`).
-- `README.md` is Japanese. Commit subjects are `[type] summary` with the summary
-  in Japanese or English; types seen in history: `feat`, `fix`, `chore`, `doc`,
-  `refactor`, `add`, `update`.
+- **ユーザーの目に触れる文言は日本語**です。スラッシュコマンドの説明、コマンドの
+  応答文字列、Embed のフィールドラベルが該当します。既存のトーンに合わせて
+  ください（例: `"エラー！システムに問題があります！"`）。
+- **ログとコードコメントは英語**です（`playlist_repository.go` に古い日本語の
+  コメントがいくつか残っています）。
+- `README.md` は日本語です。コミットの件名は `[種別] 概要` の形式で、概要は
+  日本語と英語が混在しています。履歴に出てくる種別は `feat`、`fix`、`chore`、
+  `doc`、`refactor`、`add`、`update` です。
 
-### Adding a new slash command
+### スラッシュコマンドを追加する
 
-1. Create a package under `internal/server/command/` implementing
-   `command.Command`.
-2. Append it to the `commands` slice in `cmd/server/main.go` — the router and
-   registrar both derive from that slice, so nothing else needs changing.
+1. `internal/server/command/` 配下に `command.Command` を実装するパッケージを作る。
+2. `cmd/server/main.go` の `commands` スライスに追加する。router と registrar は
+   どちらもこのスライスから導出されるので、他に変更すべき箇所はありません。
 
-### Adding a persisted field
+### 永続化するフィールドを追加する
 
-Add it to the struct in `internal/domain/domain.go`. Schema changes are applied
-by `db.AutoMigrate(&domain.Guild{}, &domain.Playlist{}, &domain.Video{})` in
-`main.go`'s `init()`. There are **no migration files** — AutoMigrate only adds
-columns, so renames and drops must be handled manually against the database.
+`internal/domain/domain.go` の構造体に追加します。スキーマの変更は `main.go` の
+`init()` にある `db.AutoMigrate(&domain.Guild{}, &domain.Playlist{}, &domain.Video{})`
+が適用します。**マイグレーションファイルはありません。** AutoMigrate はカラムの
+追加しか行わないため、リネームや削除はデータベースに対して手動で行う必要があります。
 
-## Configuration
+## 設定
 
-`internal/env/env.go` reads every variable into a package-level `var` at
-**package initialization time**. There is no dotenv loading in Go code: the
-`.env` file is consumed by `docker compose` (`env_file:`), not by the binary.
-Running outside Docker requires exporting the variables yourself. A missing
-variable is an empty string, not an error.
+`internal/env/env.go` は全ての変数を**パッケージ初期化時**にパッケージレベルの
+`var` へ読み込みます。Go 側に dotenv の読み込み処理はありません。`.env` を
+読むのは `docker compose`（`env_file:`）であって、バイナリではありません。
+Docker の外で実行する場合は、自分で環境変数をエクスポートする必要があります。
+変数が未設定の場合はエラーにならず、空文字列になります。
 
-| Variable | Purpose |
+| 変数 | 用途 |
 |---|---|
-| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | Postgres DSN parts (`sslmode=disable`) |
-| `DB_TIMEZONE` | IANA name; used for both the DSN and the gocron scheduler location |
-| `DISCORD_ACCESS_TOKEN` | read into `env.DISCORD_TOKEN` |
-| `YOUTUBE_APIKEY` | read into `env.YOUTUBE_TOKEN` |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | PostgreSQL の DSN の構成要素（`sslmode=disable`） |
+| `DB_TIMEZONE` | IANA のタイムゾーン名。DSN と gocron のロケーションの両方に使われる |
+| `DISCORD_ACCESS_TOKEN` | `env.DISCORD_TOKEN` に読み込まれる |
+| `YOUTUBE_APIKEY` | `env.YOUTUBE_TOKEN` に読み込まれる |
 
-Note the two name mismatches between the env var and the Go identifier.
+最後の 2 つは環境変数名と Go の識別子名が一致していない点に注意してください。
 
-Never commit `.env` (gitignored) or paste real tokens into code, tests, commit
-messages, or PR descriptions.
+`.env`（gitignore 済み）をコミットしないこと。また、実際のトークンをコード、
+テスト、コミットメッセージ、PR の説明に貼り付けないこと。
 
-## YouTube API usage
+## YouTube API の使い方
 
-`youtube_repository.go` batches every call at `MAX_BATCH_SIZE = 50` (playlists,
-videos, channels) and paginates playlist items at `MAX_RESULTS_PER_PAGE = 50`.
-Deleted videos and channels are skipped rather than erroring. Timestamps parse
-with `YOUTUBE_TIMEFORMAT = "2006-01-02T15:04:05Z"`.
+`youtube_repository.go` は全ての呼び出しを `MAX_BATCH_SIZE = 50` でバッチ化し
+（プレイリスト、動画、チャンネル）、プレイリストアイテムは
+`MAX_RESULTS_PER_PAGE = 50` でページングします。削除済みの動画やチャンネルは
+エラーにせずスキップします。タイムスタンプのパースには
+`YOUTUBE_TIMEFORMAT = "2006-01-02T15:04:05Z"` を使います。
 
-Quota is the main constraint: `FindPlaylistsWithVideos` fetches *every* item of
-*every* registered playlist on each 5-minute tick. Be deliberate about adding
-new per-video API calls — the existing per-uploader channel lookup already falls
-back to a `channelMap` cache to avoid repeats.
+主な制約はクォータです。`FindPlaylistsWithVideos` は 5 分ごとの実行のたびに、
+登録済みの*全ての*プレイリストの*全ての*アイテムを取得します。動画ごとの
+API 呼び出しを新たに追加する際は慎重に判断してください。追加者のチャンネルを
+引く既存の処理も、重複呼び出しを避けるために `channelMap` のキャッシュへ
+フォールバックする作りになっています。
 
-## Testing
+## テスト
 
-There are currently **no `_test.go` files** in the repository. If you add tests,
-`internal/service` is the natural place to start: the repository interfaces in
-`internal/repository` make services fakeable without a database or network, and
-command handlers return strings so they can be asserted directly.
+現時点でリポジトリに **`_test.go` ファイルは 1 つもありません**。テストを追加する
+なら `internal/service` が出発点として自然です。`internal/repository` の
+インターフェースのおかげでデータベースやネットワークなしでサービスを
+フェイク化でき、コマンドハンドラは文字列を返すのでそのままアサートできます。
 
-Verify changes with `go build ./... && go vet ./...` at minimum. Anything
-touching Discord or YouTube behavior needs real credentials and a test guild —
-say so explicitly rather than claiming it was verified.
+変更の検証は最低でも `go build ./... && go vet ./...` で行ってください。
+Discord や YouTube の挙動に関わる変更は実際の認証情報とテスト用サーバーが
+必要です。検証できていない場合は、検証したと述べずにその旨を明示してください。
 
-## Known quirks
+## 既知の挙動
 
-Pre-existing behavior; don't "fix" these incidentally, but be aware of them.
+いずれも既存の挙動です。ついでに「修正」しないでください。ただし把握しておく
+必要があります。
 
-- `gofmt -l .` reports `internal/scheduler/schedule.go` (trailing whitespace).
-  It has been that way since it was committed.
-- Go version is inconsistent: `go.mod` says `go 1.23.1`, while `Dockerfile` and
-  the devcontainer image are `1.24`.
-- `PlaylistRepository.FindAll` and `FindByDiscordId` return
-  `domain.ErrDBRecordNotFound` for an empty result rather than an empty slice.
-  With no playlists registered anywhere, the scheduler therefore logs
-  `Could not notify cause: record not found` every 5 minutes.
-- Because of the above, `GuildService.Unregister` returns early when a guild has
-  no playlists, so the guild row is not deleted on `GuildDelete`.
-- `add.go` and `delete.go` compare errors with `switch err { case ... }` (exact
-  equality) while `list.go` uses `errors.Is`. Wrapped errors will fall through to
-  the `default` branch in the former.
-- `PlaylistRepository.DeleteAll` soft-deletes playlists (`gorm.Model`) but
-  hard-deletes videos via `Unscoped()`.
-- `renderer.RenderUpdatedVideo` sends all new videos as embeds in a single
-  message; Discord caps a message at 10 embeds, and the code does not chunk.
-- The Dockerfile runs `go run` (no compiled binary, no multi-stage build) and
-  `docker-compose.yml` bind-mounts the source into the container.
+- `gofmt -l .` が `internal/scheduler/schedule.go` を報告します（行末の空白）。
+  コミットされた時点からこの状態です。
+- Go のバージョン指定が食い違っています。`go.mod` は `go 1.23.1` ですが、
+  `Dockerfile` と devcontainer のイメージは `1.24` です。
+- `PlaylistRepository.FindAll` と `FindByDiscordId` は、結果が空のときに空の
+  スライスではなく `domain.ErrDBRecordNotFound` を返します。そのため、どこにも
+  プレイリストが登録されていない状態では、スケジューラが 5 分ごとに
+  `Could not notify cause: record not found` を出力し続けます。
+- 上記の影響で、プレイリストを 1 つも持たないギルドでは
+  `GuildService.Unregister` が途中で return するため、`GuildDelete` の際に
+  ギルドのレコードが削除されません。
+- `add.go` と `delete.go` はエラーを `switch err { case ... }`（完全一致）で
+  比較していますが、`list.go` は `errors.Is` を使っています。前者では
+  ラップされたエラーが `default` に流れます。
+- `PlaylistRepository.DeleteAll` はプレイリストを論理削除（`gorm.Model`）
+  する一方、動画は `Unscoped()` で物理削除します。
+- `renderer.RenderUpdatedVideo` は新着動画を全て 1 通のメッセージの Embed として
+  送信しますが、Discord の 1 メッセージあたりの Embed 数の上限は 10 で、
+  コード側で分割していません。
+- Dockerfile は `go run` を実行します（バイナリのビルドもマルチステージ
+  ビルドもしません）。また `docker-compose.yml` はソースをコンテナに
+  バインドマウントします。
