@@ -15,6 +15,8 @@ type LibraryRepository interface {
 	FindVideosInPlaylists(playlistYoutubeIds ...string) (map[string]*domain.Video, error)
 	// FindListedVideos returns all videos that are in at least one playlist.
 	FindListedVideos() (map[string]*domain.Video, error)
+	// FindItemsByVideos returns the items of every playlist that contain the given videos.
+	FindItemsByVideos(videoIds []string) ([]*domain.PlaylistItem, error)
 	// ApplyItems replaces the stored items of a playlist with the given ones
 	// and saves the videos, in one transaction.
 	ApplyItems(playlistYoutubeId string, added []*domain.PlaylistItem, removed []*domain.PlaylistItem, videos []*domain.Video) error
@@ -54,6 +56,18 @@ func (r *libraryRepository) FindVideos(videoIds []string) (map[string]*domain.Vi
 	}
 
 	return videos, nil
+}
+
+func (r *libraryRepository) FindItemsByVideos(videoIds []string) ([]*domain.PlaylistItem, error) {
+	var items []*domain.PlaylistItem
+	if len(videoIds) == 0 {
+		return items, nil
+	}
+	if err := r.db.Where("video_youtube_id IN ?", videoIds).Find(&items).Error; err != nil {
+		return nil, err
+	}
+
+	return items, nil
 }
 
 // Filtering with a subquery avoids sending thousands of IDs in an IN clause.

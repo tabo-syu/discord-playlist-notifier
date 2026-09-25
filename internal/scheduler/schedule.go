@@ -94,8 +94,42 @@ func (s *schedule) RefreshVideos() {
 		}
 	}()
 
-	if err := s.library.RefreshVideos(); err != nil {
+	reached, err := s.library.RefreshVideos()
+	if err != nil {
 		log.Println("Could not refresh videos cause:", err)
+		return
+	}
+	if len(reached) == 0 {
+		return
+	}
+
+	playlists, err := s.playlist.FindAll()
+	if err != nil {
+		log.Println("Could not notify milestones cause:", err)
+		return
+	}
+	var videoIds []string
+	for _, v := range reached {
+		videoIds = append(videoIds, v.YoutubeID)
+	}
+	containing, err := s.library.PlaylistsContaining(videoIds)
+	if err != nil {
+		log.Println("Could not notify milestones cause:", err)
+		return
+	}
+
+	// The channel is not stored, so fetch it now. Send without it on failure.
+	live, err := s.library.LiveVideos(videoIds)
+	if err != nil {
+		log.Println("Could not fetch channels for milestones cause:", err)
+	}
+
+	for _, notice := range service.MilestoneNotices(playlists, reached, containing) {
+		if err := s.renderer.RenderMilestone(notice, live); err != nil {
+			log.Println("Milestone notice could not send to", notice.ChannelID, "video:", notice.Video.YoutubeID, "cause:", err)
+		} else {
+			log.Println("Sent milestone notice to", notice.ChannelID, "video:", notice.Video.YoutubeID, "milestone:", notice.Milestone)
+		}
 	}
 }
 
