@@ -19,10 +19,12 @@ const (
 	DELETED_VIDEO_TITLE = "Deleted video"
 )
 
-// PlaylistMeta is the playlist-level information fetched on every sync.
+// PlaylistMeta is the playlist-level information used to decide whether the
+// items of a playlist need to be fetched again.
 type PlaylistMeta struct {
 	YoutubeID string
 	Title     string
+	ItemCount int64
 }
 
 // PlaylistItemInfo is one playlist item as returned by the API.
@@ -95,7 +97,7 @@ func (r *youTubeRepository) FindPlaylists(ids ...string) ([]*domain.Playlist, er
 func (r *youTubeRepository) FetchPlaylistMetas(ids ...string) (map[string]*PlaylistMeta, error) {
 	metas := map[string]*PlaylistMeta{}
 	for _, batch := range batches(ids) {
-		lists, err := r.youtube.Playlists.List([]string{"id", "snippet"}).
+		lists, err := r.youtube.Playlists.List([]string{"id", "snippet", "contentDetails"}).
 			MaxResults(int64(len(batch))).
 			Id(batch...).Do()
 		if err != nil {
@@ -106,6 +108,9 @@ func (r *youTubeRepository) FetchPlaylistMetas(ids ...string) (map[string]*Playl
 			meta := &PlaylistMeta{YoutubeID: p.Id}
 			if p.Snippet != nil {
 				meta.Title = p.Snippet.Title
+			}
+			if p.ContentDetails != nil {
+				meta.ItemCount = p.ContentDetails.ItemCount
 			}
 			metas[p.Id] = meta
 		}

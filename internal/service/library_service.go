@@ -3,10 +3,16 @@ package service
 import (
 	"log"
 	"sync"
+	"time"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/repository"
 )
+
+// Even when the item count of a playlist has not changed, its items are
+// fetched again after this interval, to catch additions that happened
+// together with removals and privacy changes of videos.
+const FULL_SYNC_INTERVAL = time.Hour
 
 // PlaylistSnapshot is the current content of a YouTube playlist.
 type PlaylistSnapshot struct {
@@ -25,17 +31,24 @@ type PlaylistVideo struct {
 	Video      *domain.Video
 }
 
+type syncState struct {
+	itemCount  int64
+	fullSyncAt time.Time
+}
+
 // LibraryService keeps the contents of the watched playlists in the database.
 type LibraryService struct {
 	youtube repository.YouTubeRepository
 	library repository.LibraryRepository
 
 	// Keeps overlapping runs from writing the same videos
-	mu sync.Mutex
+	mu    sync.Mutex
+	state map[string]syncState
+	now   func() time.Time
 }
 
 func NewLibraryService(y repository.YouTubeRepository, l repository.LibraryRepository) *LibraryService {
-	return &LibraryService{youtube: y, library: l}
+	return &LibraryService{youtube: y, library: l, state: map[string]syncState{}, now: time.Now}
 }
 
 // Sync brings the stored contents of the given playlists up to date and
@@ -73,6 +86,12 @@ func (s *LibraryService) syncPlaylist(meta *repository.PlaylistMeta) (*PlaylistS
 	stored, err := s.library.FindItems(meta.YoutubeID)
 	if err != nil {
 		return nil, err
+	}
+
+	state, synced := s.state[meta.YoutubeID]
+	now := s.now()
+	if synced && state.itemCount == meta.ItemCount && now.Sub(state.fullSyncAt) < FULL_SYNC_INTERVAL {
+		return s.snapshot(meta, stored)
 	}
 
 	fetched, err := s.youtube.FetchPlaylistItems(meta.YoutubeID)
@@ -164,11 +183,21 @@ func (s *LibraryService) syncPlaylist(meta *repository.PlaylistMeta) (*PlaylistS
 		return nil, err
 	}
 
+	s.state[meta.YoutubeID] = syncState{itemCount: meta.ItemCount, fullSyncAt: now}
 	if len(added) > 0 || len(removed) > 0 {
 		log.Println("Synced playlist:", meta.YoutubeID, "added:", len(added), "removed:", len(removed))
 	}
 
 	items, err := s.library.FindItems(meta.YoutubeID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PlaylistSnapshot{YoutubeID: meta.YoutubeID, Title: meta.Title, Items: items, Videos: videos}, nil
+}
+
+func (s *LibraryService) snapshot(meta *repository.PlaylistMeta, items []*domain.PlaylistItem) (*PlaylistSnapshot, error) {
+	videos, err := s.library.FindVideosInPlaylists(meta.YoutubeID)
 	if err != nil {
 		return nil, err
 	}
