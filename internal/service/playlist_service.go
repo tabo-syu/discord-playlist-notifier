@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"log"
+	"sort"
 	"time"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
@@ -118,6 +119,10 @@ func (s *PlaylistService) GetDiffFromLatest(lastPlaylists []*domain.Playlist) ([
 				}
 			}
 			if len(updated) != 0 {
+				// プレイリストの並び順に関係なく、追加日時の古い順に通知する
+				sort.SliceStable(updated, func(i, j int) bool {
+					return updated[i].PublishedAt.Before(updated[j].PublishedAt)
+				})
 				last.Title = latest.Title
 				last.Videos = updated
 				updatedPlaylists = append(updatedPlaylists, last)
