@@ -215,8 +215,6 @@ Discord や YouTube の挙動に関わる変更は実際の認証情報とテス
 
 - `gofmt -l .` が `internal/scheduler/schedule.go` を報告します（行末の空白）。
   コミットされた時点からこの状態です。
-- Go のバージョン指定が食い違っています。`go.mod` は `go 1.23.1` ですが、
-  `Dockerfile` と devcontainer のイメージは `1.24` です。
 - `PlaylistRepository.FindAll` と `FindByDiscordId` は、結果が空のときに空の
   スライスではなく `domain.ErrDBRecordNotFound` を返します。そのため、どこにも
   プレイリストが登録されていない状態では、スケジューラが 5 分ごとに
