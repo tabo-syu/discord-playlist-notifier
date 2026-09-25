@@ -92,49 +92,48 @@ func (s *PlaylistService) Unregister(guildId string, playlistId string) error {
 	return nil
 }
 
-func (s *PlaylistService) GetDiffFromLatest(lastPlaylists []*domain.Playlist) ([]*domain.Playlist, error) {
-	var pids []string
-	for _, playlist := range lastPlaylists {
-		pids = append(pids, playlist.YoutubeID)
-	}
-	latestPlaylists, err := s.youtube.FindPlaylistsWithVideos(pids...)
-	if err != nil {
-		return nil, err
-	}
+// NewVideos are the videos added to a registered playlist since its last notification.
+type NewVideos struct {
+	Playlist *domain.Playlist
+	Videos   []*PlaylistVideo
+}
 
-	var updatedPlaylists []*domain.Playlist
+// GetDiffFromLatest picks, for each registered playlist, the videos added to
+// the playlist since its last notification.
+func (s *PlaylistService) GetDiffFromLatest(lastPlaylists []*domain.Playlist, snapshots map[string]*PlaylistSnapshot) []*NewVideos {
+	var updates []*NewVideos
 	for _, last := range lastPlaylists {
-		wasFound := false
-		for _, latest := range latestPlaylists {
-			if last.YoutubeID != latest.YoutubeID {
+		latest, ok := snapshots[last.YoutubeID]
+		if !ok {
+			// Failed to sync; it has already been logged
+			continue
+		}
+		if latest.Deleted {
+			log.Println("Playlist(ID:", last.YoutubeID, ") may have been deleted from YouTube")
+			continue
+		}
+
+		var added []*PlaylistVideo
+		for _, item := range latest.Items {
+			// Use !Before instead of After to include videos added at exactly the same time
+			if item.AddedAt.Before(last.UpdatedAt) {
 				continue
 			}
-			wasFound = true
-
-			var updated []domain.Video
-			for _, video := range latest.Videos {
-				// Use !Before instead of After to include videos published at exactly the same time
-				if !video.PublishedAt.Before(last.UpdatedAt) {
-					updated = append(updated, video)
-				}
+			video, ok := latest.Videos[item.VideoYoutubeID]
+			if !ok || !video.Available() {
+				continue
 			}
-			if len(updated) != 0 {
-				// Notify in the order the videos were added, regardless of the playlist order
-				sort.SliceStable(updated, func(i, j int) bool {
-					return updated[i].PublishedAt.Before(updated[j].PublishedAt)
-				})
-				last.Title = latest.Title
-				last.Videos = updated
-				updatedPlaylists = append(updatedPlaylists, last)
-			}
-
-			break
+			added = append(added, &PlaylistVideo{PlaylistID: last.YoutubeID, Item: item, Video: video})
 		}
-
-		if !wasFound {
-			log.Println("Playlist(ID:", last.YoutubeID, ") may have been deleted from YouTube")
+		if len(added) != 0 {
+			// Notify in the order the videos were added, regardless of the playlist order
+			sort.SliceStable(added, func(i, j int) bool {
+				return added[i].Item.AddedAt.Before(added[j].Item.AddedAt)
+			})
+			last.Title = latest.Title
+			updates = append(updates, &NewVideos{Playlist: last, Videos: added})
 		}
 	}
 
-	return updatedPlaylists, nil
+	return updates
 }
