@@ -1,6 +1,8 @@
 package playlist_notifier
 
 import (
+	"time"
+
 	"github.com/tabo-syu/discord-playlist-notifier/internal/server/command"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/service"
 
@@ -10,6 +12,9 @@ import (
 type PlaylistNotifier struct {
 	command  *discordgo.ApplicationCommand
 	playlist *service.PlaylistService
+	library  *service.LibraryService
+	// Time zone used to show dates and to group them by month or year
+	location *time.Location
 }
 
 var (
@@ -21,7 +26,7 @@ var (
 	}
 )
 
-func NewPlaylistNotifier(p *service.PlaylistService) *PlaylistNotifier {
+func NewPlaylistNotifier(p *service.PlaylistService, l *service.LibraryService, loc *time.Location) *PlaylistNotifier {
 	return &PlaylistNotifier{
 		&discordgo.ApplicationCommand{
 			Name:        "playlist-notifier",
@@ -34,6 +39,8 @@ func NewPlaylistNotifier(p *service.PlaylistService) *PlaylistNotifier {
 			},
 		},
 		p,
+		l,
+		loc,
 	}
 }
 
