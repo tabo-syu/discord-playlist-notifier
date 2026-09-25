@@ -51,7 +51,7 @@ func (c *PlaylistNotifier) wrapped(guildId string, year int) string {
 			return "エラー！システムに問題があります！"
 		}
 		w := service.ComputeWrapped(contents, year, c.location)
-		sections = append(sections, "**"+view.WrappedTitle(playlist.Title, year)+"**\n"+view.Wrapped(w, c.location))
+		sections = append(sections, "**"+view.WrappedTitle(playlist.Title, year)+"**\n"+view.Wrapped(w, c.location, view.InMessage))
 	}
 
 	return view.Truncate(strings.Join(sections, "\n"), view.MAX_MESSAGE_LENGTH)

@@ -61,7 +61,7 @@ func (r *renderer) RenderWrapped(playlist *domain.Playlist, w *service.Wrapped, 
 		Color:       color("9b59b6"),
 		Title:       view.WrappedTitle(playlist.Title, w.Year),
 		URL:         "https://www.youtube.com/playlist?list=" + playlist.YoutubeID,
-		Description: view.Truncate(view.Wrapped(w, location), MAX_EMBED_DESCRIPTION_LENGTH),
+		Description: view.Truncate(view.Wrapped(w, location, view.InEmbed), MAX_EMBED_DESCRIPTION_LENGTH),
 	}
 
 	_, err := r.session.ChannelMessageSendEmbed(playlist.SendChannelID, embed)
