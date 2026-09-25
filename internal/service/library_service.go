@@ -202,3 +202,41 @@ func unique(ids []string) []string {
 
 	return result
 }
+
+// RefreshVideos updates the details (views, title, ...) of every video in the
+// watched playlists. Costs 1 unit per 50 videos.
+func (s *LibraryService) RefreshVideos() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	stored, err := s.library.FindListedVideos()
+	if err != nil {
+		return err
+	}
+
+	var targets []string
+	for id, v := range stored {
+		if v.Available() {
+			targets = append(targets, id)
+		}
+	}
+
+	fetched, err := s.youtube.FetchVideos(targets)
+	if err != nil {
+		return err
+	}
+
+	var toSave []*domain.Video
+	for _, f := range fetched {
+		video := stored[f.YoutubeID]
+		mergeDetails(video, f)
+		toSave = append(toSave, video)
+	}
+	if err := s.library.SaveVideos(toSave); err != nil {
+		return err
+	}
+
+	log.Println("Refreshed videos:", len(toSave))
+
+	return nil
+}
