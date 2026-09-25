@@ -53,7 +53,7 @@ func (r *renderer) RenderUpdatedVideo(playlist *domain.Playlist, location *time.
 			Timestamp: video.OwnerPublishedAt.Format(time.RFC3339),
 		}
 
-		// 1 動画につき 1 メッセージで送信する。失敗しても残りの動画は送る
+		// Send one message per video, and keep sending the rest even if one fails
 		if _, err := r.session.ChannelMessageSendEmbed(playlist.SendChannelID, embed); err != nil {
 			errs = append(errs, fmt.Errorf("video %s: %w", video.YoutubeID, err))
 		}

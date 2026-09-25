@@ -14,9 +14,10 @@ Discord のテキストチャンネルに Embed を投稿する Discord ボッ�
 ## コマンド
 
 ```bash
-# ビルド / 静的チェック（テストスイートは存在しない。「テスト」の節を参照）
+# ビルド / 静的チェック / テスト
 go build ./...
 go vet ./...
+go test ./...
 gofmt -l .          # 何も出力されないこと。「既知の挙動」の節も参照
 
 # スタック全体（ボット + PostgreSQL）を起動する。通常はこちらを使う
@@ -54,7 +55,8 @@ cmd/server/main.go            コンポジションルート — 全ての組み
 アプリを駆動する経路は独立して 2 つあります。
 
 1. **対話的な経路** — Discord ゲートウェイのイベント → `internal/server` → `service` → `repository`
-2. **定期実行の経路** — gocron が 5 分ごとに `scheduler.schedule.Notify` を呼ぶ → `service` → `repository` → `scheduler.renderer` が Discord に投稿
+2. **定期実行の経路** — gocron が 5 分ごとに `scheduler.schedule.Notify` を呼ぶ → `service` → `repository` → `scheduler.renderer` が Discord に投稿。
+   6 時間ごとに `scheduler.schedule.RefreshVideos` が動画の再生数などを更新します
 
 ### 依存の組み立て
 
@@ -98,26 +100,50 @@ func(request *discordgo.ApplicationCommandInteractionData, guildId, channelId st
 
 ### `internal/scheduler`
 
-- `scheduler.go` — 5 分間隔の設定（`Every(5).Minutes()`）。スケジューラの
-  `*time.Location` をジョブに渡します。
-- `schedule.go` — `Notify`: 全プレイリストを読み込む → YouTube と差分を取る →
+- `scheduler.go` — 5 分間隔の `Notify` と 6 時間間隔の `RefreshVideos` の設定。
+  スケジューラの `*time.Location` をジョブに渡します。
+- `schedule.go` — 各ジョブは `recoverJob` で panic を捕まえ、1 回の失敗でボット
+  全体が落ちないようにしています。
+  `Notify`: 全プレイリストを読み込む → `LibraryService.Sync` でプレイリストの中身を DB に同期する → 差分を取る →
   `UpdatedAt` を更新する → 描画する、という流れです。順序に意味があります。
   タイムスタンプの永続化はメッセージ送信の**前**に行われ、更新に成功した
   プレイリストだけが通知対象になります。通知を取りこぼす可能性と引き換えに、
   二重通知が起きないようにしています。
 - `renderer.go` — `discordgo.MessageEmbed`（ラベルは日本語）を組み立て、
-  `ChannelMessageSendEmbeds` を呼びます。
+  動画 1 件につき 1 通の `ChannelMessageSendEmbed` を送ります。
+
+### プレイリストの中身の保存（`LibraryService`）
+
+YouTube プレイリストの中身は、サーバーごとの通知設定（`Playlist`）とは別に、
+YouTube のプレイリスト ID 単位で 2 つのテーブルに保存します。
+
+- `playlist_items`（`domain.PlaylistItem`）— プレイリストの各アイテム。
+  `AddedAt` はプレイリストに追加された時刻です。
+- `youtube_videos`（`domain.YouTubeVideo`）— 動画ごとの最新の情報。
+  非公開や削除になっても、タイトルなどの詳細は消さずに残します。
+  `Available()` が真の動画だけをユーザーに見せます。
+
+`LibraryService.Sync` はまず `playlists.list` でアイテム数を確認し、アイテム数が
+変わったとき、または前回の全件取得から `FULL_SYNC_INTERVAL`（1 時間）が
+経ったときだけアイテムを全件取得します。動画の詳細（`videos.list`）は、まだ
+詳細を持っていない動画の分だけ取得します。動画の公開状態はアイテムの
+`status.privacyStatus` から取ります（`videos.list` は非公開・削除済みの動画を
+返さないため）。全件取得の状態はメモリ上にあるので、再起動直後は全件取得します。
+
+`Sync` と `RefreshVideos` は同じ `youtube_videos` を書き換えるので、
+`LibraryService` の mutex で直列化しています。
 
 ### 「新しい動画」の判定方法
 
-保存済みのレコードと動画単位で突き合わせる処理はありません。基準となるのは
-`Playlist.UpdatedAt` です。`PlaylistService.GetDiffFromLatest` は
-`!video.PublishedAt.Before(last.UpdatedAt)` が真の動画を新着とみなします。
-`After` ではなく `!Before` なのは意図的で、基準時刻とちょうど同時刻に公開された
-動画を含めるためです。`PublishedAt` は*プレイリストアイテムの*タイムスタンプ
+保存済みのアイテムと、通知済みかどうかを突き合わせる処理はありません。
+基準となるのは `Playlist.UpdatedAt` です。`PlaylistService.GetDiffFromLatest` は
+同期結果のアイテムのうち `!item.AddedAt.Before(last.UpdatedAt)` が真で、動画が
+`Available()` なものを新着とみなし、追加時刻の古い順に並べます。
+`After` ではなく `!Before` なのは意図的で、基準時刻とちょうど同時刻に追加された
+動画を含めるためです。`UpdatedAt` を過去に戻せば、その時刻以降の動画を再通知できます。`PublishedAt` は*プレイリストアイテムの*タイムスタンプ
 （プレイリストに追加された時刻）で、`OwnerPublishedAt` が動画自体の投稿時刻です。
 
-`Video` のレコードは副作用として保存されます。`UpdateUpdatedAt` が
+`videos` テーブル（`domain.Video`）は通知の履歴で、副作用として保存されます。`UpdateUpdatedAt` が
 `playlist.Update` → `db.Save` を呼び、`GetDiffFromLatest` が設定した `Videos`
 のアソシエーションを GORM がカスケード保存します。保存されたレコードを
 重複排除のために読み返している箇所はありません。
@@ -159,8 +185,8 @@ func(request *discordgo.ApplicationCommandInteractionData, guildId, channelId st
 ### 永続化するフィールドを追加する
 
 `internal/domain/domain.go` の構造体に追加します。スキーマの変更は `main.go` の
-`init()` にある `db.AutoMigrate(&domain.Guild{}, &domain.Playlist{}, &domain.Video{})`
-が適用します。**マイグレーションファイルはありません。** AutoMigrate はカラムの
+`init()` にある `db.AutoMigrate(...)` が適用します。新しいモデルを追加したら
+ここにも追加してください。**マイグレーションファイルはありません。** AutoMigrate はカラムの
 追加しか行わないため、リネームや削除はデータベースに対して手動で行う必要があります。
 
 ## 設定
@@ -187,22 +213,24 @@ Docker の外で実行する場合は、自分で環境変数をエクスポー�
 
 `youtube_repository.go` は全ての呼び出しを `MAX_BATCH_SIZE = 50` でバッチ化し
 （プレイリスト、動画、チャンネル）、プレイリストアイテムは
-`MAX_RESULTS_PER_PAGE = 50` でページングします。削除済みの動画やチャンネルは
-エラーにせずスキップします。タイムスタンプのパースには
-`YOUTUBE_TIMEFORMAT = "2006-01-02T15:04:05Z"` を使います。
+`MAX_RESULTS_PER_PAGE = 50` でページングします。API のレスポンスは一部の
+フィールドが欠けることがあるので、nil を考慮して読みます。タイムスタンプの
+パースには `YOUTUBE_TIMEFORMAT = "2006-01-02T15:04:05Z"` を使います。
 
-主な制約はクォータです。`FindPlaylistsWithVideos` は 5 分ごとの実行のたびに、
-登録済みの*全ての*プレイリストの*全ての*アイテムを取得します。動画ごとの
-API 呼び出しを新たに追加する際は慎重に判断してください。追加者のチャンネルを
-引く既存の処理も、重複呼び出しを避けるために `channelMap` のキャッシュへ
-フォールバックする作りになっています。
+主な制約はクォータ（標準で 1 日 10,000 ユニット、list 系は 1 回 1 ユニット）です。
+YouTube から直接データを取る前に、DB に保存した中身（`LibraryRepository`）で
+済ませられないか検討してください。
+
+プレイリストアイテムの `snippet.channelId` は、ドキュメント上は「追加した
+ユーザー」ですが、実際には常にプレイリストの所有者を返します。追加者は
+取得できません。
 
 ## テスト
 
-現時点でリポジトリに **`_test.go` ファイルは 1 つもありません**。テストを追加する
-なら `internal/service` が出発点として自然です。`internal/repository` の
-インターフェースのおかげでデータベースやネットワークなしでサービスを
-フェイク化でき、コマンドハンドラは文字列を返すのでそのままアサートできます。
+テストは `internal/service` と `internal/repository` にあります。サービスの
+テストは `internal/service/fakes_test.go` のフェイク（`fakeYouTube`、
+`fakeLibrary`）を使い、データベースやネットワークなしで動きます。
+コマンドハンドラは文字列を返すのでそのままアサートできます。
 
 変更の検証は最低でも `go build ./... && go vet ./...` で行ってください。
 Discord や YouTube の挙動に関わる変更は実際の認証情報とテスト用サーバーが
@@ -227,9 +255,6 @@ Discord や YouTube の挙動に関わる変更は実際の認証情報とテス
   ラップされたエラーが `default` に流れます。
 - `PlaylistRepository.DeleteAll` はプレイリストを論理削除（`gorm.Model`）
   する一方、動画は `Unscoped()` で物理削除します。
-- `renderer.RenderUpdatedVideo` は新着動画を全て 1 通のメッセージの Embed として
-  送信しますが、Discord の 1 メッセージあたりの Embed 数の上限は 10 で、
-  コード側で分割していません。
 - Dockerfile は `go run` を実行します（バイナリのビルドもマルチステージ
   ビルドもしません）。また `docker-compose.yml` はソースをコンテナに
   バインドマウントします。

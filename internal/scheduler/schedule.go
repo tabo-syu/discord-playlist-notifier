@@ -11,20 +11,16 @@ import (
 
 type schedule struct {
 	playlist *service.PlaylistService
+	library  *service.LibraryService
 	renderer *renderer
 }
 
-func NewSchedule(s *service.PlaylistService, r *renderer) *schedule {
-	return &schedule{s, r}
+func NewSchedule(s *service.PlaylistService, l *service.LibraryService, r *renderer) *schedule {
+	return &schedule{s, l, r}
 }
 
 func (s *schedule) Notify(location *time.Location) {
-	// 1 回の通知処理で panic しても bot 全体が落ちないようにする
-	defer func() {
-		if r := recover(); r != nil {
-			log.Printf("Recovered from panic in Notify: %v\n%s", r, debug.Stack())
-		}
-	}()
+	defer recoverJob("Notify")
 
 	playlists, err := s.playlist.FindAll()
 	if err != nil {
@@ -32,12 +28,17 @@ func (s *schedule) Notify(location *time.Location) {
 		return
 	}
 	
-	diffs, err := s.playlist.GetDiffFromLatest(playlists)
+	var ids []string
+	for _, playlist := range playlists {
+		ids = append(ids, playlist.YoutubeID)
+	}
+	snapshots, err := s.library.Sync(ids)
 	if err != nil {
 		log.Println("Could not notify cause:", err)
 		return
 	}
-	
+
+	diffs := s.playlist.GetDiffFromLatest(playlists, snapshots)
 	if len(diffs) == 0 {
 		log.Println("Playlist was not updated")
 		return
@@ -64,5 +65,20 @@ func (s *schedule) Notify(location *time.Location) {
 		} else {
 			log.Println("Successfully sent notification for playlist:", playlist.YoutubeID, "to channel:", playlist.SendChannelID)
 		}
+	}
+}
+
+func (s *schedule) RefreshVideos() {
+	defer recoverJob("RefreshVideos")
+
+	if err := s.library.RefreshVideos(); err != nil {
+		log.Println("Could not refresh videos cause:", err)
+	}
+}
+
+// A panic in one run of a job must not bring the whole bot down
+func recoverJob(name string) {
+	if r := recover(); r != nil {
+		log.Printf("Recovered from panic in %s: %v\n%s", name, r, debug.Stack())
 	}
 }
