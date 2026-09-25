@@ -116,7 +116,12 @@ func (r *youTubeRepository) FindPlaylistsWithVideos(ids ...string) ([]*domain.Pl
 					return nil, fmt.Errorf("failed to fetch playlist items: %w", err)
 				}
 
-				allPlaylistItems = append(allPlaylistItems, playlistItems.Items...)
+				for _, item := range playlistItems.Items {
+					if item.Snippet == nil || item.Snippet.ResourceId == nil {
+						continue
+					}
+					allPlaylistItems = append(allPlaylistItems, item)
+				}
 
 				nextPageToken = playlistItems.NextPageToken
 				if nextPageToken == "" {
@@ -164,6 +169,9 @@ func (r *youTubeRepository) FindPlaylistsWithVideos(ids ...string) ([]*domain.Pl
 			// Collect channel IDs
 			var cids []string
 			for _, item := range allVideos {
+				if item.Snippet == nil {
+					continue
+				}
 				cids = append(cids, item.Snippet.ChannelId)
 			}
 
@@ -217,14 +225,14 @@ func (r *youTubeRepository) FindPlaylistsWithVideos(ids ...string) ([]*domain.Pl
 			for _, listVideo := range allPlaylistItems {
 				videoId := listVideo.Snippet.ResourceId.VideoId
 				video, videoExists := videoMap[videoId]
-				if !videoExists {
+				if !videoExists || video.Snippet == nil {
 					// Video was deleted, skip
 					continue
 				}
 
 				channelId := video.Snippet.ChannelId
 				channel, channelExists := channelMap[channelId]
-				if !channelExists {
+				if !channelExists || channel.Snippet == nil {
 					// Channel was deleted, skip
 					continue
 				}
@@ -245,9 +253,9 @@ func (r *youTubeRepository) FindPlaylistsWithVideos(ids ...string) ([]*domain.Pl
 				var addedByChannelIcon string
 
 				// If the channel that added the video is already in our map, use that
-				if addedByChannel, exists := channelMap[addedByChannelId]; exists {
+				if addedByChannel, exists := channelMap[addedByChannelId]; exists && addedByChannel.Snippet != nil {
 					addedByChannelName = addedByChannel.Snippet.Title
-					addedByChannelIcon = addedByChannel.Snippet.Thumbnails.Default.Url
+					addedByChannelIcon = channelIcon(addedByChannel)
 				} else {
 					// Otherwise, fetch the channel information
 					addedByChannels, err := r.youtube.Channels.List([]string{"id", "snippet"}).
@@ -259,10 +267,10 @@ func (r *youTubeRepository) FindPlaylistsWithVideos(ids ...string) ([]*domain.Pl
 						// Use placeholder values if we can't fetch the channel info
 						addedByChannelName = "Unknown User"
 						addedByChannelIcon = ""
-					} else if len(addedByChannels.Items) > 0 {
+					} else if len(addedByChannels.Items) > 0 && addedByChannels.Items[0].Snippet != nil {
 						addedByChannel := addedByChannels.Items[0]
 						addedByChannelName = addedByChannel.Snippet.Title
-						addedByChannelIcon = addedByChannel.Snippet.Thumbnails.Default.Url
+						addedByChannelIcon = channelIcon(addedByChannel)
 						// Add to our map for future use
 						channelMap[addedByChannelId] = addedByChannel
 					} else {
@@ -275,10 +283,10 @@ func (r *youTubeRepository) FindPlaylistsWithVideos(ids ...string) ([]*domain.Pl
 				listVideos = append(listVideos, domain.Video{
 					YoutubeID:          videoId,
 					Title:              listVideo.Snippet.Title,
-					Views:              video.Statistics.ViewCount,
-					Thumbnail:          video.Snippet.Thumbnails.High.Url,
+					Views:              videoViews(video),
+					Thumbnail:          videoThumbnail(video),
 					ChannelName:        channel.Snippet.Title,
-					ChannelIcon:        channel.Snippet.Thumbnails.Default.Url,
+					ChannelIcon:        channelIcon(channel),
 					PublishedAt:        publishedAt,
 					OwnerPublishedAt:   ownerPublishedAt,
 					AddedByChannelID:   addedByChannelId,
@@ -300,4 +308,31 @@ func (r *youTubeRepository) FindPlaylistsWithVideos(ids ...string) ([]*domain.Pl
 	}
 
 	return response, nil
+}
+
+// YouTube API のレスポンスは一部フィールドが欠けることがあるため nil を考慮して値を取り出す
+func videoViews(v *youtube.Video) uint64 {
+	if v.Statistics == nil {
+		return 0
+	}
+	return v.Statistics.ViewCount
+}
+
+func videoThumbnail(v *youtube.Video) string {
+	if v.Snippet == nil || v.Snippet.Thumbnails == nil {
+		return ""
+	}
+	for _, t := range []*youtube.Thumbnail{v.Snippet.Thumbnails.High, v.Snippet.Thumbnails.Medium, v.Snippet.Thumbnails.Default} {
+		if t != nil {
+			return t.Url
+		}
+	}
+	return ""
+}
+
+func channelIcon(c *youtube.Channel) string {
+	if c.Snippet == nil || c.Snippet.Thumbnails == nil || c.Snippet.Thumbnails.Default == nil {
+		return ""
+	}
+	return c.Snippet.Thumbnails.Default.Url
 }

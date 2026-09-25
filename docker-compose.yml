@@ -3,6 +3,7 @@ version: '3'
 services:
   bot:
     build: .
+    restart: unless-stopped
     volumes:
       - .:/go/src/bot
     env_file:

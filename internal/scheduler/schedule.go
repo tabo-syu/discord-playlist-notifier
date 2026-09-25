@@ -2,6 +2,7 @@ package scheduler
 
 import (
 	"log"
+	"runtime/debug"
 	"time"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
@@ -18,6 +19,13 @@ func NewSchedule(s *service.PlaylistService, r *renderer) *schedule {
 }
 
 func (s *schedule) Notify(location *time.Location) {
+	// 1 回の通知処理で panic しても bot 全体が落ちないようにする
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic in Notify: %v\n%s", r, debug.Stack())
+		}
+	}()
+
 	playlists, err := s.playlist.FindAll()
 	if err != nil {
 		log.Println("Could not notify cause:", err)
