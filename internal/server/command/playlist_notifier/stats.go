@@ -9,10 +9,8 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/service"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/view"
 )
-
-// Discord rejects messages longer than this
-const MAX_MESSAGE_LENGTH = 2000
 
 var statsSubCommand = &discordgo.ApplicationCommandOption{
 	Type:        discordgo.ApplicationCommandOptionSubCommand,
@@ -53,7 +51,7 @@ func (c *PlaylistNotifier) stats(guildId string, playlistId string) string {
 		return "通知登録されていないプレイリストです。"
 	}
 
-	return truncate(strings.Join(sections, "\n"), MAX_MESSAGE_LENGTH)
+	return view.Truncate(strings.Join(sections, "\n"), view.MAX_MESSAGE_LENGTH)
 }
 
 func formatStats(playlist *domain.Playlist, s *service.PlaylistStats, loc *time.Location) string {
@@ -63,14 +61,14 @@ func formatStats(playlist *domain.Playlist, s *service.PlaylistStats, loc *time.
 
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "📊 **%s**\n", playlist.Title)
-	fmt.Fprintf(&sb, "曲数: %s 曲（観られる %s / 非公開 %s / 削除 %s）\n", separator(s.Total), separator(s.Available), separator(s.Private), separator(s.Deleted))
+	fmt.Fprintf(&sb, "曲数: %s 曲（観られる %s / 非公開 %s / 削除 %s）\n", view.Number(s.Total), view.Number(s.Available), view.Number(s.Private), view.Number(s.Deleted))
 	fmt.Fprintf(&sb, "追加ペース: 今月 %d 曲 / 過去 30 日 %d 曲\n", s.AddedThisMonth, s.AddedLast30Days)
 	fmt.Fprintf(&sb, "最初の追加: %s\n", s.FirstAddedAt.In(loc).Format("2006/01/02"))
 
 	if len(s.TopViewed) > 0 {
 		sb.WriteString("\n**再生数ランキング**\n")
 		for i, v := range s.TopViewed {
-			fmt.Fprintf(&sb, "%d. %s（%s 回）\n", i+1, v.Title, separator(v.Views))
+			fmt.Fprintf(&sb, "%d. %s（%s 回）\n", i+1, v.Title, view.Number(v.Views))
 		}
 	}
 
@@ -91,32 +89,4 @@ func formatStats(playlist *domain.Playlist, s *service.PlaylistStats, loc *time.
 	sb.WriteString("```\n")
 
 	return sb.String()
-}
-
-func separator[T int | uint64](n T) string {
-	s := fmt.Sprintf("%d", n)
-	var sb strings.Builder
-	for i, r := range s {
-		if i > 0 && (len(s)-i)%3 == 0 {
-			sb.WriteRune(',')
-		}
-		sb.WriteRune(r)
-	}
-
-	return sb.String()
-}
-
-// truncate cuts s to at most max characters (not bytes), keeping code blocks closed.
-func truncate(s string, max int) string {
-	runes := []rune(s)
-	if len(runes) <= max {
-		return s
-	}
-
-	cut := string(runes[:max-10])
-	if strings.Count(cut, "```")%2 == 1 {
-		cut += "\n```"
-	}
-
-	return cut + "\n…"
 }

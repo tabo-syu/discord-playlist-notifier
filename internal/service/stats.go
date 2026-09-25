@@ -67,23 +67,30 @@ func ComputeStats(contents []*PlaylistVideo, now time.Time, loc *time.Location) 
 		}
 	}
 
-	for _, v := range viewed {
-		stats.TopViewed = append(stats.TopViewed, v)
-	}
-	sort.Slice(stats.TopViewed, func(i, j int) bool {
-		a, b := stats.TopViewed[i], stats.TopViewed[j]
-		if a.Views != b.Views {
-			return a.Views > b.Views
-		}
-		return a.YoutubeID < b.YoutubeID
-	})
-	if len(stats.TopViewed) > STATS_TOP_VIEWED {
-		stats.TopViewed = stats.TopViewed[:STATS_TOP_VIEWED]
-	}
+	stats.TopViewed = rankViewed(viewed, STATS_TOP_VIEWED)
 
 	for m := firstMonth; !m.After(thisMonth); m = m.AddDate(0, 1, 0) {
 		stats.Monthly = append(stats.Monthly, MonthCount{Month: m, Count: monthly[m]})
 	}
 
 	return stats
+}
+
+func rankViewed(videos map[string]*domain.Video, n int) []*domain.Video {
+	var ranked []*domain.Video
+	for _, v := range videos {
+		ranked = append(ranked, v)
+	}
+	sort.Slice(ranked, func(i, j int) bool {
+		a, b := ranked[i], ranked[j]
+		if a.Views != b.Views {
+			return a.Views > b.Views
+		}
+		return a.YoutubeID < b.YoutubeID
+	})
+	if len(ranked) > n {
+		ranked = ranked[:n]
+	}
+
+	return ranked
 }
