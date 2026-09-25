@@ -13,9 +13,12 @@ type LibraryRepository interface {
 	FindVideos(videoIds []string) (map[string]*domain.Video, error)
 	// FindVideosInPlaylists returns the videos of every item in the given playlists.
 	FindVideosInPlaylists(playlistYoutubeIds ...string) (map[string]*domain.Video, error)
+	// FindListedVideos returns all videos that are in at least one playlist.
+	FindListedVideos() (map[string]*domain.Video, error)
 	// ApplyItems replaces the stored items of a playlist with the given ones
 	// and saves the videos, in one transaction.
 	ApplyItems(playlistYoutubeId string, added []*domain.PlaylistItem, removed []*domain.PlaylistItem, videos []*domain.Video) error
+	SaveVideos(videos []*domain.Video) error
 }
 
 type libraryRepository struct {
@@ -60,6 +63,12 @@ func (r *libraryRepository) FindVideosInPlaylists(playlistYoutubeIds ...string) 
 	return r.findVideosIn(listed)
 }
 
+func (r *libraryRepository) FindListedVideos() (map[string]*domain.Video, error) {
+	listed := r.db.Model(&domain.PlaylistItem{}).Select("video_youtube_id")
+
+	return r.findVideosIn(listed)
+}
+
 func (r *libraryRepository) findVideosIn(videoIds *gorm.DB) (map[string]*domain.Video, error) {
 	var rows []*domain.Video
 	if err := r.db.Where("youtube_id IN (?)", videoIds).Find(&rows).Error; err != nil {
@@ -89,6 +98,10 @@ func (r *libraryRepository) ApplyItems(playlistYoutubeId string, added []*domain
 
 		return saveVideos(tx, videos)
 	})
+}
+
+func (r *libraryRepository) SaveVideos(videos []*domain.Video) error {
+	return saveVideos(r.db, videos)
 }
 
 // Callers pass complete rows (existing values merged with the new ones), so

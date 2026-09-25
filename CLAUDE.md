@@ -54,7 +54,8 @@ cmd/server/main.go            コンポジションルート — 全ての組み
 アプリを駆動する経路は独立して 2 つあります。
 
 1. **対話的な経路** — Discord ゲートウェイのイベント → `internal/server` → `service` → `repository`
-2. **定期実行の経路** — gocron が 5 分ごとに `scheduler.schedule.Notify` を呼ぶ → `service` → `repository` → `scheduler.renderer` が Discord に投稿
+2. **定期実行の経路** — gocron が 5 分ごとに `scheduler.schedule.Notify` を呼ぶ → `service` → `repository` → `scheduler.renderer` が Discord に投稿。
+   6 時間ごとに `scheduler.schedule.RefreshVideos` が動画の再生数などを更新します
 
 ### 依存の組み立て
 
@@ -98,8 +99,8 @@ func(request *discordgo.ApplicationCommandInteractionData, guildId, channelId st
 
 ### `internal/scheduler`
 
-- `scheduler.go` — 5 分間隔の設定（`Every(5).Minutes()`）。スケジューラの
-  `*time.Location` をジョブに渡します。
+- `scheduler.go` — 5 分間隔の `Notify` と 6 時間間隔の `RefreshVideos` の設定。
+  スケジューラの `*time.Location` をジョブに渡します。
 - `schedule.go` — 各ジョブは `recover` で panic を捕まえ、1 回の失敗でボット
   全体が落ちないようにしています。
   `Notify`: 全プレイリストを読み込む → `LibraryService.Sync` でプレイリストの中身を DB に同期する → 差分を取る →
@@ -133,8 +134,8 @@ YouTube のプレイリスト ID 単位で 2 つのテーブルに保存しま�
 `status.privacyStatus` から取ります（`videos.list` は非公開・削除済みの動画を
 返さないため）。全件取得の状態はメモリ上にあるので、再起動直後は全件取得します。
 
-実行が重なっても同じ `videos` を書き換えないよう、`LibraryService` の
-mutex で直列化しています。
+`Sync` と `RefreshVideos` は同じ `videos` を書き換えるので、
+`LibraryService` の mutex で直列化しています。
 
 ### 「新しい動画」の判定方法
 

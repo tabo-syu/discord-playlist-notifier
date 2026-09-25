@@ -82,3 +82,16 @@ func (s *schedule) Notify(location *time.Location) {
 		}
 	}
 }
+
+func (s *schedule) RefreshVideos() {
+	// A panic in one run must not bring the whole bot down
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic in RefreshVideos: %v\n%s", r, debug.Stack())
+		}
+	}()
+
+	if err := s.library.RefreshVideos(); err != nil {
+		log.Println("Could not refresh videos cause:", err)
+	}
+}
