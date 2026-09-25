@@ -13,14 +13,15 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-// Local time (in the scheduler location) to post the daily pick
-const DAILY_PICK_TIME = "12:00"
+// Local time (in the scheduler location) to post the picks. Weekly picks are
+// posted on Mondays and monthly picks on the 1st.
+const PICK_TIME = "12:00"
 
-func (s *schedule) DailyPick(location *time.Location) {
+func (s *schedule) Pick(location *time.Location) {
 	// A panic in one run must not bring the whole bot down
 	defer func() {
 		if r := recover(); r != nil {
-			log.Printf("Recovered from panic in DailyPick: %v\n%s", r, debug.Stack())
+			log.Printf("Recovered from panic in Pick: %v\n%s", r, debug.Stack())
 		}
 	}()
 
@@ -29,12 +30,13 @@ func (s *schedule) DailyPick(location *time.Location) {
 		return
 	}
 	if err != nil {
-		log.Println("Could not post daily pick cause:", err)
+		log.Println("Could not post pick cause:", err)
 		return
 	}
 
+	now := time.Now().In(location)
 	for _, playlist := range playlists {
-		if !playlist.DailyPick {
+		if !pickDue(playlist.PickInterval, now) {
 			continue
 		}
 
@@ -51,23 +53,48 @@ func (s *schedule) DailyPick(location *time.Location) {
 		// The channel is not stored, so fetch it now. Send without it on failure.
 		live, err := s.library.LiveVideos([]string{picked[0].Video.YoutubeID})
 		if err != nil {
-			log.Println("Could not fetch the channel for daily pick cause:", err)
+			log.Println("Could not fetch the channel for pick cause:", err)
 		}
 
-		if err := s.renderer.RenderDailyPick(playlist, picked[0], live, location); err != nil {
-			log.Println("Daily pick could not send to", playlist.SendChannelID, "for playlist:", playlist.YoutubeID, "cause:", err)
+		if err := s.renderer.RenderPick(playlist, picked[0], live, location); err != nil {
+			log.Println("Pick could not send to", playlist.SendChannelID, "for playlist:", playlist.YoutubeID, "cause:", err)
 		} else {
-			log.Println("Sent daily pick to", playlist.SendChannelID, "for playlist:", playlist.YoutubeID, "video:", picked[0].Video.YoutubeID)
+			log.Println("Sent pick to", playlist.SendChannelID, "for playlist:", playlist.YoutubeID, "interval:", playlist.PickInterval, "video:", picked[0].Video.YoutubeID)
 		}
 	}
 }
 
-func (r *renderer) RenderDailyPick(playlist *domain.Playlist, picked *service.PlaylistVideo, live map[string]*domain.LiveVideo, location *time.Location) error {
+// pickDue reports whether a pick with the interval is posted on the day of now.
+func pickDue(interval string, now time.Time) bool {
+	switch interval {
+	case domain.PickDaily:
+		return true
+	case domain.PickWeekly:
+		return now.Weekday() == time.Monday
+	case domain.PickMonthly:
+		return now.Day() == 1
+	default:
+		return false
+	}
+}
+
+func pickLabel(interval string) string {
+	switch interval {
+	case domain.PickWeekly:
+		return "今週の一曲"
+	case domain.PickMonthly:
+		return "今月の一曲"
+	default:
+		return "今日の一曲"
+	}
+}
+
+func (r *renderer) RenderPick(playlist *domain.Playlist, picked *service.PlaylistVideo, live map[string]*domain.LiveVideo, location *time.Location) error {
 	video := picked.Video
 	embed := &discordgo.MessageEmbed{
 		Color: color("1e90ff"),
 		Author: &discordgo.MessageEmbedAuthor{
-			Name: "🎵 今日の一曲 from " + playlist.Title,
+			Name: "🎵 " + pickLabel(playlist.PickInterval) + " from " + playlist.Title,
 		},
 		Title: video.Title,
 		URL:   fmt.Sprintf("https://www.youtube.com/watch?v=%s&list=%s", video.YoutubeID, playlist.YoutubeID),

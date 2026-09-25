@@ -92,7 +92,7 @@ func (s *PlaylistService) Unregister(guildId string, playlistId string) error {
 	return nil
 }
 
-func (s *PlaylistService) SetDailyPick(guildId string, playlistId string, enabled bool) error {
+func (s *PlaylistService) SetPickInterval(guildId string, playlistId string, interval string) error {
 	playlists, err := s.playlist.FindByDiscordId(guildId)
 	if err != nil {
 		return err
@@ -100,7 +100,7 @@ func (s *PlaylistService) SetDailyPick(guildId string, playlistId string, enable
 
 	for _, playlist := range playlists {
 		if playlist.YoutubeID == playlistId {
-			return s.playlist.SetDailyPick(playlist, enabled)
+			return s.playlist.SetPickInterval(playlist, interval)
 		}
 	}
 

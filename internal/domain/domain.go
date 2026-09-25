@@ -18,12 +18,20 @@ type Playlist struct {
 	YoutubeID     string
 	SendChannelID string
 	Title         string
-	// Whether to post a random video from the playlist every day
-	DailyPick bool
+	// How often to post a random video from the playlist (Pick*)
+	PickInterval string
 	// foreign
 	GuildID uint
 	Guild   Guild
 }
+
+// How often a random video of a playlist is posted
+const (
+	PickNone    = ""
+	PickDaily   = "daily"
+	PickWeekly  = "weekly"
+	PickMonthly = "monthly"
+)
 
 // Privacy statuses of a YouTube video as seen through a playlist item.
 const (

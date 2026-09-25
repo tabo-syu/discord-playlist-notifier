@@ -10,7 +10,7 @@ type PlaylistRepository interface {
 	Exist(guildId string, playlistId string) (bool, error)
 	Add(*domain.Playlist) error
 	Update(*domain.Playlist) error
-	SetDailyPick(playlist *domain.Playlist, enabled bool) error
+	SetPickInterval(playlist *domain.Playlist, interval string) error
 	FindAll() ([]*domain.Playlist, error)
 	FindByDiscordId(guildId string) ([]*domain.Playlist, error)
 	DeleteAll([]*domain.Playlist) error
@@ -96,14 +96,14 @@ func (r *playlistRepository) Update(playlist *domain.Playlist) error {
 	return nil
 }
 
-// SetDailyPick must not touch UpdatedAt, which is the base time of new video
-// notifications, so UpdateColumn is used instead of Save.
-func (r *playlistRepository) SetDailyPick(playlist *domain.Playlist, enabled bool) error {
+// SetPickInterval must not touch UpdatedAt, which is the base time of new
+// video notifications, so UpdateColumn is used instead of Save.
+func (r *playlistRepository) SetPickInterval(playlist *domain.Playlist, interval string) error {
 	if playlist.ID == 0 {
 		return domain.ErrDBRecordNotFound
 	}
 
-	return r.db.Model(playlist).UpdateColumn("daily_pick", enabled).Error
+	return r.db.Model(playlist).UpdateColumn("pick_interval", interval).Error
 }
 
 func (r *playlistRepository) DeleteAll(playlists []*domain.Playlist) error {

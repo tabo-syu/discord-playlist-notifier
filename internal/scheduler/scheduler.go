@@ -19,7 +19,7 @@ func (s *scheduler) Start() {
 	s.scheduler.Every(5).Minutes().Do(s.schedule.Notify, s.scheduler.Location())
 	s.scheduler.Every(6).Hours().WaitForSchedule().Do(s.schedule.RefreshVideos)
 	s.scheduler.Cron(WRAPPED_CRON).Do(s.schedule.Wrapped, s.scheduler.Location())
-	s.scheduler.Every(1).Day().At(DAILY_PICK_TIME).Do(s.schedule.DailyPick, s.scheduler.Location())
+	s.scheduler.Every(1).Day().At(PICK_TIME).Do(s.schedule.Pick, s.scheduler.Location())
 	s.scheduler.StartAsync()
 
 	log.Println("Scheduler started")
