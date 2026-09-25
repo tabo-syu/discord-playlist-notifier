@@ -13,9 +13,14 @@ type LibraryRepository interface {
 	FindVideos(videoIds []string) (map[string]*domain.Video, error)
 	// FindVideosInPlaylists returns the videos of every item in the given playlists.
 	FindVideosInPlaylists(playlistYoutubeIds ...string) (map[string]*domain.Video, error)
+	// FindListedVideos returns all videos that are in at least one playlist.
+	FindListedVideos() (map[string]*domain.Video, error)
+	// FindItemsByVideos returns the items of every playlist that contain the given videos.
+	FindItemsByVideos(videoIds []string) ([]*domain.PlaylistItem, error)
 	// ApplyItems replaces the stored items of a playlist with the given ones
 	// and saves the videos, in one transaction.
 	ApplyItems(playlistYoutubeId string, added []*domain.PlaylistItem, removed []*domain.PlaylistItem, videos []*domain.Video) error
+	SaveVideos(videos []*domain.Video) error
 }
 
 type libraryRepository struct {
@@ -53,9 +58,27 @@ func (r *libraryRepository) FindVideos(videoIds []string) (map[string]*domain.Vi
 	return videos, nil
 }
 
+func (r *libraryRepository) FindItemsByVideos(videoIds []string) ([]*domain.PlaylistItem, error) {
+	var items []*domain.PlaylistItem
+	if len(videoIds) == 0 {
+		return items, nil
+	}
+	if err := r.db.Where("video_youtube_id IN ?", videoIds).Find(&items).Error; err != nil {
+		return nil, err
+	}
+
+	return items, nil
+}
+
 // Filtering with a subquery avoids sending thousands of IDs in an IN clause.
 func (r *libraryRepository) FindVideosInPlaylists(playlistYoutubeIds ...string) (map[string]*domain.Video, error) {
 	listed := r.db.Model(&domain.PlaylistItem{}).Select("video_youtube_id").Where("playlist_youtube_id IN ?", playlistYoutubeIds)
+
+	return r.findVideosIn(listed)
+}
+
+func (r *libraryRepository) FindListedVideos() (map[string]*domain.Video, error) {
+	listed := r.db.Model(&domain.PlaylistItem{}).Select("video_youtube_id")
 
 	return r.findVideosIn(listed)
 }
@@ -89,6 +112,10 @@ func (r *libraryRepository) ApplyItems(playlistYoutubeId string, added []*domain
 
 		return saveVideos(tx, videos)
 	})
+}
+
+func (r *libraryRepository) SaveVideos(videos []*domain.Video) error {
+	return saveVideos(r.db, videos)
 }
 
 // Callers pass complete rows (existing values merged with the new ones), so

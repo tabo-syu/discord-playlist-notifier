@@ -3,10 +3,16 @@ package service
 import (
 	"log"
 	"sync"
+	"time"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/repository"
 )
+
+// Even when the item count of a playlist has not changed, its items are
+// fetched again after this interval, to catch additions that happened
+// together with removals and privacy changes of videos.
+const FULL_SYNC_INTERVAL = time.Hour
 
 // PlaylistSnapshot is the current content of a YouTube playlist.
 type PlaylistSnapshot struct {
@@ -16,6 +22,8 @@ type PlaylistSnapshot struct {
 	Deleted bool
 	Items   []*domain.PlaylistItem
 	Videos  map[string]*domain.Video
+	// Videos that became private or deleted in this sync
+	Hidden []*domain.Video
 }
 
 // PlaylistVideo is a video together with the playlist item it was found in.
@@ -25,17 +33,24 @@ type PlaylistVideo struct {
 	Video      *domain.Video
 }
 
+type syncState struct {
+	itemCount  int64
+	fullSyncAt time.Time
+}
+
 // LibraryService keeps the contents of the watched playlists in the database.
 type LibraryService struct {
 	youtube repository.YouTubeRepository
 	library repository.LibraryRepository
 
 	// Keeps overlapping runs from writing the same videos
-	mu sync.Mutex
+	mu    sync.Mutex
+	state map[string]syncState
+	now   func() time.Time
 }
 
 func NewLibraryService(y repository.YouTubeRepository, l repository.LibraryRepository) *LibraryService {
-	return &LibraryService{youtube: y, library: l}
+	return &LibraryService{youtube: y, library: l, state: map[string]syncState{}, now: time.Now}
 }
 
 // Sync brings the stored contents of the given playlists up to date and
@@ -73,6 +88,12 @@ func (s *LibraryService) syncPlaylist(meta *repository.PlaylistMeta) (*PlaylistS
 	stored, err := s.library.FindItems(meta.YoutubeID)
 	if err != nil {
 		return nil, err
+	}
+
+	state, synced := s.state[meta.YoutubeID]
+	now := s.now()
+	if synced && state.itemCount == meta.ItemCount && now.Sub(state.fullSyncAt) < FULL_SYNC_INTERVAL {
+		return s.snapshot(meta, stored)
 	}
 
 	fetched, err := s.youtube.FetchPlaylistItems(meta.YoutubeID)
@@ -128,6 +149,7 @@ func (s *LibraryService) syncPlaylist(meta *repository.PlaylistMeta) (*PlaylistS
 	// The privacy of a video is taken from its playlist items, which also
 	// report private and deleted videos, unlike the videos endpoint.
 	changed := map[string]*domain.Video{}
+	var hidden []*domain.Video
 	var needDetails []string
 	for _, f := range fetched {
 		video, ok := videos[f.VideoID]
@@ -136,6 +158,10 @@ func (s *LibraryService) syncPlaylist(meta *repository.PlaylistMeta) (*PlaylistS
 			videos[f.VideoID] = video
 		}
 		if video.PrivacyStatus != f.PrivacyStatus {
+			// Videos seen for the first time are not reported
+			if video.Available() && (f.PrivacyStatus == domain.PrivacyPrivate || f.PrivacyStatus == domain.PrivacyDeleted) {
+				hidden = append(hidden, video)
+			}
 			video.PrivacyStatus = f.PrivacyStatus
 			changed[f.VideoID] = video
 		}
@@ -152,6 +178,10 @@ func (s *LibraryService) syncPlaylist(meta *repository.PlaylistMeta) (*PlaylistS
 		for _, d := range details {
 			video := videos[d.YoutubeID]
 			mergeDetails(video, d)
+			if video.ViewMilestone == nil {
+				reached := MilestoneFor(video.Views)
+				video.ViewMilestone = &reached
+			}
 			changed[d.YoutubeID] = video
 		}
 	}
@@ -164,11 +194,21 @@ func (s *LibraryService) syncPlaylist(meta *repository.PlaylistMeta) (*PlaylistS
 		return nil, err
 	}
 
+	s.state[meta.YoutubeID] = syncState{itemCount: meta.ItemCount, fullSyncAt: now}
 	if len(added) > 0 || len(removed) > 0 {
 		log.Println("Synced playlist:", meta.YoutubeID, "added:", len(added), "removed:", len(removed))
 	}
 
 	items, err := s.library.FindItems(meta.YoutubeID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PlaylistSnapshot{YoutubeID: meta.YoutubeID, Title: meta.Title, Items: items, Videos: videos, Hidden: hidden}, nil
+}
+
+func (s *LibraryService) snapshot(meta *repository.PlaylistMeta, items []*domain.PlaylistItem) (*PlaylistSnapshot, error) {
+	videos, err := s.library.FindVideosInPlaylists(meta.YoutubeID)
 	if err != nil {
 		return nil, err
 	}
@@ -201,4 +241,68 @@ func unique(ids []string) []string {
 	}
 
 	return result
+}
+
+// RefreshVideos updates the details (views, title, ...) of every video in the
+// watched playlists, and returns the videos that reached a new view
+// milestone. Costs 1 unit per 50 videos.
+func (s *LibraryService) RefreshVideos() ([]*domain.Video, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	stored, err := s.library.FindListedVideos()
+	if err != nil {
+		return nil, err
+	}
+
+	var targets []string
+	for id, v := range stored {
+		if v.Available() {
+			targets = append(targets, id)
+		}
+	}
+
+	fetched, err := s.youtube.FetchVideos(targets)
+	if err != nil {
+		return nil, err
+	}
+
+	var toSave []*domain.Video
+	var reached []*domain.Video
+	for _, f := range fetched {
+		video := stored[f.YoutubeID]
+		mergeDetails(video, f)
+
+		milestone := MilestoneFor(video.Views)
+		if video.ViewMilestone != nil && milestone > *video.ViewMilestone {
+			reached = append(reached, video)
+		}
+		if video.ViewMilestone == nil || milestone > *video.ViewMilestone {
+			video.ViewMilestone = &milestone
+		}
+		toSave = append(toSave, video)
+	}
+	if err := s.library.SaveVideos(toSave); err != nil {
+		return nil, err
+	}
+
+	log.Println("Refreshed videos:", len(toSave), "reached milestones:", len(reached))
+
+	return reached, nil
+}
+
+// PlaylistsContaining returns, for each given video, the YouTube IDs of the
+// playlists that contain it.
+func (s *LibraryService) PlaylistsContaining(videoIds []string) (map[string][]string, error) {
+	items, err := s.library.FindItemsByVideos(videoIds)
+	if err != nil {
+		return nil, err
+	}
+
+	result := map[string][]string{}
+	for _, item := range items {
+		result[item.VideoYoutubeID] = append(result[item.VideoYoutubeID], item.PlaylistYoutubeID)
+	}
+
+	return result, nil
 }

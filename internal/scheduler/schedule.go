@@ -5,6 +5,7 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/service"
 )
 
@@ -41,6 +42,8 @@ func (s *schedule) Notify(location *time.Location) {
 		log.Println("Could not notify cause:", err)
 		return
 	}
+
+	s.notifyHiddenVideos(playlists, snapshots)
 
 	diffs := s.playlist.GetDiffFromLatest(playlists, snapshots)
 	if len(diffs) == 0 {
@@ -79,6 +82,63 @@ func (s *schedule) Notify(location *time.Location) {
 			log.Println("Message could not send to", playlist.SendChannelID, "for playlist:", playlist.YoutubeID, "cause:", err)
 		} else {
 			log.Println("Successfully sent notification for playlist:", playlist.YoutubeID, "to channel:", playlist.SendChannelID)
+		}
+	}
+}
+
+func (s *schedule) RefreshVideos() {
+	// A panic in one run must not bring the whole bot down
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("Recovered from panic in RefreshVideos: %v\n%s", r, debug.Stack())
+		}
+	}()
+
+	reached, err := s.library.RefreshVideos()
+	if err != nil {
+		log.Println("Could not refresh videos cause:", err)
+		return
+	}
+	if len(reached) == 0 {
+		return
+	}
+
+	playlists, err := s.playlist.FindAll()
+	if err != nil {
+		log.Println("Could not notify milestones cause:", err)
+		return
+	}
+	var videoIds []string
+	for _, v := range reached {
+		videoIds = append(videoIds, v.YoutubeID)
+	}
+	containing, err := s.library.PlaylistsContaining(videoIds)
+	if err != nil {
+		log.Println("Could not notify milestones cause:", err)
+		return
+	}
+
+	// The channel is not stored, so fetch it now. Send without it on failure.
+	live, err := s.library.LiveVideos(videoIds)
+	if err != nil {
+		log.Println("Could not fetch channels for milestones cause:", err)
+	}
+
+	for _, notice := range service.MilestoneNotices(playlists, reached, containing) {
+		if err := s.renderer.RenderMilestone(notice, live); err != nil {
+			log.Println("Milestone notice could not send to", notice.ChannelID, "video:", notice.Video.YoutubeID, "cause:", err)
+		} else {
+			log.Println("Sent milestone notice to", notice.ChannelID, "video:", notice.Video.YoutubeID, "milestone:", notice.Milestone)
+		}
+	}
+}
+
+func (s *schedule) notifyHiddenVideos(playlists []*domain.Playlist, snapshots map[string]*service.PlaylistSnapshot) {
+	for _, notice := range service.HiddenVideoNotices(playlists, snapshots) {
+		if err := s.renderer.RenderHiddenVideo(notice); err != nil {
+			log.Println("Hidden video notice could not send to", notice.ChannelID, "video:", notice.Video.YoutubeID, "cause:", err)
+		} else {
+			log.Println("Sent hidden video notice to", notice.ChannelID, "video:", notice.Video.YoutubeID, "status:", notice.Video.PrivacyStatus)
 		}
 	}
 }
