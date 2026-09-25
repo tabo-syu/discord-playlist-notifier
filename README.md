@@ -148,12 +148,17 @@ YouTubeのプレイリストを監視し、新しい動画が追加されるとD
 
 ### プロジェクト構造
 
-- `cmd/server/`: アプリケーションのエントリーポイント
-- `internal/domain/`: ドメインモデルとエラー
-- `internal/repository/`: データアクセス層
-- `internal/scheduler/`: プレイリストチェックと通知ロジック
-- `internal/server/`: Discordボットサーバーとコマンド処理
-- `internal/service/`: ビジネスロジック
+DDD のレイヤードアーキテクチャで構成しています。依存は外側から内側への一方向です。
+
+- `cmd/server/`: アプリケーションのエントリーポイント（依存の組み立て）
+- `internal/domain/`: ドメインモデル（集約ごとのパッケージ）、リポジトリのインターフェース、エラー
+  - `guild/`: ボットが参加しているサーバー
+  - `subscription/`: サーバーごとのプレイリストの通知設定
+  - `library/`: プレイリストの中身（アイテムと動画）
+  - `notification/`: どのチャンネルに何を通知するかを決めるドメインサービス
+- `internal/application/`: ユースケース
+- `internal/infrastructure/`: データベース（GORM）と YouTube Data API の実装
+- `internal/presentation/`: Discord のコマンド処理、定期実行、通知の投稿
 
 ## ライセンス
 
