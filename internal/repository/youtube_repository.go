@@ -274,7 +274,7 @@ func (r *youTubeRepository) FindPlaylistsWithVideos(ids ...string) ([]*domain.Pl
 	return response, nil
 }
 
-// YouTube API のレスポンスは一部フィールドが欠けることがあるため nil を考慮して値を取り出す
+// Some fields of YouTube API responses may be missing, so read them nil-safely
 func videoViews(v *youtube.Video) uint64 {
 	if v.Statistics == nil {
 		return 0

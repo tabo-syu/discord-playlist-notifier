@@ -19,7 +19,7 @@ func NewSchedule(s *service.PlaylistService, r *renderer) *schedule {
 }
 
 func (s *schedule) Notify(location *time.Location) {
-	// 1 回の通知処理で panic しても bot 全体が落ちないようにする
+	// A panic in one run must not bring the whole bot down
 	defer func() {
 		if r := recover(); r != nil {
 			log.Printf("Recovered from panic in Notify: %v\n%s", r, debug.Stack())

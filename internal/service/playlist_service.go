@@ -119,7 +119,7 @@ func (s *PlaylistService) GetDiffFromLatest(lastPlaylists []*domain.Playlist) ([
 				}
 			}
 			if len(updated) != 0 {
-				// プレイリストの並び順に関係なく、追加日時の古い順に通知する
+				// Notify in the order the videos were added, regardless of the playlist order
 				sort.SliceStable(updated, func(i, j int) bool {
 					return updated[i].PublishedAt.Before(updated[j].PublishedAt)
 				})

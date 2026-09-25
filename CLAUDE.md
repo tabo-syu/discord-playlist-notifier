@@ -100,13 +100,15 @@ func(request *discordgo.ApplicationCommandInteractionData, guildId, channelId st
 
 - `scheduler.go` — 5 分間隔の設定（`Every(5).Minutes()`）。スケジューラの
   `*time.Location` をジョブに渡します。
-- `schedule.go` — `Notify`: 全プレイリストを読み込む → YouTube と差分を取る →
+- `schedule.go` — 各ジョブは `recover` で panic を捕まえ、1 回の失敗でボット
+  全体が落ちないようにしています。
+  `Notify`: 全プレイリストを読み込む → YouTube と差分を取る →
   `UpdatedAt` を更新する → 描画する、という流れです。順序に意味があります。
   タイムスタンプの永続化はメッセージ送信の**前**に行われ、更新に成功した
   プレイリストだけが通知対象になります。通知を取りこぼす可能性と引き換えに、
   二重通知が起きないようにしています。
 - `renderer.go` — `discordgo.MessageEmbed`（ラベルは日本語）を組み立て、
-  `ChannelMessageSendEmbeds` を呼びます。
+  動画 1 件につき 1 通の `ChannelMessageSendEmbed` を送ります。
 
 ### 「新しい動画」の判定方法
 
@@ -227,9 +229,6 @@ Discord や YouTube の挙動に関わる変更は実際の認証情報とテス
   ラップされたエラーが `default` に流れます。
 - `PlaylistRepository.DeleteAll` はプレイリストを論理削除（`gorm.Model`）
   する一方、動画は `Unscoped()` で物理削除します。
-- `renderer.RenderUpdatedVideo` は新着動画を全て 1 通のメッセージの Embed として
-  送信しますが、Discord の 1 メッセージあたりの Embed 数の上限は 10 で、
-  コード側で分割していません。
 - Dockerfile は `go run` を実行します（バイナリのビルドもマルチステージ
   ビルドもしません）。また `docker-compose.yml` はソースをコンテナに
   バインドマウントします。
