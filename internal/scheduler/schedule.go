@@ -60,7 +60,7 @@ func (s *schedule) Notify(location *time.Location) {
 	for _, playlist := range successfullyUpdated {
 		// Process for sending to each registered channel
 		if err := s.renderer.RenderUpdatedVideo(playlist, location); err != nil {
-			log.Println("Message could not send to", playlist.SendChannelID, "for playlist:", playlist.YoutubeID)
+			log.Println("Message could not send to", playlist.SendChannelID, "for playlist:", playlist.YoutubeID, "cause:", err)
 		} else {
 			log.Println("Successfully sent notification for playlist:", playlist.YoutubeID, "to channel:", playlist.SendChannelID)
 		}

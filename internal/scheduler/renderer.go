@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -22,7 +23,7 @@ func NewRenderer(s *discordgo.Session) *renderer {
 func (r *renderer) RenderUpdatedVideo(playlist *domain.Playlist, location *time.Location) error {
 	red := color("ff0000")
 
-	var embeds []*discordgo.MessageEmbed
+	var errs []error
 	for _, video := range playlist.Videos {
 		embed := &discordgo.MessageEmbed{
 			Color: red,
@@ -52,15 +53,13 @@ func (r *renderer) RenderUpdatedVideo(playlist *domain.Playlist, location *time.
 			Timestamp: video.OwnerPublishedAt.Format(time.RFC3339),
 		}
 
-		embeds = append(embeds, embed)
+		// 1 動画につき 1 メッセージで送信する。失敗しても残りの動画は送る
+		if _, err := r.session.ChannelMessageSendEmbed(playlist.SendChannelID, embed); err != nil {
+			errs = append(errs, fmt.Errorf("video %s: %w", video.YoutubeID, err))
+		}
 	}
 
-	_, err := r.session.ChannelMessageSendEmbeds(playlist.SendChannelID, embeds)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return errors.Join(errs...)
 }
 
 func color(hex string) int {
