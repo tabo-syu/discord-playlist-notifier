@@ -81,12 +81,21 @@ func (f *fakeLibrary) FindVideos(ids []string) (map[string]*domain.YouTubeVideo,
 	return result, nil
 }
 
-func (f *fakeLibrary) FindListedVideoIds() ([]string, error) {
+func (f *fakeLibrary) FindVideosInPlaylists(ids ...string) (map[string]*domain.YouTubeVideo, error) {
+	items, _ := f.FindItems(ids...)
+	var videoIds []string
+	for _, item := range items {
+		videoIds = append(videoIds, item.VideoYoutubeID)
+	}
+	return f.FindVideos(videoIds)
+}
+
+func (f *fakeLibrary) FindListedVideos() (map[string]*domain.YouTubeVideo, error) {
 	var ids []string
 	for _, item := range f.items {
 		ids = append(ids, item.VideoYoutubeID)
 	}
-	return unique(ids), nil
+	return f.FindVideos(ids)
 }
 
 func (f *fakeLibrary) ApplyItems(_ string, added []*domain.PlaylistItem, removed []*domain.PlaylistItem, videos []*domain.YouTubeVideo) error {

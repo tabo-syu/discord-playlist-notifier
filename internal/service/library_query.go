@@ -21,11 +21,7 @@ func (s *LibraryService) Contents(playlistIds []string) ([]*PlaylistVideo, error
 		return nil, err
 	}
 
-	var videoIds []string
-	for _, item := range items {
-		videoIds = append(videoIds, item.VideoYoutubeID)
-	}
-	videos, err := s.library.FindVideos(unique(videoIds))
+	videos, err := s.library.FindVideosInPlaylists(unique(playlistIds)...)
 	if err != nil {
 		return nil, err
 	}

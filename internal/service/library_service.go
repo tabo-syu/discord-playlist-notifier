@@ -118,9 +118,23 @@ func (s *LibraryService) syncPlaylist(meta *repository.PlaylistMeta) (*PlaylistS
 		}
 	}
 
-	videos, err := s.library.FindVideos(unique(videoIds))
+	videos, err := s.library.FindVideosInPlaylists(meta.YoutubeID)
 	if err != nil {
 		return nil, err
+	}
+	// Videos that are new to this playlist may already be stored for another one
+	var missing []string
+	for _, id := range unique(videoIds) {
+		if _, ok := videos[id]; !ok {
+			missing = append(missing, id)
+		}
+	}
+	others, err := s.library.FindVideos(missing)
+	if err != nil {
+		return nil, err
+	}
+	for id, v := range others {
+		videos[id] = v
 	}
 
 	// The privacy of a video is taken from its playlist items, which also
@@ -176,11 +190,7 @@ func (s *LibraryService) syncPlaylist(meta *repository.PlaylistMeta) (*PlaylistS
 }
 
 func (s *LibraryService) snapshot(meta *repository.PlaylistMeta, items []*domain.PlaylistItem) (*PlaylistSnapshot, error) {
-	var videoIds []string
-	for _, item := range items {
-		videoIds = append(videoIds, item.VideoYoutubeID)
-	}
-	videos, err := s.library.FindVideos(unique(videoIds))
+	videos, err := s.library.FindVideosInPlaylists(meta.YoutubeID)
 	if err != nil {
 		return nil, err
 	}
@@ -194,18 +204,14 @@ func (s *LibraryService) RefreshVideos() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	ids, err := s.library.FindListedVideoIds()
-	if err != nil {
-		return err
-	}
-	stored, err := s.library.FindVideos(ids)
+	stored, err := s.library.FindListedVideos()
 	if err != nil {
 		return err
 	}
 
 	var targets []string
-	for _, id := range ids {
-		if v, ok := stored[id]; ok && v.Available() {
+	for id, v := range stored {
+		if v.Available() {
 			targets = append(targets, id)
 		}
 	}

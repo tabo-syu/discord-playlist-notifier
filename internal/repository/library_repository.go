@@ -11,8 +11,10 @@ import (
 type LibraryRepository interface {
 	FindItems(playlistYoutubeIds ...string) ([]*domain.PlaylistItem, error)
 	FindVideos(videoIds []string) (map[string]*domain.YouTubeVideo, error)
-	// FindListedVideoIds returns the IDs of all videos that are in at least one playlist.
-	FindListedVideoIds() ([]string, error)
+	// FindVideosInPlaylists returns the videos of every item in the given playlists.
+	FindVideosInPlaylists(playlistYoutubeIds ...string) (map[string]*domain.YouTubeVideo, error)
+	// FindListedVideos returns all videos that are in at least one playlist.
+	FindListedVideos() (map[string]*domain.YouTubeVideo, error)
 	// ApplyItems replaces the stored items of a playlist with the given ones
 	// and saves the videos, in one transaction.
 	ApplyItems(playlistYoutubeId string, added []*domain.PlaylistItem, removed []*domain.PlaylistItem, videos []*domain.YouTubeVideo) error
@@ -54,14 +56,31 @@ func (r *libraryRepository) FindVideos(videoIds []string) (map[string]*domain.Yo
 	return videos, nil
 }
 
-func (r *libraryRepository) FindListedVideoIds() ([]string, error) {
-	var ids []string
-	err := r.db.Model(&domain.PlaylistItem{}).Distinct("video_youtube_id").Pluck("video_youtube_id", &ids).Error
-	if err != nil {
+// Filtering with a subquery avoids sending thousands of IDs in an IN clause.
+func (r *libraryRepository) FindVideosInPlaylists(playlistYoutubeIds ...string) (map[string]*domain.YouTubeVideo, error) {
+	listed := r.db.Model(&domain.PlaylistItem{}).Select("video_youtube_id").Where("playlist_youtube_id IN ?", playlistYoutubeIds)
+
+	return r.findVideosIn(listed)
+}
+
+func (r *libraryRepository) FindListedVideos() (map[string]*domain.YouTubeVideo, error) {
+	listed := r.db.Model(&domain.PlaylistItem{}).Select("video_youtube_id")
+
+	return r.findVideosIn(listed)
+}
+
+func (r *libraryRepository) findVideosIn(videoIds *gorm.DB) (map[string]*domain.YouTubeVideo, error) {
+	var rows []*domain.YouTubeVideo
+	if err := r.db.Where("youtube_id IN (?)", videoIds).Find(&rows).Error; err != nil {
 		return nil, err
 	}
 
-	return ids, nil
+	videos := map[string]*domain.YouTubeVideo{}
+	for _, v := range rows {
+		videos[v.YoutubeID] = v
+	}
+
+	return videos, nil
 }
 
 func (r *libraryRepository) ApplyItems(playlistYoutubeId string, added []*domain.PlaylistItem, removed []*domain.PlaylistItem, videos []*domain.YouTubeVideo) error {
