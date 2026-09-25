@@ -57,6 +57,9 @@ type Video struct {
 	PrivacyStatus string
 	// When the video itself was published
 	PublishedAt time.Time
+	// The highest view milestone already reached. Nil until the first time
+	// the views are known, so that existing views are not notified.
+	ViewMilestone *uint64
 }
 
 // HasDetails reports whether the video details have been fetched at least once.

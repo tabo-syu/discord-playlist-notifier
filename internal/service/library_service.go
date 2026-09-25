@@ -152,6 +152,10 @@ func (s *LibraryService) syncPlaylist(meta *repository.PlaylistMeta) (*PlaylistS
 		for _, d := range details {
 			video := videos[d.YoutubeID]
 			mergeDetails(video, d)
+			if video.ViewMilestone == nil {
+				reached := MilestoneFor(video.Views)
+				video.ViewMilestone = &reached
+			}
 			changed[d.YoutubeID] = video
 		}
 	}
@@ -204,14 +208,15 @@ func unique(ids []string) []string {
 }
 
 // RefreshVideos updates the details (views, title, ...) of every video in the
-// watched playlists. Costs 1 unit per 50 videos.
-func (s *LibraryService) RefreshVideos() error {
+// watched playlists, and returns the videos that reached a new view
+// milestone. Costs 1 unit per 50 videos.
+func (s *LibraryService) RefreshVideos() ([]*domain.Video, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	stored, err := s.library.FindListedVideos()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var targets []string
@@ -223,20 +228,45 @@ func (s *LibraryService) RefreshVideos() error {
 
 	fetched, err := s.youtube.FetchVideos(targets)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var toSave []*domain.Video
+	var reached []*domain.Video
 	for _, f := range fetched {
 		video := stored[f.YoutubeID]
 		mergeDetails(video, f)
+
+		milestone := MilestoneFor(video.Views)
+		if video.ViewMilestone != nil && milestone > *video.ViewMilestone {
+			reached = append(reached, video)
+		}
+		if video.ViewMilestone == nil || milestone > *video.ViewMilestone {
+			video.ViewMilestone = &milestone
+		}
 		toSave = append(toSave, video)
 	}
 	if err := s.library.SaveVideos(toSave); err != nil {
-		return err
+		return nil, err
 	}
 
-	log.Println("Refreshed videos:", len(toSave))
+	log.Println("Refreshed videos:", len(toSave), "reached milestones:", len(reached))
 
-	return nil
+	return reached, nil
+}
+
+// PlaylistsContaining returns, for each given video, the YouTube IDs of the
+// playlists that contain it.
+func (s *LibraryService) PlaylistsContaining(videoIds []string) (map[string][]string, error) {
+	items, err := s.library.FindItemsByVideos(videoIds)
+	if err != nil {
+		return nil, err
+	}
+
+	result := map[string][]string{}
+	for _, item := range items {
+		result[item.VideoYoutubeID] = append(result[item.VideoYoutubeID], item.PlaylistYoutubeID)
+	}
+
+	return result, nil
 }
