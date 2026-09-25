@@ -27,8 +27,7 @@ func (r *renderer) RenderUpdatedVideo(playlist *domain.Playlist, location *time.
 		embed := &discordgo.MessageEmbed{
 			Color: red,
 			Author: &discordgo.MessageEmbedAuthor{
-				Name:    video.AddedByChannelName + " さんが " + playlist.Title + " に追加しました！",
-				IconURL: video.AddedByChannelIcon,
+				Name: playlist.Title + " に追加されました！",
 			},
 			Title: video.Title,
 			URL:   fmt.Sprintf("https://www.youtube.com/watch?v=%s&list=%s", video.YoutubeID, playlist.YoutubeID),
