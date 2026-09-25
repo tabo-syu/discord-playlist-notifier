@@ -22,6 +22,8 @@ type PlaylistSnapshot struct {
 	Deleted bool
 	Items   []*domain.PlaylistItem
 	Videos  map[string]*domain.Video
+	// Videos that became private or deleted in this sync
+	Hidden []*domain.Video
 }
 
 // PlaylistVideo is a video together with the playlist item it was found in.
@@ -147,6 +149,7 @@ func (s *LibraryService) syncPlaylist(meta *repository.PlaylistMeta) (*PlaylistS
 	// The privacy of a video is taken from its playlist items, which also
 	// report private and deleted videos, unlike the videos endpoint.
 	changed := map[string]*domain.Video{}
+	var hidden []*domain.Video
 	var needDetails []string
 	for _, f := range fetched {
 		video, ok := videos[f.VideoID]
@@ -155,6 +158,10 @@ func (s *LibraryService) syncPlaylist(meta *repository.PlaylistMeta) (*PlaylistS
 			videos[f.VideoID] = video
 		}
 		if video.PrivacyStatus != f.PrivacyStatus {
+			// Videos seen for the first time are not reported
+			if video.Available() && (f.PrivacyStatus == domain.PrivacyPrivate || f.PrivacyStatus == domain.PrivacyDeleted) {
+				hidden = append(hidden, video)
+			}
 			video.PrivacyStatus = f.PrivacyStatus
 			changed[f.VideoID] = video
 		}
@@ -193,7 +200,7 @@ func (s *LibraryService) syncPlaylist(meta *repository.PlaylistMeta) (*PlaylistS
 		return nil, err
 	}
 
-	return &PlaylistSnapshot{YoutubeID: meta.YoutubeID, Title: meta.Title, Items: items, Videos: videos}, nil
+	return &PlaylistSnapshot{YoutubeID: meta.YoutubeID, Title: meta.Title, Items: items, Videos: videos, Hidden: hidden}, nil
 }
 
 func (s *LibraryService) snapshot(meta *repository.PlaylistMeta, items []*domain.PlaylistItem) (*PlaylistSnapshot, error) {
