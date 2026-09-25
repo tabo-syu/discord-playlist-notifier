@@ -8,6 +8,15 @@ services:
       - .:/go/src/bot
     env_file:
       - .env
+    environment:
+      MCP_ADDR: ":8080"
+    # The MCP server is reached only through playlist-api, which other
+    # projects (claude-bot) join. The db stays on the default network.
+    networks:
+      default:
+      playlist-api:
+        aliases:
+          - playlist-notifier
     depends_on:
       - db
 
@@ -24,3 +33,7 @@ services:
 
 volumes:
   db-data:
+
+networks:
+  playlist-api:
+    name: playlist-api

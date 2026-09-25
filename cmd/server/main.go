@@ -15,6 +15,7 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command/playlist_notifier"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/mcpserver"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/notifier"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/scheduler"
 
@@ -98,6 +99,16 @@ func main() {
 	scheduler := scheduler.NewScheduler(sr, ns)
 	scheduler.Start()
 	defer scheduler.Stop()
+
+	// The MCP server only serves lookups, so the bot keeps running without it
+	if env.MCP_ADDR != "" {
+		mcp := mcpserver.NewServer(env.MCP_ADDR, application.NewQueryService(sbr, ls), location)
+		if err := mcp.Serve(); err != nil {
+			log.Println("Could not start the MCP server cause:", err)
+		} else {
+			defer mcp.Stop()
+		}
+	}
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)

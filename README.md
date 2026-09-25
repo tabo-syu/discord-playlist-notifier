@@ -158,7 +158,28 @@ DDD のレイヤードアーキテクチャで構成しています。依存は�
   - `notification/`: どのチャンネルに何を通知するかを決めるドメインサービス
 - `internal/application/`: ユースケース
 - `internal/infrastructure/`: データベース（GORM）と YouTube Data API の実装
-- `internal/presentation/`: Discord のコマンド処理、定期実行、通知の投稿
+- `internal/presentation/`: Discord のコマンド処理、定期実行、通知の投稿、MCP サーバー
+
+### MCP サーバー
+
+ほかのボット（Claude Code など）から、通知登録されているプレイリストの中身を調べられるように、
+読み取り専用の MCP サーバーを内蔵しています。`docker compose` で起動すると、Docker の
+`playlist-api` ネットワーク上の `http://playlist-notifier:8080/mcp` で待ち受けます
+（ホストにはポートを公開しません）。
+
+| ツール | 内容 |
+|---|---|
+| `list_playlists` | 通知登録されているプレイリストの一覧と曲数 |
+| `find_videos` | 曲名・追加された期間で曲を探す（新しい順・古い順・再生数順） |
+| `playlist_stats` | プレイリストの統計（`/playlist-notifier stats` と同じ内容） |
+| `playlist_wrapped` | 1 年間のまとめ（`/playlist-notifier wrapped` と同じ内容） |
+| `random_videos` | ランダムに曲を選ぶ |
+
+使う側は `playlist-api` ネットワークに参加し、MCP の設定に次のように書きます。
+
+```json
+{ "mcpServers": { "playlist": { "type": "http", "url": "http://playlist-notifier:8080/mcp" } } }
+```
 
 ## ライセンス
 
