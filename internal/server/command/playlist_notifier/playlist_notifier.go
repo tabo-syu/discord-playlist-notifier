@@ -38,6 +38,7 @@ func NewPlaylistNotifier(p *service.PlaylistService, l *service.LibraryService, 
 				sourceSubCommand,
 				statsSubCommand,
 				wrappedSubCommand,
+				randomSubCommand,
 			},
 		},
 		p,
@@ -116,6 +117,17 @@ func (c *PlaylistNotifier) Handle(data *discordgo.ApplicationCommandInteractionD
 		}
 
 		message = c.wrapped(guildId, year)
+	case randomSubCommand.Name:
+		count := 1
+		options := command.ParseArguments(subcommand.Options)
+		if countOption, exists := options[randomCountOption.Name]; exists {
+			count = int(countOption.IntValue())
+		}
+		if count < 1 || count > MAX_RANDOM_COUNT {
+			return "Error: count must be between 1 and 5."
+		}
+
+		message = c.random(guildId, count)
 	default:
 		message = "Error: Unknown subcommand. Please use one of the available subcommands."
 	}
