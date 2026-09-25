@@ -14,10 +14,9 @@ Discord のテキストチャンネルに Embed を投稿する Discord ボッ�
 ## コマンド
 
 ```bash
-# ビルド / 静的チェック / テスト
+# ビルド / 静的チェック（テストスイートは存在しない。「テスト」の節を参照）
 go build ./...
 go vet ./...
-go test ./...
 gofmt -l .          # 何も出力されないこと。「既知の挙動」の節も参照
 
 # スタック全体（ボット + PostgreSQL）を起動する。通常はこちらを使う
@@ -227,10 +226,8 @@ YouTube から直接データを取る前に、DB に保存した中身（`Libra
 
 ## テスト
 
-テストは `internal/service` と `internal/repository` にあります。サービスの
-テストは `internal/service/fakes_test.go` のフェイク（`fakeYouTube`、
-`fakeLibrary`）を使い、データベースやネットワークなしで動きます。
-コマンドハンドラは文字列を返すのでそのままアサートできます。
+現時点でリポジトリに **`_test.go` ファイルは 1 つもありません**。テストコードは書かない
+方針です。
 
 変更の検証は最低でも `go build ./... && go vet ./...` で行ってください。
 Discord や YouTube の挙動に関わる変更は実際の認証情報とテスト用サーバーが
