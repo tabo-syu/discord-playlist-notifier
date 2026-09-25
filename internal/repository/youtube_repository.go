@@ -14,11 +14,35 @@ const (
 	YOUTUBE_TIMEFORMAT   = "2006-01-02T15:04:05Z"
 	MAX_RESULTS_PER_PAGE = 50 // Maximum allowed by YouTube API
 	MAX_BATCH_SIZE       = 50 // Maximum number of IDs per API call
+
+	// Title YouTube returns for playlist items whose video has been deleted
+	DELETED_VIDEO_TITLE = "Deleted video"
 )
+
+// PlaylistMeta is the playlist-level information fetched on every sync.
+type PlaylistMeta struct {
+	YoutubeID string
+	Title     string
+}
+
+// PlaylistItemInfo is one playlist item as returned by the API.
+type PlaylistItemInfo struct {
+	ItemID        string
+	VideoID       string
+	AddedAt       time.Time
+	PrivacyStatus string
+}
 
 type YouTubeRepository interface {
 	FindPlaylists(...string) ([]*domain.Playlist, error)
-	FindPlaylistsWithVideos(...string) ([]*domain.Playlist, error)
+	FetchPlaylistMetas(...string) (map[string]*PlaylistMeta, error)
+	FetchPlaylistItems(playlistId string) ([]*PlaylistItemInfo, error)
+	// FetchVideos returns details of the given videos. Videos that cannot be
+	// seen (private, deleted) are missing from the result.
+	FetchVideos(ids []string) ([]*domain.Video, error)
+	// FetchLiveVideos returns the channel and current views of the given
+	// videos, keyed by video ID. Videos that cannot be seen are missing.
+	FetchLiveVideos(ids []string) (map[string]*domain.LiveVideo, error)
 }
 
 type youTubeRepository struct {
@@ -66,212 +90,187 @@ func (r *youTubeRepository) FindPlaylists(ids ...string) ([]*domain.Playlist, er
 	return response, nil
 }
 
-func (r *youTubeRepository) FindPlaylistsWithVideos(ids ...string) ([]*domain.Playlist, error) {
-	// Log if there are too many IDs
-	if len(ids) > MAX_BATCH_SIZE {
-		log.Printf("Warning: %d playlist IDs provided, processing in batches of %d", len(ids), MAX_BATCH_SIZE)
+// FetchPlaylistMetas costs 1 unit per 50 playlists. Playlists that no longer
+// exist are missing from the result.
+func (r *youTubeRepository) FetchPlaylistMetas(ids ...string) (map[string]*PlaylistMeta, error) {
+	metas := map[string]*PlaylistMeta{}
+	for _, batch := range batches(ids) {
+		lists, err := r.youtube.Playlists.List([]string{"id", "snippet"}).
+			MaxResults(int64(len(batch))).
+			Id(batch...).Do()
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch playlists: %w", err)
+		}
+
+		for _, p := range lists.Items {
+			meta := &PlaylistMeta{YoutubeID: p.Id}
+			if p.Snippet != nil {
+				meta.Title = p.Snippet.Title
+			}
+			metas[p.Id] = meta
+		}
 	}
 
-	var response = []*domain.Playlist{}
+	return metas, nil
+}
 
-	// Process playlists in batches to respect YouTube API limits
+// FetchPlaylistItems costs 1 unit per 50 items.
+func (r *youTubeRepository) FetchPlaylistItems(playlistId string) ([]*PlaylistItemInfo, error) {
+	var items []*PlaylistItemInfo
+	nextPageToken := ""
+	for {
+		call := r.youtube.PlaylistItems.List([]string{"snippet", "status"}).
+			MaxResults(MAX_RESULTS_PER_PAGE).
+			PlaylistId(playlistId)
+		if nextPageToken != "" {
+			call = call.PageToken(nextPageToken)
+		}
+
+		page, err := call.Do()
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch playlist items: %w", err)
+		}
+
+		for _, item := range page.Items {
+			if item.Snippet == nil || item.Snippet.ResourceId == nil {
+				continue
+			}
+
+			addedAt, err := time.Parse(YOUTUBE_TIMEFORMAT, item.Snippet.PublishedAt)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse playlist item publish time: %w", err)
+			}
+
+			items = append(items, &PlaylistItemInfo{
+				ItemID:        item.Id,
+				VideoID:       item.Snippet.ResourceId.VideoId,
+				AddedAt:       addedAt,
+				PrivacyStatus: itemPrivacy(item),
+			})
+		}
+
+		nextPageToken = page.NextPageToken
+		if nextPageToken == "" {
+			break
+		}
+	}
+
+	return items, nil
+}
+
+// FetchVideos costs 1 unit per 50 videos.
+func (r *youTubeRepository) FetchVideos(ids []string) ([]*domain.Video, error) {
+	var videos []*domain.Video
+	for _, batch := range batches(ids) {
+		res, err := r.youtube.Videos.List([]string{"id", "snippet", "statistics", "status"}).
+			MaxResults(int64(len(batch))).
+			Id(batch...).Do()
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch videos: %w", err)
+		}
+
+		for _, v := range res.Items {
+			if v.Snippet == nil {
+				continue
+			}
+
+			publishedAt, err := time.Parse(YOUTUBE_TIMEFORMAT, v.Snippet.PublishedAt)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse video publish time: %w", err)
+			}
+
+			video := &domain.Video{
+				YoutubeID:     v.Id,
+				Title:         v.Snippet.Title,
+				Views:         videoViews(v),
+				PrivacyStatus: domain.PrivacyPublic,
+				PublishedAt:   publishedAt,
+			}
+			if v.Status != nil && v.Status.PrivacyStatus != "" {
+				video.PrivacyStatus = v.Status.PrivacyStatus
+			}
+			videos = append(videos, video)
+		}
+	}
+
+	return videos, nil
+}
+
+// FetchLiveVideos costs 1 unit per 50 videos plus 1 unit per 50 channels.
+func (r *youTubeRepository) FetchLiveVideos(ids []string) (map[string]*domain.LiveVideo, error) {
+	live := map[string]*domain.LiveVideo{}
+	channelOf := map[string]string{}
+	var channelIds []string
+	for _, batch := range batches(ids) {
+		res, err := r.youtube.Videos.List([]string{"id", "snippet", "statistics"}).
+			MaxResults(int64(len(batch))).
+			Id(batch...).Do()
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch videos: %w", err)
+		}
+
+		for _, v := range res.Items {
+			if v.Snippet == nil {
+				continue
+			}
+			live[v.Id] = &domain.LiveVideo{ChannelName: v.Snippet.ChannelTitle, Views: videoViews(v)}
+			channelOf[v.Id] = v.Snippet.ChannelId
+			channelIds = append(channelIds, v.Snippet.ChannelId)
+		}
+	}
+
+	icons := map[string]string{}
+	for _, batch := range batches(unique(channelIds)) {
+		res, err := r.youtube.Channels.List([]string{"id", "snippet"}).
+			MaxResults(int64(len(batch))).
+			Id(batch...).Do()
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch channels: %w", err)
+		}
+
+		for _, c := range res.Items {
+			icons[c.Id] = channelIcon(c)
+		}
+	}
+	for id, v := range live {
+		v.ChannelIcon = icons[channelOf[id]]
+	}
+
+	return live, nil
+}
+
+func batches(ids []string) [][]string {
+	var result [][]string
 	for i := 0; i < len(ids); i += MAX_BATCH_SIZE {
 		end := i + MAX_BATCH_SIZE
 		if end > len(ids) {
 			end = len(ids)
 		}
-
-		batchIds := ids[i:end]
-		lists, err := r.youtube.Playlists.List([]string{"id", "snippet"}).
-			MaxResults(int64(len(batchIds))).
-			Id(batchIds...).Do()
-		if err != nil {
-			return nil, fmt.Errorf("failed to fetch playlists: %w", err)
-		}
-
-		if len(lists.Items) == 0 {
-			if len(ids) == 1 {
-				return nil, domain.ErrYouTubePlaylistNotFound
-			}
-			continue
-		}
-
-		// Process each playlist
-		for _, playlist := range lists.Items {
-			// Fetch all playlist items with pagination
-			var allPlaylistItems []*youtube.PlaylistItem
-			nextPageToken := ""
-
-			for {
-				call := r.youtube.PlaylistItems.List([]string{"snippet"}).
-					MaxResults(MAX_RESULTS_PER_PAGE).
-					PlaylistId(playlist.Id)
-
-				if nextPageToken != "" {
-					call = call.PageToken(nextPageToken)
-				}
-
-				playlistItems, err := call.Do()
-				if err != nil {
-					return nil, fmt.Errorf("failed to fetch playlist items: %w", err)
-				}
-
-				for _, item := range playlistItems.Items {
-					if item.Snippet == nil || item.Snippet.ResourceId == nil {
-						continue
-					}
-					allPlaylistItems = append(allPlaylistItems, item)
-				}
-
-				nextPageToken = playlistItems.NextPageToken
-				if nextPageToken == "" {
-					break
-				}
-			}
-
-			// Skip playlists with no videos
-			if len(allPlaylistItems) == 0 {
-				log.Printf("Playlist %s has no videos, skipping", playlist.Id)
-				continue
-			}
-
-			// Collect video IDs
-			var vids []string
-			for _, item := range allPlaylistItems {
-				vids = append(vids, item.Snippet.ResourceId.VideoId)
-			}
-
-			// Process video IDs in batches
-			var allVideos []*youtube.Video
-			for j := 0; j < len(vids); j += MAX_BATCH_SIZE {
-				endJ := j + MAX_BATCH_SIZE
-				if endJ > len(vids) {
-					endJ = len(vids)
-				}
-
-				batchVids := vids[j:endJ]
-				videos, err := r.youtube.Videos.List([]string{"id", "snippet", "statistics"}).
-					MaxResults(int64(len(batchVids))).
-					Id(batchVids...).Do()
-				if err != nil {
-					return nil, fmt.Errorf("failed to fetch videos: %w", err)
-				}
-
-				allVideos = append(allVideos, videos.Items...)
-			}
-
-			// Skip if all videos were deleted
-			if len(allVideos) == 0 {
-				log.Printf("All videos in playlist %s have been deleted, skipping", playlist.Id)
-				continue
-			}
-
-			// Collect channel IDs
-			var cids []string
-			for _, item := range allVideos {
-				if item.Snippet == nil {
-					continue
-				}
-				cids = append(cids, item.Snippet.ChannelId)
-			}
-
-			// Remove duplicate channel IDs
-			uniqueCids := make(map[string]bool)
-			var uniqueCidsList []string
-			for _, cid := range cids {
-				if !uniqueCids[cid] {
-					uniqueCids[cid] = true
-					uniqueCidsList = append(uniqueCidsList, cid)
-				}
-			}
-
-			// Process channel IDs in batches
-			var allChannels []*youtube.Channel
-			for j := 0; j < len(uniqueCidsList); j += MAX_BATCH_SIZE {
-				endJ := j + MAX_BATCH_SIZE
-				if endJ > len(uniqueCidsList) {
-					endJ = len(uniqueCidsList)
-				}
-
-				batchCids := uniqueCidsList[j:endJ]
-				channels, err := r.youtube.Channels.List([]string{"id", "snippet"}).
-					MaxResults(int64(len(batchCids))).
-					Id(batchCids...).Do()
-				if err != nil {
-					return nil, fmt.Errorf("failed to fetch channels: %w", err)
-				}
-
-				allChannels = append(allChannels, channels.Items...)
-			}
-
-			// Skip if all channels were deleted
-			if len(allChannels) == 0 {
-				log.Printf("All channels for playlist %s have been deleted, skipping", playlist.Id)
-				continue
-			}
-
-			// Create a map for faster lookups
-			videoMap := make(map[string]*youtube.Video)
-			for _, v := range allVideos {
-				videoMap[v.Id] = v
-			}
-
-			channelMap := make(map[string]*youtube.Channel)
-			for _, c := range allChannels {
-				channelMap[c.Id] = c
-			}
-
-			var listVideos = []domain.Video{}
-			for _, listVideo := range allPlaylistItems {
-				videoId := listVideo.Snippet.ResourceId.VideoId
-				video, videoExists := videoMap[videoId]
-				if !videoExists || video.Snippet == nil {
-					// Video was deleted, skip
-					continue
-				}
-
-				channelId := video.Snippet.ChannelId
-				channel, channelExists := channelMap[channelId]
-				if !channelExists || channel.Snippet == nil {
-					// Channel was deleted, skip
-					continue
-				}
-
-				publishedAt, err := time.Parse(YOUTUBE_TIMEFORMAT, listVideo.Snippet.PublishedAt)
-				if err != nil {
-					return nil, fmt.Errorf("failed to parse video publish time: %w", err)
-				}
-
-				ownerPublishedAt, err := time.Parse(YOUTUBE_TIMEFORMAT, video.Snippet.PublishedAt)
-				if err != nil {
-					return nil, fmt.Errorf("failed to parse video owner publish time: %w", err)
-				}
-
-				listVideos = append(listVideos, domain.Video{
-					YoutubeID:        videoId,
-					Title:            listVideo.Snippet.Title,
-					Views:            videoViews(video),
-					Thumbnail:        videoThumbnail(video),
-					ChannelName:      channel.Snippet.Title,
-					ChannelIcon:      channelIcon(channel),
-					PublishedAt:      publishedAt,
-					OwnerPublishedAt: ownerPublishedAt,
-				})
-			}
-
-			response = append(response, &domain.Playlist{
-				YoutubeID: playlist.Id,
-				Title:     playlist.Snippet.Title,
-				Videos:    listVideos,
-			})
-		}
+		result = append(result, ids[i:end])
 	}
 
-	if len(response) == 0 {
-		return nil, domain.ErrYouTubePlaylistNotFound
+	return result
+}
+
+// Private items report "private", deleted items report
+// "privacyStatusUnspecified" with the title "Deleted video".
+func itemPrivacy(item *youtube.PlaylistItem) string {
+	if item.Snippet.Title == DELETED_VIDEO_TITLE {
+		return domain.PrivacyDeleted
+	}
+	if item.Status == nil {
+		return domain.PrivacyPublic
 	}
 
-	return response, nil
+	switch item.Status.PrivacyStatus {
+	case domain.PrivacyPublic, domain.PrivacyUnlisted, domain.PrivacyPrivate:
+		return item.Status.PrivacyStatus
+	case "privacyStatusUnspecified":
+		return domain.PrivacyDeleted
+	default:
+		log.Println("Unknown playlist item privacy status:", item.Status.PrivacyStatus, "item:", item.Id)
+		return domain.PrivacyPublic
+	}
 }
 
 // Some fields of YouTube API responses may be missing, so read them nil-safely
@@ -282,21 +281,22 @@ func videoViews(v *youtube.Video) uint64 {
 	return v.Statistics.ViewCount
 }
 
-func videoThumbnail(v *youtube.Video) string {
-	if v.Snippet == nil || v.Snippet.Thumbnails == nil {
-		return ""
-	}
-	for _, t := range []*youtube.Thumbnail{v.Snippet.Thumbnails.High, v.Snippet.Thumbnails.Medium, v.Snippet.Thumbnails.Default} {
-		if t != nil {
-			return t.Url
-		}
-	}
-	return ""
-}
-
 func channelIcon(c *youtube.Channel) string {
 	if c.Snippet == nil || c.Snippet.Thumbnails == nil || c.Snippet.Thumbnails.Default == nil {
 		return ""
 	}
 	return c.Snippet.Thumbnails.Default.Url
+}
+
+func unique(ids []string) []string {
+	seen := map[string]bool{}
+	var result []string
+	for _, id := range ids {
+		if !seen[id] {
+			seen[id] = true
+			result = append(result, id)
+		}
+	}
+
+	return result
 }

@@ -54,7 +54,15 @@ func init() {
 	if err != nil {
 		log.Fatalf("Could not connect the db: %v", err)
 	}
-	err = db.AutoMigrate(&domain.Guild{}, &domain.Playlist{}, &domain.Video{})
+	// The videos table used to be a history of notified videos. It now holds
+	// the latest state of each video, so the old table is dropped once.
+	if db.Migrator().HasColumn("videos", "playlist_id") {
+		if err := db.Migrator().DropTable("videos"); err != nil {
+			log.Fatalf("Could not drop the old videos table: %v", err)
+		}
+		log.Println("Dropped the old videos table")
+	}
+	err = db.AutoMigrate(&domain.Guild{}, &domain.Playlist{}, &domain.PlaylistItem{}, &domain.Video{})
 	if err != nil {
 		log.Fatalf("Could not migrate tables: %v", err)
 	}
@@ -74,9 +82,11 @@ func main() {
 	yr := repository.NewYouTubeRepository(yt)
 	gr := repository.NewGuildRepository(db)
 	pr := repository.NewPlaylistRepository(db)
+	lr := repository.NewLibraryRepository(db)
 
 	ps := service.NewPlaylistService(yr, pr, gr)
 	gs := service.NewGuildService(gr, pr)
+	ls := service.NewLibraryService(yr, lr)
 	rr := scheduler.NewRenderer(dc)
 
 	commands := []command.Command{playlist_notifier.NewPlaylistNotifier(ps)}
@@ -91,7 +101,7 @@ func main() {
 	}
 	defer server.Stop()
 
-	scheduler := scheduler.NewScheduler(sr, scheduler.NewSchedule(ps, rr))
+	scheduler := scheduler.NewScheduler(sr, scheduler.NewSchedule(ps, ls, rr))
 	scheduler.Start()
 	defer scheduler.Stop()
 

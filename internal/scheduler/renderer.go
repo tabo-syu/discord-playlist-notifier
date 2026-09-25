@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/service"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -20,11 +21,13 @@ func NewRenderer(s *discordgo.Session) *renderer {
 	return &renderer{s}
 }
 
-func (r *renderer) RenderUpdatedVideo(playlist *domain.Playlist, location *time.Location) error {
+func (r *renderer) RenderUpdatedVideo(diff *service.NewVideos, live map[string]*domain.LiveVideo, location *time.Location) error {
 	red := color("ff0000")
+	playlist := diff.Playlist
 
 	var errs []error
-	for _, video := range playlist.Videos {
+	for _, added := range diff.Videos {
+		video := added.Video
 		embed := &discordgo.MessageEmbed{
 			Color: red,
 			Author: &discordgo.MessageEmbedAuthor{
@@ -35,22 +38,19 @@ func (r *renderer) RenderUpdatedVideo(playlist *domain.Playlist, location *time.
 			Fields: []*discordgo.MessageEmbedField{
 				{
 					Name:   "追加日時",
-					Value:  video.PublishedAt.In(location).Format("2006/01/02 15:04:05"),
+					Value:  added.Item.AddedAt.In(location).Format("2006/01/02 15:04:05"),
 					Inline: true,
 				},
 				{
 					Name:   "再生回数",
-					Value:  separator(video.Views),
+					Value:  separator(views(video, live)),
 					Inline: true,
 				},
 			},
-			Image: &discordgo.MessageEmbedImage{URL: video.Thumbnail},
-			Footer: &discordgo.MessageEmbedFooter{
-				Text:    video.ChannelName,
-				IconURL: video.ChannelIcon,
-			},
+			Image:  &discordgo.MessageEmbedImage{URL: video.Thumbnail()},
+			Footer: channelFooter(video, live),
 			// Passing UTC time allows Discord to convert to the user's appropriate timezone
-			Timestamp: video.OwnerPublishedAt.Format(time.RFC3339),
+			Timestamp: video.PublishedAt.Format(time.RFC3339),
 		}
 
 		// Send one message per video, and keep sending the rest even if one fails
@@ -60,6 +60,24 @@ func (r *renderer) RenderUpdatedVideo(playlist *domain.Playlist, location *time.
 	}
 
 	return errors.Join(errs...)
+}
+
+// views prefers the views fetched right before sending.
+func views(video *domain.Video, live map[string]*domain.LiveVideo) uint64 {
+	if l, ok := live[video.YoutubeID]; ok {
+		return l.Views
+	}
+	return video.Views
+}
+
+// channelFooter shows the channel of the video, which is only known when it
+// was fetched right before sending.
+func channelFooter(video *domain.Video, live map[string]*domain.LiveVideo) *discordgo.MessageEmbedFooter {
+	l, ok := live[video.YoutubeID]
+	if !ok {
+		return nil
+	}
+	return &discordgo.MessageEmbedFooter{Text: l.ChannelName, IconURL: l.ChannelIcon}
 }
 
 func color(hex string) int {
