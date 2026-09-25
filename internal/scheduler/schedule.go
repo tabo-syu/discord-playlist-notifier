@@ -5,6 +5,7 @@ import (
 	"runtime/debug"
 	"time"
 
+	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/service"
 )
 
@@ -41,6 +42,8 @@ func (s *schedule) Notify(location *time.Location) {
 		log.Println("Could not notify cause:", err)
 		return
 	}
+
+	s.notifyHiddenVideos(playlists, snapshots)
 
 	diffs := s.playlist.GetDiffFromLatest(playlists, snapshots)
 	if len(diffs) == 0 {
@@ -93,5 +96,15 @@ func (s *schedule) RefreshVideos() {
 
 	if err := s.library.RefreshVideos(); err != nil {
 		log.Println("Could not refresh videos cause:", err)
+	}
+}
+
+func (s *schedule) notifyHiddenVideos(playlists []*domain.Playlist, snapshots map[string]*service.PlaylistSnapshot) {
+	for _, notice := range service.HiddenVideoNotices(playlists, snapshots) {
+		if err := s.renderer.RenderHiddenVideo(notice); err != nil {
+			log.Println("Hidden video notice could not send to", notice.ChannelID, "video:", notice.Video.YoutubeID, "cause:", err)
+		} else {
+			log.Println("Sent hidden video notice to", notice.ChannelID, "video:", notice.Video.YoutubeID, "status:", notice.Video.PrivacyStatus)
+		}
 	}
 }
