@@ -12,4 +12,7 @@ var (
 
 	DISCORD_TOKEN = os.Getenv("DISCORD_ACCESS_TOKEN")
 	YOUTUBE_TOKEN = os.Getenv("YOUTUBE_APIKEY")
+
+	// Address the MCP server listens on, e.g. ":8080". Empty disables it.
+	MCP_ADDR = os.Getenv("MCP_ADDR")
 )

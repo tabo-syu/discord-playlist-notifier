@@ -47,6 +47,7 @@ cmd/server/main.go                   コンポジションルート — 全て�
         │       │     └── command/           コマンド定義とハンドラ
         │       ├── scheduler/               gocron でユースケースを定期実行する
         │       ├── notifier/                application.Notifier の実装: Embed を組み立てて投稿
+        │       ├── mcpserver/               読み取り専用の MCP サーバー（claude-bot などの外部クライアント向け）
         │       └── view/                    コマンドと定期投稿で共有する文言の整形
         │
         ├── internal/infrastructure/         ドメインが宣言したインターフェースの実装
@@ -65,7 +66,7 @@ cmd/server/main.go                   コンポジションルート — 全て�
         └── internal/env/                    プロセスの環境変数
 ```
 
-アプリを駆動する経路は独立して 2 つあります。
+アプリを駆動する経路は独立して 3 つあります。
 
 1. **対話的な経路** — Discord ゲートウェイのイベント → `presentation/discord` →
    `application`（`GuildService`、`SubscriptionService`、`LibraryService`）→ リポジトリ
@@ -74,6 +75,8 @@ cmd/server/main.go                   コンポジションルート — 全て�
    （実装は `presentation/notifier`）が Discord に投稿。
    5 分ごとに `NotifyUpdates`、6 時間ごとに `RefreshVideos`（再生数などの更新と
    節目の通知）、毎日 12:00 に `PostPicks`、12/31 21:00 に `PostWrapped` が動きます
+3. **MCP の経路** — 外部のクライアントが MCP のツールを呼ぶ → `presentation/mcpserver`
+   → `application.QueryService` → リポジトリ（読み取りのみ）
 
 ### ドメインモデル
 
@@ -136,6 +139,25 @@ func(request *discordgo.ApplicationCommandInteractionData, guildId, channelId st
 同じファイルにまとめます（`add.go`、`list.go`、`delete.go`、`source.go`）。
 ハンドラはアプリケーションサービスだけを呼び、文字列の引数を値オブジェクトに
 変換して渡します。
+
+### MCP サーバー（`presentation/mcpserver` と `application.QueryService`）
+
+`MCP_ADDR` が設定されているときだけ、Streamable HTTP の MCP サーバーを
+`MCP_ADDR` の `/mcp` で起動します（公式 SDK `github.com/modelcontextprotocol/go-sdk`、
+ステートレス）。起動に失敗してもログを出すだけで、ボット本体は動き続けます。
+
+- ツールは全て**読み取り専用**です: `list_playlists`、`find_videos`、`playlist_stats`、
+  `playlist_wrapped`、`random_videos`。ツールや引数の説明は日本語です。
+- `QueryService` は DB に保存した中身だけを読み、YouTube API は呼びません
+  （クォータを使いません）。見せるのは、どこかのギルドが通知登録している
+  プレイリストだけで、Discord のギルド ID やチャンネル ID は返しません。
+- 出力は構造化された JSON で、SDK が出力スキーマで検証します。nil のスライスは
+  `null` になってスキーマ違反になるので、必ず空のスライスを返してください。
+- 公開範囲は Docker ネットワークで絞っています。`docker-compose.yml` でボットを
+  `playlist-api` ネットワークにも接続し、そこでは `playlist-notifier` という別名で
+  公開します（URL は `http://playlist-notifier:8080/mcp`）。DB は既定のネットワークにしか
+  いないので、`playlist-api` に参加した他のプロジェクトからは届きません。ホストには
+  ポートを公開していません。認証はないので、公開範囲を広げるときは注意してください。
 
 ### 定期実行（`presentation/scheduler` と `application.NotificationService`）
 
@@ -250,8 +272,9 @@ Docker の外で実行する場合は、自分で環境変数をエクスポー�
 | `DB_TIMEZONE` | IANA のタイムゾーン名。DSN と gocron のロケーションの両方に使われる |
 | `DISCORD_ACCESS_TOKEN` | `env.DISCORD_TOKEN` に読み込まれる |
 | `YOUTUBE_APIKEY` | `env.YOUTUBE_TOKEN` に読み込まれる |
+| `MCP_ADDR` | MCP サーバーの待ち受けアドレス（例 `:8080`）。空なら起動しない。`docker-compose.yml` の `environment:` で設定している |
 
-最後の 2 つは環境変数名と Go の識別子名が一致していない点に注意してください。
+`DISCORD_ACCESS_TOKEN` と `YOUTUBE_APIKEY` は、環境変数名と Go の識別子名が一致していない点に注意してください。
 
 `.env`（gitignore 済み）をコミットしないこと。また、実際のトークンをコード、
 テスト、コミットメッセージ、PR の説明に貼り付けないこと。

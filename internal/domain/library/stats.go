@@ -23,6 +23,7 @@ type Stats struct {
 	AddedLast30Days int
 	AddedThisMonth  int
 	FirstAddedAt    time.Time
+	LastAddedAt     time.Time
 	TopViewed       []*Video
 	// The last STATS_MONTHS months including the current one, oldest first
 	Monthly []MonthCount
@@ -43,6 +44,9 @@ func ComputeStats(contents []*PlaylistVideo, now time.Time, loc *time.Location) 
 		addedAt := c.Item.AddedAt.In(loc)
 		if stats.FirstAddedAt.IsZero() || addedAt.Before(stats.FirstAddedAt) {
 			stats.FirstAddedAt = addedAt
+		}
+		if addedAt.After(stats.LastAddedAt) {
+			stats.LastAddedAt = addedAt
 		}
 		if now.Sub(addedAt) <= 30*24*time.Hour {
 			stats.AddedLast30Days++
