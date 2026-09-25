@@ -36,6 +36,7 @@ func NewPlaylistNotifier(p *service.PlaylistService, l *service.LibraryService, 
 				addSubCommand,
 				deleteSubCommand,
 				sourceSubCommand,
+				statsSubCommand,
 			},
 		},
 		p,
@@ -98,6 +99,14 @@ func (c *PlaylistNotifier) Handle(data *discordgo.ApplicationCommandInteractionD
 		message = c.delete(guildId, playlistId)
 	case sourceSubCommand.Name:
 		message = c.source()
+	case statsSubCommand.Name:
+		playlistId := ""
+		options := command.ParseArguments(subcommand.Options)
+		if playlistOption, exists := options[playlistIdOption.Name]; exists {
+			playlistId = playlistOption.StringValue()
+		}
+
+		message = c.stats(guildId, playlistId)
 	default:
 		message = "Error: Unknown subcommand. Please use one of the available subcommands."
 	}
