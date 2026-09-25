@@ -8,19 +8,20 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/env"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/repository"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/scheduler"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/server"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/server/command"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/server/command/playlist_notifier"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/service"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/infrastructure/persistence"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/infrastructure/youtube"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command/playlist_notifier"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/notifier"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/scheduler"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/go-co-op/gocron"
 	"google.golang.org/api/option"
-	"google.golang.org/api/youtube/v3"
+	ytapi "google.golang.org/api/youtube/v3"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -29,7 +30,7 @@ var (
 	sr *gocron.Scheduler
 	db *gorm.DB
 	dc *discordgo.Session
-	yt *youtube.Service
+	yt *ytapi.Service
 )
 
 func init() {
@@ -54,16 +55,7 @@ func init() {
 	if err != nil {
 		log.Fatalf("Could not connect the db: %v", err)
 	}
-	// The videos table used to be a history of notified videos. It now holds
-	// the latest state of each video, so the old table is dropped once.
-	if db.Migrator().HasColumn("videos", "playlist_id") {
-		if err := db.Migrator().DropTable("videos"); err != nil {
-			log.Fatalf("Could not drop the old videos table: %v", err)
-		}
-		log.Println("Dropped the old videos table")
-	}
-	err = db.AutoMigrate(&domain.Guild{}, &domain.Playlist{}, &domain.PlaylistItem{}, &domain.Video{})
-	if err != nil {
+	if err := persistence.Migrate(db); err != nil {
 		log.Fatalf("Could not migrate tables: %v", err)
 	}
 
@@ -72,36 +64,38 @@ func init() {
 		log.Fatalf("Invalid discord token: %v", err)
 	}
 
-	yt, err = youtube.NewService(context.Background(), option.WithAPIKey(env.YOUTUBE_TOKEN))
+	yt, err = ytapi.NewService(context.Background(), option.WithAPIKey(env.YOUTUBE_TOKEN))
 	if err != nil {
 		log.Fatalf("Invalid youtube token: %v", err)
 	}
 }
 
 func main() {
-	yr := repository.NewYouTubeRepository(yt)
-	gr := repository.NewGuildRepository(db)
-	pr := repository.NewPlaylistRepository(db)
-	lr := repository.NewLibraryRepository(db)
+	location := sr.Location()
 
-	ps := service.NewPlaylistService(yr, pr, gr)
-	gs := service.NewGuildService(gr, pr)
-	ls := service.NewLibraryService(yr, lr)
-	rr := scheduler.NewRenderer(dc)
+	yc := youtube.NewClient(yt)
+	gr := persistence.NewGuildRepository(db)
+	sbr := persistence.NewSubscriptionRepository(db)
+	lr := persistence.NewLibraryRepository(db)
 
-	commands := []command.Command{playlist_notifier.NewPlaylistNotifier(ps, ls, sr.Location())}
-	server := server.NewServer(
+	ss := application.NewSubscriptionService(yc, sbr, gr)
+	gs := application.NewGuildService(gr, sbr)
+	ls := application.NewLibraryService(yc, lr, location)
+	ns := application.NewNotificationService(sbr, ls, notifier.New(dc, location), location)
+
+	commands := []command.Command{playlist_notifier.NewPlaylistNotifier(ss, ls, location)}
+	server := discord.NewServer(
 		dc,
-		server.NewRegisterer(dc, commands),
-		server.NewEvent(gs),
-		server.NewRouter(commands),
+		discord.NewRegisterer(dc, commands),
+		discord.NewEvent(gs),
+		discord.NewRouter(commands),
 	)
 	if err := server.Serve(); err != nil {
 		log.Fatalf("Cannot open the session: %v", err)
 	}
 	defer server.Stop()
 
-	scheduler := scheduler.NewScheduler(sr, scheduler.NewSchedule(ps, ls, rr))
+	scheduler := scheduler.NewScheduler(sr, ns)
 	scheduler.Start()
 	defer scheduler.Stop()
 

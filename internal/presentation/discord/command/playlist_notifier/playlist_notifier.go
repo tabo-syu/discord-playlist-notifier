@@ -1,0 +1,149 @@
+package playlist_notifier
+
+import (
+	"time"
+
+	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command"
+
+	"github.com/bwmarrin/discordgo"
+)
+
+type PlaylistNotifier struct {
+	command       *discordgo.ApplicationCommand
+	subscriptions *application.SubscriptionService
+	library       *application.LibraryService
+	// Time zone used to show dates and to group them by month or year
+	location *time.Location
+}
+
+var (
+	playlistIdOption = &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionString,
+		Name:        "playlist-id",
+		Description: "YouTube のプレイリストページの URL 末尾に付く ID を入力します。",
+		Required:    true,
+	}
+)
+
+func NewPlaylistNotifier(s *application.SubscriptionService, l *application.LibraryService, loc *time.Location) *PlaylistNotifier {
+	return &PlaylistNotifier{
+		&discordgo.ApplicationCommand{
+			Name:        "playlist-notifier",
+			Description: "テキストチャンネルに YouTube のプレイリストの更新を通知します。",
+			Options: []*discordgo.ApplicationCommandOption{
+				listSubCommand,
+				addSubCommand,
+				deleteSubCommand,
+				sourceSubCommand,
+				statsSubCommand,
+				wrappedSubCommand,
+				randomSubCommand,
+				pickSubCommand,
+			},
+		},
+		s,
+		l,
+		loc,
+	}
+}
+
+func (c *PlaylistNotifier) GetCommand() *discordgo.ApplicationCommand {
+	return c.command
+}
+
+func (c *PlaylistNotifier) SetCommand(cmd *discordgo.ApplicationCommand) {
+	c.command = cmd
+}
+
+func (c *PlaylistNotifier) Handle(data *discordgo.ApplicationCommandInteractionData, guildId string, channelId string) string {
+	// Check if Options array is empty
+	if len(data.Options) == 0 {
+		return "Error: No subcommand provided. Please use one of the available subcommands."
+	}
+
+	subcommand := data.Options[0]
+	// Verify that the option is a subcommand
+	if subcommand.Type != discordgo.ApplicationCommandOptionSubCommand {
+		return "Error: Invalid command format. Please use one of the available subcommands."
+	}
+
+	var message string
+	switch subcommand.Name {
+	case listSubCommand.Name:
+		message = c.list(guildId)
+	case addSubCommand.Name:
+		options := command.ParseArguments(subcommand.Options)
+		// Check if the required option exists
+		playlistOption, exists := options[playlistIdOption.Name]
+		if !exists {
+			return "Error: Playlist ID is required."
+		}
+
+		playlistId := playlistOption.StringValue()
+		if playlistId == "" {
+			return "Error: Playlist ID cannot be empty."
+		}
+
+		message = c.add(guildId, channelId, playlistId)
+	case deleteSubCommand.Name:
+		options := command.ParseArguments(subcommand.Options)
+		// Check if the required option exists
+		playlistOption, exists := options[playlistIdOption.Name]
+		if !exists {
+			return "Error: Playlist ID is required."
+		}
+
+		playlistId := playlistOption.StringValue()
+		if playlistId == "" {
+			return "Error: Playlist ID cannot be empty."
+		}
+
+		message = c.delete(guildId, playlistId)
+	case sourceSubCommand.Name:
+		message = c.source()
+	case statsSubCommand.Name:
+		playlistId := ""
+		options := command.ParseArguments(subcommand.Options)
+		if playlistOption, exists := options[playlistIdOption.Name]; exists {
+			playlistId = playlistOption.StringValue()
+		}
+
+		message = c.stats(guildId, playlistId)
+	case wrappedSubCommand.Name:
+		year := 0
+		options := command.ParseArguments(subcommand.Options)
+		if yearOption, exists := options[wrappedYearOption.Name]; exists {
+			year = int(yearOption.IntValue())
+		}
+
+		message = c.wrapped(guildId, year)
+	case randomSubCommand.Name:
+		count := 1
+		options := command.ParseArguments(subcommand.Options)
+		if countOption, exists := options[randomCountOption.Name]; exists {
+			count = int(countOption.IntValue())
+		}
+		if count < 1 || count > MAX_RANDOM_COUNT {
+			return "Error: count must be between 1 and 5."
+		}
+
+		message = c.random(guildId, count)
+	case pickSubCommand.Name:
+		options := command.ParseArguments(subcommand.Options)
+		playlistOption, exists := options[playlistIdOption.Name]
+		if !exists || playlistOption.StringValue() == "" {
+			return "Error: Playlist ID is required."
+		}
+		intervalOption, exists := options[pickIntervalOption.Name]
+		if !exists {
+			return "Error: interval is required."
+		}
+
+		message = c.pick(guildId, playlistOption.StringValue(), intervalOption.StringValue())
+	default:
+		message = "Error: Unknown subcommand. Please use one of the available subcommands."
+	}
+
+	return message
+}
