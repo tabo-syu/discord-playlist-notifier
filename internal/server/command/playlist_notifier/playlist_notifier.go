@@ -39,6 +39,7 @@ func NewPlaylistNotifier(p *service.PlaylistService, l *service.LibraryService, 
 				statsSubCommand,
 				wrappedSubCommand,
 				randomSubCommand,
+				dailySubCommand,
 			},
 		},
 		p,
@@ -128,6 +129,18 @@ func (c *PlaylistNotifier) Handle(data *discordgo.ApplicationCommandInteractionD
 		}
 
 		message = c.random(guildId, count)
+	case dailySubCommand.Name:
+		options := command.ParseArguments(subcommand.Options)
+		playlistOption, exists := options[playlistIdOption.Name]
+		if !exists || playlistOption.StringValue() == "" {
+			return "Error: Playlist ID is required."
+		}
+		enabledOption, exists := options[dailyEnabledOption.Name]
+		if !exists {
+			return "Error: enabled is required."
+		}
+
+		message = c.daily(guildId, playlistOption.StringValue(), enabledOption.BoolValue())
 	default:
 		message = "Error: Unknown subcommand. Please use one of the available subcommands."
 	}

@@ -92,6 +92,21 @@ func (s *PlaylistService) Unregister(guildId string, playlistId string) error {
 	return nil
 }
 
+func (s *PlaylistService) SetDailyPick(guildId string, playlistId string, enabled bool) error {
+	playlists, err := s.playlist.FindByDiscordId(guildId)
+	if err != nil {
+		return err
+	}
+
+	for _, playlist := range playlists {
+		if playlist.YoutubeID == playlistId {
+			return s.playlist.SetDailyPick(playlist, enabled)
+		}
+	}
+
+	return domain.ErrDBRecordNotFound
+}
+
 // NewVideos are the videos added to a registered playlist since its last notification.
 type NewVideos struct {
 	Playlist *domain.Playlist

@@ -18,6 +18,8 @@ type Playlist struct {
 	YoutubeID     string
 	SendChannelID string
 	Title         string
+	// Whether to post a random video from the playlist every day
+	DailyPick bool
 	// foreign
 	GuildID uint
 	Guild   Guild
