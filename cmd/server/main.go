@@ -81,7 +81,7 @@ func main() {
 	ls := service.NewLibraryService(yr, lr)
 	rr := scheduler.NewRenderer(dc)
 
-	commands := []command.Command{playlist_notifier.NewPlaylistNotifier(ps)}
+	commands := []command.Command{playlist_notifier.NewPlaylistNotifier(ps, ls)}
 	server := server.NewServer(
 		dc,
 		server.NewRegisterer(dc, commands),

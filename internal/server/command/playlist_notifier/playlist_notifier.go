@@ -10,6 +10,7 @@ import (
 type PlaylistNotifier struct {
 	command  *discordgo.ApplicationCommand
 	playlist *service.PlaylistService
+	library  *service.LibraryService
 }
 
 var (
@@ -21,7 +22,7 @@ var (
 	}
 )
 
-func NewPlaylistNotifier(p *service.PlaylistService) *PlaylistNotifier {
+func NewPlaylistNotifier(p *service.PlaylistService, l *service.LibraryService) *PlaylistNotifier {
 	return &PlaylistNotifier{
 		&discordgo.ApplicationCommand{
 			Name:        "playlist-notifier",
@@ -34,6 +35,7 @@ func NewPlaylistNotifier(p *service.PlaylistService) *PlaylistNotifier {
 			},
 		},
 		p,
+		l,
 	}
 }
 
