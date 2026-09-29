@@ -6,11 +6,8 @@ type ViewCount uint64
 // View counts that are worth a notification
 var ViewMilestones = []ViewCount{
 	100_000,
-	500_000,
 	1_000_000,
-	5_000_000,
 	10_000_000,
-	50_000_000,
 	100_000_000,
 }
 
