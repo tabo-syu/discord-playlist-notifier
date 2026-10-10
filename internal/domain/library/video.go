@@ -18,6 +18,9 @@ type Video struct {
 	// The highest view milestone already reached. Nil until the first time
 	// the views are known, so that existing views are not notified.
 	ViewMilestone *ViewCount
+	// Zero when hidden by the owner or turned off
+	Likes    uint64
+	Comments uint64
 }
 
 func (Video) TableName() string {
@@ -57,6 +60,8 @@ func (v *Video) ChangePrivacy(status PrivacyStatus) (changed bool, hidden bool) 
 func (v *Video) ApplyDetails(details *Video) {
 	v.Title = details.Title
 	v.Views = details.Views
+	v.Likes = details.Likes
+	v.Comments = details.Comments
 	v.PublishedAt = details.PublishedAt
 }
 
