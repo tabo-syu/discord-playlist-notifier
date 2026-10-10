@@ -16,4 +16,6 @@ type Repository interface {
 	ApplyItems(playlistID PlaylistID, added []*PlaylistItem, removed []*PlaylistItem, videos []*Video) error
 	// SaveVideos overwrites every column of the given videos.
 	SaveVideos(videos []*Video) error
+	// AddViewLogs appends the given view counts to the history.
+	AddViewLogs(logs []*ViewLog) error
 }
