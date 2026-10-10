@@ -102,12 +102,12 @@ func (r *libraryRepository) SaveVideos(videos []*library.Video) error {
 	return saveVideos(r.db, videos)
 }
 
-func (r *libraryRepository) AddViewLogs(logs []*library.ViewLog) error {
-	if len(logs) == 0 {
+func (r *libraryRepository) AddSnapshots(snapshots []*library.VideoSnapshot) error {
+	if len(snapshots) == 0 {
 		return nil
 	}
 
-	return r.db.CreateInBatches(logs, 500).Error
+	return r.db.CreateInBatches(snapshots, 500).Error
 }
 
 // Callers pass complete rows (existing values merged with the new ones), so

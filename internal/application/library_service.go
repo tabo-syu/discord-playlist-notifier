@@ -141,7 +141,7 @@ func (s *LibraryService) snapshot(meta *library.PlaylistMeta, items []*library.P
 }
 
 // RefreshVideos updates the details (views, title, ...) of every video in the
-// watched playlists, records their views in the history, and returns the
+// watched playlists, records their state in the history, and returns the
 // videos that reached a new view milestone. Costs 1 unit per 50 videos.
 func (s *LibraryService) RefreshVideos() ([]*library.Video, error) {
 	s.mu.Lock()
@@ -166,7 +166,7 @@ func (s *LibraryService) RefreshVideos() ([]*library.Video, error) {
 
 	now := s.now()
 	var toSave []*library.Video
-	var logs []*library.ViewLog
+	var snapshots []*library.VideoSnapshot
 	var reached []*library.Video
 	for _, f := range fetched {
 		video := stored[f.YoutubeID]
@@ -175,14 +175,14 @@ func (s *LibraryService) RefreshVideos() ([]*library.Video, error) {
 			reached = append(reached, video)
 		}
 		toSave = append(toSave, video)
-		logs = append(logs, library.NewViewLog(video, now))
+		snapshots = append(snapshots, library.NewVideoSnapshot(video, now))
 	}
 	if err := s.library.SaveVideos(toSave); err != nil {
 		return nil, err
 	}
 	// The history is not needed for the milestones, so they are still notified
-	if err := s.library.AddViewLogs(logs); err != nil {
-		log.Println("Could not record view logs cause:", err)
+	if err := s.library.AddSnapshots(snapshots); err != nil {
+		log.Println("Could not record video snapshots cause:", err)
 	}
 
 	log.Println("Refreshed videos:", len(toSave), "reached milestones:", len(reached))

@@ -177,17 +177,19 @@ func(request *discordgo.ApplicationCommandInteractionData, guildId, channelId st
 ### プレイリストの中身の保存（`domain/library` と `LibraryService`）
 
 YouTube プレイリストの中身は、サーバーごとの通知設定（`subscription.Subscription`）
-とは別に、YouTube のプレイリスト ID 単位で 2 つのテーブルに保存し、再生数の履歴も残します。
+とは別に、YouTube のプレイリスト ID 単位で 2 つのテーブルに保存し、動画の状態の履歴も残します。
 
 - `playlist_items`（`library.PlaylistItem`）— プレイリストの各アイテム。
   `AddedAt` はプレイリストに追加された時刻です。
 - `videos`（`library.Video`）— 動画ごとの最新の情報（タイトル、再生数、
-  公開状態、投稿日時）。非公開や削除になっても、タイトルなどの詳細は消さずに
+  高評価数、コメント数、公開状態、投稿日時）。非公開や削除になっても、タイトルなどの詳細は消さずに
   残します。`Available()` が真の動画だけをユーザーに見せます。サムネイルは
   動画 ID から作れるので保存しません（`Thumbnail()`）。
-- `view_logs`（`library.ViewLog`）— 再生数の履歴。`RefreshVideos` が 6 時間ごとに、
-  更新した全動画の再生数を同じ時刻で 1 行ずつ追記します。記録に失敗しても
-  ログを出すだけで、節目の通知は続けます。古い行を消す処理はありません。
+- `video_snapshots`（`library.VideoSnapshot`）— 動画の状態の履歴（タイトル、
+  公開状態、再生数、高評価数、コメント数）。`RefreshVideos` が 6 時間ごとに、
+  更新した全動画の分を同じ時刻で 1 行ずつ追記します。値は `videos.list` の
+  結果から取るので、クォータは増えません。記録に失敗してもログを出すだけで、
+  節目の通知は続けます。古い行を消す処理はありません。
 
 投稿者（チャンネル名とアイコン）は保存しません。通知を送る直前に
 `LibraryService.LiveVideos` で取得し（最新の再生数も一緒に取れます）、
