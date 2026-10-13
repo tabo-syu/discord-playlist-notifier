@@ -148,6 +148,10 @@ func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, error) {
 				PrivacyStatus: library.PrivacyPublic,
 				PublishedAt:   publishedAt,
 			}
+			if v.Statistics != nil {
+				video.Likes = v.Statistics.LikeCount
+				video.Comments = v.Statistics.CommentCount
+			}
 			if v.Status != nil && v.Status.PrivacyStatus != "" {
 				video.PrivacyStatus = library.PrivacyStatus(v.Status.PrivacyStatus)
 			}
