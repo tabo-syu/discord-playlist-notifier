@@ -1,6 +1,8 @@
 package persistence
 
 import (
+	"time"
+
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 
 	"gorm.io/gorm"
@@ -108,6 +110,16 @@ func (r *libraryRepository) AddSnapshots(snapshots []*library.VideoSnapshot) err
 	}
 
 	return r.db.CreateInBatches(snapshots, 500).Error
+}
+
+func (r *libraryRepository) FindSnapshots(id library.VideoID, since time.Time) ([]*library.VideoSnapshot, error) {
+	var snapshots []*library.VideoSnapshot
+	err := r.db.Where("video_youtube_id = ? AND recorded_at >= ?", id, since).Order("recorded_at").Find(&snapshots).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return snapshots, nil
 }
 
 // Callers pass complete rows (existing values merged with the new ones), so

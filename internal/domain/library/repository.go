@@ -1,5 +1,7 @@
 package library
 
+import "time"
+
 // Repository stores the contents of watched YouTube playlists.
 type Repository interface {
 	// FindItems returns the items of the given playlists, ordered by the time they were added.
@@ -18,4 +20,7 @@ type Repository interface {
 	SaveVideos(videos []*Video) error
 	// AddSnapshots appends the given states of videos to the history.
 	AddSnapshots(snapshots []*VideoSnapshot) error
+	// FindSnapshots returns the states of the video recorded at or after
+	// since, oldest first.
+	FindSnapshots(id VideoID, since time.Time) ([]*VideoSnapshot, error)
 }

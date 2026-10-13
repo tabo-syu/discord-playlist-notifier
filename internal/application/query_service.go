@@ -221,6 +221,17 @@ func (s *QueryService) Wrapped(id library.PlaylistID, year int) (*library.Wrappe
 	return s.library.Wrapped(id, year)
 }
 
+// History returns the states of a video in the watched playlists recorded at
+// or after since, or domain.ErrDBRecordNotFound.
+func (s *QueryService) History(id library.VideoID, since time.Time) (*library.VideoHistory, error) {
+	ids, err := s.scope("")
+	if err != nil {
+		return nil, err
+	}
+
+	return s.library.History(ids, id, since)
+}
+
 // RandomVideos picks up to n distinct available videos from a watched
 // playlist, or from all of them when id is empty.
 func (s *QueryService) RandomVideos(id library.PlaylistID, n int) ([]*library.PlaylistVideo, error) {

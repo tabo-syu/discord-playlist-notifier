@@ -104,6 +104,15 @@ YouTubeのプレイリストを監視し、新しい動画が追加されるとD
 
 ボットのGitHubリポジトリへのリンクを表示します。
 
+#### `/playlist-notifier history [video] [days]`
+
+通知登録されているプレイリストの動画について、再生数と高評価数の推移をグラフの画像で表示します。
+
+- `video`: 動画の URL か ID（`youtube.com/watch?v=`、`youtu.be/`、`music.youtube.com`、`shorts/` の URL に対応）
+- `days`: さかのぼる日数（1〜365、省略すると 30）
+
+再生数などは 6 時間ごとに記録しているので、記録が 2 回分たまるまではグラフを出せません。
+
 ## 動作の仕組み
 
 1. ボットは5分ごとに登録されたすべてのYouTubeプレイリストをチェックします。
@@ -120,13 +129,14 @@ DB の各テーブルの行が、いつ作られ、いつ更新され、いつ�
 テーブルは役割で 2 つに分かれます。
 
 - **サーバーごとの設定**（`guilds`、`playlists`）: Discord のイベントとスラッシュコマンドで変わる
-- **プレイリストの中身**（`playlist_items`、`videos`）: YouTube から取ってきたもの。全サーバーで共有し、定期実行で変わる
+- **プレイリストの中身**（`playlist_items`、`videos`、`video_snapshots`）: YouTube から取ってきたもの。全サーバーで共有し、定期実行で変わる
 
 ```mermaid
 erDiagram
     guilds ||--o{ playlists : "guild_id (FK)"
     playlists }o..o{ playlist_items : "youtube_id = playlist_youtube_id"
     videos ||..o{ playlist_items : "youtube_id = video_youtube_id"
+    videos ||..o{ video_snapshots : "youtube_id = video_youtube_id"
 
     guilds {
         bigint id PK
@@ -158,6 +168,18 @@ erDiagram
         text privacy_status
         timestamptz published_at
         bigint view_milestone
+        bigint likes
+        bigint comments
+    }
+    video_snapshots {
+        bigint id PK
+        text video_youtube_id "複合 index (1)"
+        timestamptz recorded_at "複合 index (2)"
+        text title
+        text privacy_status
+        bigint views
+        bigint likes
+        bigint comments
     }
 ```
 
@@ -174,10 +196,10 @@ erDiagram
 | `/playlist-notifier delete` | コマンド | | 論理削除 | | |
 | `/playlist-notifier pick` | コマンド | | `pick_interval` を更新 | | |
 | `NotifyUpdates`（新着の通知） | 5 分 | | `updated_at`・`title` を更新 | 追加・物理削除 | 作成・公開状態と詳細を更新 |
-| `RefreshVideos`（再生数の更新） | 6 時間 | | | | 詳細・節目を更新 |
+| `RefreshVideos`（再生数の更新） | 6 時間 | | | | 詳細・節目を更新（`video_snapshots` に追記） |
 | `PostPicks` / `PostWrapped` | 毎日 / 年末 | | | | （読むだけ） |
 
-物理削除するのは `playlist_items` だけです。`guilds` と `playlists` は論理削除（`deleted_at`）、`videos` は削除しません。
+物理削除するのは `playlist_items` だけです。`guilds` と `playlists` は論理削除（`deleted_at`）、`videos` と `video_snapshots` は削除しません。
 
 ### `guilds` — ボットが参加しているサーバー
 
@@ -256,6 +278,15 @@ stateDiagram-v2
   - `playlist_items` に入っている動画が対象なので、**全サーバーで登録が外れたプレイリストの動画も更新し続けます**。
 - **削除**: しません。非公開・削除になっても、どのプレイリストから外れても、最後に分かっている詳細を残します。
 
+#### `video_snapshots` — 動画の状態の履歴
+
+- **追記**: 6 時間ごとの `RefreshVideos` が `videos` を更新したあと、更新した全動画の状態（タイトル・公開状態・再生数・高評価数・コメント数）を、同じ `recorded_at` で 1 行ずつ追記します。値は同じ `videos.list` の結果から取るので、クォータは増えません。
+  - 対象は `videos` の更新と同じで、観られる動画だけです。非公開・削除になっている間は記録しません。
+  - 高評価数やコメント数は、投稿者が非表示・無効にしていると 0 になります。
+  - 記録に失敗してもログを出すだけで、節目の通知は続けます。
+- **読み出し**: `/playlist-notifier history` と MCP の `video_history` が、動画ごとに期間を区切って読みます。
+- **更新・削除**: しません。1 年で約 220 万行（300〜500 MB 程度）増える見込みです。
+
 ### 保存しないもの
 
 | もの | どうしているか |
@@ -272,6 +303,7 @@ stateDiagram-v2
 
 - 論理削除された `guilds` と `playlists` の行
 - どのプレイリストからも外れた `videos` の行
+- `video_snapshots` の行（6 時間ごとに動画の数だけ増える）
 - 全サーバーで登録が外れたプレイリストの `playlist_items`（と、その動画の 6 時間ごとの更新）
 
 どれも 1 行が小さく数も少ないので、現状は問題になっていません。
@@ -340,6 +372,7 @@ DDD のレイヤードアーキテクチャで構成しています。依存は�
 | `playlist_stats` | プレイリストの統計（`/playlist-notifier stats` と同じ内容） |
 | `playlist_wrapped` | 1 年間のまとめ（`/playlist-notifier wrapped` と同じ内容） |
 | `random_videos` | ランダムに曲を選ぶ |
+| `video_history` | 曲のタイトル・公開状態・再生数・高評価数・コメント数の推移（6 時間ごとの記録） |
 
 使う側は `playlist-api` ネットワークに参加し、MCP の設定に次のように書きます。
 

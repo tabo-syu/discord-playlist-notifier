@@ -66,7 +66,8 @@ func (s *Server) Serve() error {
 		err := d.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: response,
+				Content: response.Content,
+				Files:   response.Files,
 			},
 		})
 		if err != nil {

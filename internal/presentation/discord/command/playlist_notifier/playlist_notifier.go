@@ -40,6 +40,7 @@ func NewPlaylistNotifier(s *application.SubscriptionService, l *application.Libr
 				wrappedSubCommand,
 				randomSubCommand,
 				pickSubCommand,
+				historySubCommand,
 			},
 		},
 		s,
@@ -56,16 +57,16 @@ func (c *PlaylistNotifier) SetCommand(cmd *discordgo.ApplicationCommand) {
 	c.command = cmd
 }
 
-func (c *PlaylistNotifier) Handle(data *discordgo.ApplicationCommandInteractionData, guildId string, channelId string) string {
+func (c *PlaylistNotifier) Handle(data *discordgo.ApplicationCommandInteractionData, guildId string, channelId string) *command.Response {
 	// Check if Options array is empty
 	if len(data.Options) == 0 {
-		return "Error: No subcommand provided. Please use one of the available subcommands."
+		return command.Text("Error: No subcommand provided. Please use one of the available subcommands.")
 	}
 
 	subcommand := data.Options[0]
 	// Verify that the option is a subcommand
 	if subcommand.Type != discordgo.ApplicationCommandOptionSubCommand {
-		return "Error: Invalid command format. Please use one of the available subcommands."
+		return command.Text("Error: Invalid command format. Please use one of the available subcommands.")
 	}
 
 	var message string
@@ -77,12 +78,12 @@ func (c *PlaylistNotifier) Handle(data *discordgo.ApplicationCommandInteractionD
 		// Check if the required option exists
 		playlistOption, exists := options[playlistIdOption.Name]
 		if !exists {
-			return "Error: Playlist ID is required."
+			return command.Text("Error: Playlist ID is required.")
 		}
 
 		playlistId := playlistOption.StringValue()
 		if playlistId == "" {
-			return "Error: Playlist ID cannot be empty."
+			return command.Text("Error: Playlist ID cannot be empty.")
 		}
 
 		message = c.add(guildId, channelId, playlistId)
@@ -91,12 +92,12 @@ func (c *PlaylistNotifier) Handle(data *discordgo.ApplicationCommandInteractionD
 		// Check if the required option exists
 		playlistOption, exists := options[playlistIdOption.Name]
 		if !exists {
-			return "Error: Playlist ID is required."
+			return command.Text("Error: Playlist ID is required.")
 		}
 
 		playlistId := playlistOption.StringValue()
 		if playlistId == "" {
-			return "Error: Playlist ID cannot be empty."
+			return command.Text("Error: Playlist ID cannot be empty.")
 		}
 
 		message = c.delete(guildId, playlistId)
@@ -125,19 +126,34 @@ func (c *PlaylistNotifier) Handle(data *discordgo.ApplicationCommandInteractionD
 			count = int(countOption.IntValue())
 		}
 		if count < 1 || count > MAX_RANDOM_COUNT {
-			return "Error: count must be between 1 and 5."
+			return command.Text("Error: count must be between 1 and 5.")
 		}
 
 		message = c.random(guildId, count)
+	case historySubCommand.Name:
+		options := command.ParseArguments(subcommand.Options)
+		videoOption, exists := options[historyVideoOption.Name]
+		if !exists || videoOption.StringValue() == "" {
+			return command.Text("Error: Video is required.")
+		}
+		days := DEFAULT_HISTORY_DAYS
+		if daysOption, exists := options[historyDaysOption.Name]; exists {
+			days = int(daysOption.IntValue())
+		}
+		if days < 1 || days > MAX_HISTORY_DAYS {
+			return command.Text("Error: days must be between 1 and 365.")
+		}
+
+		return c.history(guildId, videoOption.StringValue(), days)
 	case pickSubCommand.Name:
 		options := command.ParseArguments(subcommand.Options)
 		playlistOption, exists := options[playlistIdOption.Name]
 		if !exists || playlistOption.StringValue() == "" {
-			return "Error: Playlist ID is required."
+			return command.Text("Error: Playlist ID is required.")
 		}
 		intervalOption, exists := options[pickIntervalOption.Name]
 		if !exists {
-			return "Error: interval is required."
+			return command.Text("Error: interval is required.")
 		}
 
 		message = c.pick(guildId, playlistOption.StringValue(), intervalOption.StringValue())
@@ -145,5 +161,5 @@ func (c *PlaylistNotifier) Handle(data *discordgo.ApplicationCommandInteractionD
 		message = "Error: Unknown subcommand. Please use one of the available subcommands."
 	}
 
-	return message
+	return command.Text(message)
 }
