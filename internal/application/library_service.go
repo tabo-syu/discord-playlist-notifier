@@ -277,6 +277,37 @@ func (s *LibraryService) RandomVideos(playlistIDs []library.PlaylistID, n int) (
 	return library.PickRandom(contents, n), nil
 }
 
+// Trending returns the videos of the playlist that gained the most views in
+// the states recorded at or after since, together with those states.
+func (s *LibraryService) Trending(playlistID library.PlaylistID, since time.Time) (*library.Trending, error) {
+	videos, err := s.library.FindVideosInPlaylists(playlistID)
+	if err != nil {
+		return nil, err
+	}
+
+	ids := make([]library.VideoID, 0, len(videos))
+	for id := range videos {
+		ids = append(ids, id)
+	}
+	earliest, err := s.library.FindEarliestSnapshots(ids, since)
+	if err != nil {
+		return nil, err
+	}
+	latest, err := s.library.FindLatestSnapshots(ids, since)
+	if err != nil {
+		return nil, err
+	}
+
+	trending := library.ComputeTrending(videos, earliest, latest, library.TRENDING_TOP)
+	for _, v := range trending.Videos {
+		if v.Snapshots, err = s.library.FindSnapshots(v.Video.YoutubeID, since); err != nil {
+			return nil, err
+		}
+	}
+
+	return trending, nil
+}
+
 // Stats aggregates the stored contents of the playlist as of now.
 func (s *LibraryService) Stats(playlistID library.PlaylistID) (*library.Stats, error) {
 	contents, err := s.Contents([]library.PlaylistID{playlistID})

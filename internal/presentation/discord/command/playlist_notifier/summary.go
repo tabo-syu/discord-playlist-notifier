@@ -14,20 +14,16 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/view"
 )
 
-var statsSubCommand = &discordgo.ApplicationCommandOption{
+var summarySubCommand = &discordgo.ApplicationCommandOption{
 	Type:        discordgo.ApplicationCommandOptionSubCommand,
-	Name:        "stats",
-	Description: "通知登録されているプレイリストの統計を表示します。",
+	Name:        "summary",
+	Description: "通知登録されているプレイリストの曲数、追加ペース、再生数ランキングを表示します。",
 	Options: []*discordgo.ApplicationCommandOption{
-		{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        playlistIdOption.Name,
-			Description: "統計を見るプレイリストの ID（省略するとすべて）",
-		},
+		optionalPlaylistIdOption,
 	},
 }
 
-func (c *PlaylistNotifier) stats(guildId string, playlistId string) string {
+func (c *PlaylistNotifier) summary(guildId string, playlistId string) string {
 	subscriptions, err := c.subscriptions.FindByGuild(guild.DiscordID(guildId))
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
 		return "通知登録されているプレイリストが存在しません。"
@@ -46,7 +42,7 @@ func (c *PlaylistNotifier) stats(guildId string, playlistId string) string {
 		if err != nil {
 			return "エラー！システムに問題があります！"
 		}
-		sections = append(sections, formatStats(sub, stats, c.location))
+		sections = append(sections, formatSummary(sub, stats, c.location))
 	}
 	if len(sections) == 0 {
 		return "通知登録されていないプレイリストです。"
@@ -55,7 +51,7 @@ func (c *PlaylistNotifier) stats(guildId string, playlistId string) string {
 	return view.Truncate(strings.Join(sections, "\n"), view.MAX_MESSAGE_LENGTH)
 }
 
-func formatStats(sub *subscription.Subscription, s *library.Stats, loc *time.Location) string {
+func formatSummary(sub *subscription.Subscription, s *library.Stats, loc *time.Location) string {
 	if s.Total == 0 {
 		return fmt.Sprintf("📊 **%s**\nまだ曲の情報がありません。少し待ってからもう一度試してください。\n", sub.Title)
 	}

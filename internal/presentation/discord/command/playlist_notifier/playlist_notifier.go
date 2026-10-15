@@ -24,6 +24,12 @@ var (
 		Description: "YouTube のプレイリストページの URL 末尾に付く ID を入力します。",
 		Required:    true,
 	}
+
+	optionalPlaylistIdOption = &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionString,
+		Name:        playlistIdOption.Name,
+		Description: "見るプレイリストの ID（省略するとすべて）",
+	}
 )
 
 func NewPlaylistNotifier(s *application.SubscriptionService, l *application.LibraryService, loc *time.Location) *PlaylistNotifier {
@@ -36,7 +42,8 @@ func NewPlaylistNotifier(s *application.SubscriptionService, l *application.Libr
 				addSubCommand,
 				deleteSubCommand,
 				sourceSubCommand,
-				statsSubCommand,
+				summarySubCommand,
+				trendingSubCommand,
 				wrappedSubCommand,
 				randomSubCommand,
 				pickSubCommand,
@@ -103,14 +110,29 @@ func (c *PlaylistNotifier) Handle(data *discordgo.ApplicationCommandInteractionD
 		message = c.delete(guildId, playlistId)
 	case sourceSubCommand.Name:
 		message = c.source()
-	case statsSubCommand.Name:
+	case summarySubCommand.Name:
 		playlistId := ""
 		options := command.ParseArguments(subcommand.Options)
-		if playlistOption, exists := options[playlistIdOption.Name]; exists {
+		if playlistOption, exists := options[optionalPlaylistIdOption.Name]; exists {
 			playlistId = playlistOption.StringValue()
 		}
 
-		message = c.stats(guildId, playlistId)
+		message = c.summary(guildId, playlistId)
+	case trendingSubCommand.Name:
+		playlistId := ""
+		options := command.ParseArguments(subcommand.Options)
+		if playlistOption, exists := options[optionalPlaylistIdOption.Name]; exists {
+			playlistId = playlistOption.StringValue()
+		}
+		days := DEFAULT_HISTORY_DAYS
+		if daysOption, exists := options[historyDaysOption.Name]; exists {
+			days = int(daysOption.IntValue())
+		}
+		if days < 1 || days > MAX_HISTORY_DAYS {
+			return command.Text("Error: days must be between 1 and 365.")
+		}
+
+		return c.trending(guildId, playlistId, days)
 	case wrappedSubCommand.Name:
 		year := 0
 		options := command.ParseArguments(subcommand.Options)

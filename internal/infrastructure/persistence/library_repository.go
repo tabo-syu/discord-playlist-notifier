@@ -122,6 +122,37 @@ func (r *libraryRepository) FindSnapshots(id library.VideoID, since time.Time) (
 	return snapshots, nil
 }
 
+func (r *libraryRepository) FindEarliestSnapshots(ids []library.VideoID, since time.Time) (map[library.VideoID]*library.VideoSnapshot, error) {
+	return r.findBoundarySnapshots(ids, since, "recorded_at")
+}
+
+func (r *libraryRepository) FindLatestSnapshots(ids []library.VideoID, since time.Time) (map[library.VideoID]*library.VideoSnapshot, error) {
+	return r.findBoundarySnapshots(ids, since, "recorded_at DESC")
+}
+
+// findBoundarySnapshots returns the first state of each video in the given
+// order, using DISTINCT ON (PostgreSQL) over the (video, recorded_at) index.
+func (r *libraryRepository) findBoundarySnapshots(ids []library.VideoID, since time.Time, order string) (map[library.VideoID]*library.VideoSnapshot, error) {
+	snapshots := map[library.VideoID]*library.VideoSnapshot{}
+	if len(ids) == 0 {
+		return snapshots, nil
+	}
+
+	var rows []*library.VideoSnapshot
+	err := r.db.Select("DISTINCT ON (video_youtube_id) *").
+		Where("video_youtube_id IN ? AND recorded_at >= ?", ids, since).
+		Order("video_youtube_id, " + order).
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	for _, s := range rows {
+		snapshots[s.VideoYoutubeID] = s
+	}
+
+	return snapshots, nil
+}
+
 // Callers pass complete rows (existing values merged with the new ones), so
 // every column is overwritten on conflict.
 func saveVideos(db *gorm.DB, videos []*library.Video) error {

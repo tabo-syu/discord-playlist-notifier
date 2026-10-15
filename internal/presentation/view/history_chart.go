@@ -15,6 +15,10 @@ const (
 	CHART_HEIGHT = 480
 	// The bundled font has no Japanese glyphs, so the labels are in English
 	CHART_TIME_FORMAT = "01/02"
+	// Used when the chart spans less than CHART_SHORT_SPAN, where many ticks
+	// fall on the same day
+	CHART_SHORT_TIME_FORMAT = "01/02 15:04"
+	CHART_SHORT_SPAN        = 5 * 24 * time.Hour
 )
 
 // HistoryChart draws the views (right axis) and likes (left axis) of the
@@ -32,20 +36,13 @@ func HistoryChart(snapshots []*library.VideoSnapshot, loc *time.Location) ([]byt
 		likes = append(likes, float64(s.Likes))
 	}
 
-	formatTime := func(v any) string {
-		if f, ok := v.(float64); ok {
-			return chart.TimeFromFloat64(f).In(loc).Format(CHART_TIME_FORMAT)
-		}
-		return ""
-	}
-
 	graph := chart.Chart{
 		Width:  CHART_WIDTH,
 		Height: CHART_HEIGHT,
 		Background: chart.Style{
 			Padding: chart.Box{Top: 40, Left: 20, Right: 20, Bottom: 20},
 		},
-		XAxis: chart.XAxis{ValueFormatter: formatTime},
+		XAxis: chart.XAxis{ValueFormatter: timeFormatter(times[0], times[len(times)-1], loc)},
 		YAxis: chart.YAxis{
 			ValueFormatter: compactNumber,
 			Range:          paddedRange(views),
@@ -67,6 +64,22 @@ func HistoryChart(snapshots []*library.VideoSnapshot, loc *time.Location) ([]byt
 	}
 
 	return buf.Bytes(), nil
+}
+
+// timeFormatter formats an axis value as a date in loc, with the time when
+// the chart spans from from to to is short.
+func timeFormatter(from, to time.Time, loc *time.Location) chart.ValueFormatter {
+	layout := CHART_TIME_FORMAT
+	if to.Sub(from) < CHART_SHORT_SPAN {
+		layout = CHART_SHORT_TIME_FORMAT
+	}
+
+	return func(v any) string {
+		if f, ok := v.(float64); ok {
+			return chart.TimeFromFloat64(f).In(loc).Format(layout)
+		}
+		return ""
+	}
 }
 
 // paddedRange leaves room above and below the values, and keeps the range
