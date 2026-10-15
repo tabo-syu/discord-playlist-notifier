@@ -16,18 +16,34 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/view"
 )
 
-// Discord rejects messages with more attachments than this
-const MAX_ATTACHMENTS = 10
+const (
+	DEFAULT_TRENDING_DAYS = 30
+	MAX_TRENDING_DAYS     = 365
+	// Discord rejects messages with more attachments than this
+	MAX_ATTACHMENTS = 10
+)
 
-var trendingSubCommand = &discordgo.ApplicationCommandOption{
-	Type:        discordgo.ApplicationCommandOptionSubCommand,
-	Name:        "trending",
-	Description: "通知登録されているプレイリストで、再生数が伸びている曲とその推移をグラフで表示します。",
-	Options: []*discordgo.ApplicationCommandOption{
-		optionalPlaylistIdOption,
-		historyDaysOption,
-	},
-}
+var (
+	minTrendingDays = 1.0
+
+	trendingDaysOption = &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionInteger,
+		Name:        "days",
+		Description: "さかのぼる日数（1〜365、省略すると 30）",
+		MinValue:    &minTrendingDays,
+		MaxValue:    MAX_TRENDING_DAYS,
+	}
+
+	trendingSubCommand = &discordgo.ApplicationCommandOption{
+		Type:        discordgo.ApplicationCommandOptionSubCommand,
+		Name:        "trending",
+		Description: "通知登録されているプレイリストで、再生数が伸びている曲とその推移をグラフで表示します。",
+		Options: []*discordgo.ApplicationCommandOption{
+			optionalPlaylistIdOption,
+			trendingDaysOption,
+		},
+	}
+)
 
 func (c *PlaylistNotifier) trending(guildId string, playlistId string, days int) *command.Response {
 	subscriptions, err := c.subscriptions.FindByGuild(guild.DiscordID(guildId))

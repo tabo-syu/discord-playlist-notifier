@@ -47,7 +47,6 @@ func NewPlaylistNotifier(s *application.SubscriptionService, l *application.Libr
 				wrappedSubCommand,
 				randomSubCommand,
 				pickSubCommand,
-				historySubCommand,
 			},
 		},
 		s,
@@ -124,11 +123,11 @@ func (c *PlaylistNotifier) Handle(data *discordgo.ApplicationCommandInteractionD
 		if playlistOption, exists := options[optionalPlaylistIdOption.Name]; exists {
 			playlistId = playlistOption.StringValue()
 		}
-		days := DEFAULT_HISTORY_DAYS
-		if daysOption, exists := options[historyDaysOption.Name]; exists {
+		days := DEFAULT_TRENDING_DAYS
+		if daysOption, exists := options[trendingDaysOption.Name]; exists {
 			days = int(daysOption.IntValue())
 		}
-		if days < 1 || days > MAX_HISTORY_DAYS {
+		if days < 1 || days > MAX_TRENDING_DAYS {
 			return command.Text("Error: days must be between 1 and 365.")
 		}
 
@@ -152,21 +151,6 @@ func (c *PlaylistNotifier) Handle(data *discordgo.ApplicationCommandInteractionD
 		}
 
 		message = c.random(guildId, count)
-	case historySubCommand.Name:
-		options := command.ParseArguments(subcommand.Options)
-		videoOption, exists := options[historyVideoOption.Name]
-		if !exists || videoOption.StringValue() == "" {
-			return command.Text("Error: Video is required.")
-		}
-		days := DEFAULT_HISTORY_DAYS
-		if daysOption, exists := options[historyDaysOption.Name]; exists {
-			days = int(daysOption.IntValue())
-		}
-		if days < 1 || days > MAX_HISTORY_DAYS {
-			return command.Text("Error: days must be between 1 and 365.")
-		}
-
-		return c.history(guildId, videoOption.StringValue(), days)
 	case pickSubCommand.Name:
 		options := command.ParseArguments(subcommand.Options)
 		playlistOption, exists := options[playlistIdOption.Name]
