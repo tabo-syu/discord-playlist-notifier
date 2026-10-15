@@ -31,9 +31,3 @@ func NewVideoSnapshot(v *Video, at time.Time) *VideoSnapshot {
 		Comments:       v.Comments,
 	}
 }
-
-// VideoHistory is a video together with its recorded states, oldest first.
-type VideoHistory struct {
-	Video     *Video
-	Snapshots []*VideoSnapshot
-}

@@ -15,17 +15,15 @@ import (
 )
 
 const (
-	DEFAULT_VIDEO_LIMIT   = 20
-	MAX_VIDEO_LIMIT       = 100
-	MAX_RANDOM_COUNT      = 10
-	DATE_FORMAT           = "2006-01-02"
-	MONTH_FORMAT          = "2006-01"
-	ERR_NOT_WATCHED       = "登録されていないプレイリストです。list_playlists で ID を確認してください。"
-	ERR_INTERNAL          = "データベースの読み込みに失敗しました。時間をおいてもう一度試してください。"
-	YOUTUBE_WATCH_URL     = "https://www.youtube.com/watch?v=%s&list=%s"
-	YOUTUBE_PLAYLIST_URL  = "https://www.youtube.com/playlist?list=%s"
-	YOUTUBE_VIDEO_URL     = "https://www.youtube.com/watch?v=%s"
-	ERR_VIDEO_NOT_WATCHED = "登録されているプレイリストに、その動画は見つかりません。find_videos で video_id を確認してください。"
+	DEFAULT_VIDEO_LIMIT  = 20
+	MAX_VIDEO_LIMIT      = 100
+	MAX_RANDOM_COUNT     = 10
+	DATE_FORMAT          = "2006-01-02"
+	MONTH_FORMAT         = "2006-01"
+	ERR_NOT_WATCHED      = "登録されていないプレイリストです。list_playlists で ID を確認してください。"
+	ERR_INTERNAL         = "データベースの読み込みに失敗しました。時間をおいてもう一度試してください。"
+	YOUTUBE_WATCH_URL    = "https://www.youtube.com/watch?v=%s&list=%s"
+	YOUTUBE_PLAYLIST_URL = "https://www.youtube.com/playlist?list=%s"
 )
 
 // Told to the client when it connects
@@ -68,10 +66,6 @@ func addTools(s *mcp.Server, t *tools) {
 	mcp.AddTool(s, readOnly("random_videos", "ランダムな曲",
 		"プレイリストから観られる曲をランダムに選んで返します。同じ曲は 2 回選ばれません。"),
 		logged("random_videos", t.randomVideos))
-	mcp.AddTool(s, readOnly("video_history", "再生数などの推移",
-		"曲のタイトル・公開状態・再生数・高評価数・コメント数を、6 時間ごとに記録した履歴として古い順に返します。"+
-			"video_id は find_videos などで確認してください。"),
-		logged("video_history", t.videoHistory))
 }
 
 func logged[In, Out any](name string, h mcp.ToolHandlerFor[In, Out]) mcp.ToolHandlerFor[In, Out] {
@@ -443,69 +437,4 @@ func (t *tools) randomVideos(_ context.Context, _ *mcp.CallToolRequest, in rando
 	}
 
 	return nil, randomVideosOut{Videos: videos}, nil
-}
-
-// ---------- video_history ----------
-
-const (
-	DEFAULT_HISTORY_DAYS = 30
-	MAX_HISTORY_DAYS     = 365
-)
-
-type videoHistoryIn struct {
-	VideoID string `json:"video_id" jsonschema:"動画の ID"`
-	Days    int    `json:"days,omitempty" jsonschema:"さかのぼる日数（1〜365、既定 30）"`
-}
-
-type snapshotOut struct {
-	RecordedAt string `json:"recorded_at"`
-	Title      string `json:"title"`
-	Status     string `json:"status" jsonschema:"public（公開）または unlisted（限定公開）"`
-	Views      uint64 `json:"views"`
-	Likes      uint64 `json:"likes" jsonschema:"高評価数。投稿者が非表示にしていると 0"`
-	Comments   uint64 `json:"comments" jsonschema:"コメント数。コメントが無効だと 0"`
-}
-
-type videoHistoryOut struct {
-	VideoID   string        `json:"video_id"`
-	Title     string        `json:"title" jsonschema:"現在の曲名"`
-	URL       string        `json:"url"`
-	Snapshots []snapshotOut `json:"snapshots" jsonschema:"古い順。記録は 6 時間ごとで、観られない間は記録しない"`
-}
-
-func (t *tools) videoHistory(_ context.Context, _ *mcp.CallToolRequest, in videoHistoryIn) (*mcp.CallToolResult, videoHistoryOut, error) {
-	days := in.Days
-	if days == 0 {
-		days = DEFAULT_HISTORY_DAYS
-	}
-	if days < 1 || days > MAX_HISTORY_DAYS {
-		return nil, videoHistoryOut{}, fmt.Errorf("days は 1〜%d で指定してください", MAX_HISTORY_DAYS)
-	}
-
-	h, err := t.query.History(library.VideoID(in.VideoID), time.Now().AddDate(0, 0, -days))
-	if errors.Is(err, domain.ErrDBRecordNotFound) {
-		return nil, videoHistoryOut{}, errors.New(ERR_VIDEO_NOT_WATCHED)
-	}
-	if err != nil {
-		return nil, videoHistoryOut{}, clientError(err)
-	}
-
-	out := videoHistoryOut{
-		VideoID:   string(h.Video.YoutubeID),
-		Title:     h.Video.Title,
-		URL:       fmt.Sprintf(YOUTUBE_VIDEO_URL, h.Video.YoutubeID),
-		Snapshots: []snapshotOut{},
-	}
-	for _, s := range h.Snapshots {
-		out.Snapshots = append(out.Snapshots, snapshotOut{
-			RecordedAt: t.timeOut(s.RecordedAt),
-			Title:      s.Title,
-			Status:     string(s.PrivacyStatus),
-			Views:      uint64(s.Views),
-			Likes:      s.Likes,
-			Comments:   s.Comments,
-		})
-	}
-
-	return nil, out, nil
 }

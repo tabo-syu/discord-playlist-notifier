@@ -2,11 +2,9 @@ package application
 
 import (
 	"log"
-	"slices"
 	"sync"
 	"time"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 )
 
@@ -196,35 +194,6 @@ func (s *LibraryService) RefreshVideos() ([]*library.Video, error) {
 // before they are shown. Nothing is stored. Costs about 2 units per 50 videos.
 func (s *LibraryService) LiveVideos(videoIDs []library.VideoID) (map[library.VideoID]*library.LiveVideo, error) {
 	return s.youtube.FetchLiveVideos(unique(videoIDs))
-}
-
-// History returns the states of the video recorded at or after since. The
-// video must be in one of the given playlists, or domain.ErrDBRecordNotFound
-// is returned.
-func (s *LibraryService) History(playlistIDs []library.PlaylistID, id library.VideoID, since time.Time) (*library.VideoHistory, error) {
-	containing, err := s.PlaylistsContaining([]library.VideoID{id})
-	if err != nil {
-		return nil, err
-	}
-	if !slices.ContainsFunc(containing[id], func(p library.PlaylistID) bool { return slices.Contains(playlistIDs, p) }) {
-		return nil, domain.ErrDBRecordNotFound
-	}
-
-	videos, err := s.library.FindVideos([]library.VideoID{id})
-	if err != nil {
-		return nil, err
-	}
-	video, ok := videos[id]
-	if !ok || !video.HasDetails() {
-		return nil, domain.ErrDBRecordNotFound
-	}
-
-	snapshots, err := s.library.FindSnapshots(id, since)
-	if err != nil {
-		return nil, err
-	}
-
-	return &library.VideoHistory{Video: video, Snapshots: snapshots}, nil
 }
 
 // PlaylistsContaining returns, for each given video, the playlists that contain it.
