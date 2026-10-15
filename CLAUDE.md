@@ -125,11 +125,12 @@ application → presentation の順に組み立て、`SIGINT` を待ってブロ
 `GetCommand`、`SetCommand`）。ハンドラのシグネチャは次のとおりです。
 
 ```go
-func(request *discordgo.ApplicationCommandInteractionData, guildId, channelId string) string
+func(request *discordgo.ApplicationCommandInteractionData, guildId, channelId string) *command.Response
 ```
 
-**ハンドラは文字列を返すだけで、Discord のセッションには一切触れません。**
-返された文字列を `InteractionResponse` にくるむのは `server.go` の役目です。
+**ハンドラは応答（`command.Response`: 本文と添付ファイル）を組み立てて返すだけで、
+Discord のセッションには一切触れません。** 文字列だけなら `command.Text(...)` で包みます。
+返された応答を `InteractionResponse` にくるむのは `server.go` の役目です。
 この形を保ってください。ハンドラが容易にテストできるのはこの設計のおかげです。
 
 サブコマンドの構成は `playlist_notifier/` が手本になります。
@@ -137,6 +138,9 @@ func(request *discordgo.ApplicationCommandInteractionData, guildId, channelId st
 でディスパッチします。各サブコマンドは自身のファイルを持ち、
 `*discordgo.ApplicationCommandOption` の変数と `*PlaylistNotifier` のメソッドを
 同じファイルにまとめます（`add.go`、`list.go`、`delete.go`、`source.go`）。
+`trending.go` は、推移のグラフを PNG で添付する例です（描画は `view.TrendingChart`、
+`github.com/wcharczuk/go-chart/v2`）。同梱のフォントに日本語がないので、グラフの中の文字は英数字だけにし、
+タイトルなどの日本語は本文に書きます。
 ハンドラはアプリケーションサービスだけを呼び、文字列の引数を値オブジェクトに
 変換して渡します。
 
@@ -187,7 +191,8 @@ YouTube プレイリストの中身は、サーバーごとの通知設定（`su
   動画 ID から作れるので保存しません（`Thumbnail()`）。
 - `video_snapshots`（`library.VideoSnapshot`）— 動画の状態の履歴（タイトル、
   公開状態、再生数、高評価数、コメント数）。`RefreshVideos` が 6 時間ごとに、
-  更新した全動画の分を同じ時刻で 1 行ずつ追記します。値は `videos.list` の
+  更新した全動画の分を同じ時刻で 1 行ずつ追記します。`/playlist-notifier trending` が
+  読み出します。値は `videos.list` の
   結果から取るので、クォータは増えません。記録に失敗してもログを出すだけで、
   節目の通知は続けます。古い行を消す処理はありません。
 
