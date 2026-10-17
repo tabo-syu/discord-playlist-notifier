@@ -20,7 +20,7 @@ func (n *notifier) NotifyHiddenVideo(notice *notification.HiddenVideo) error {
 		},
 		Title: notice.Video.Title,
 		URL:   videoURL(notice.Video.YoutubeID, notice.PlaylistID),
-		// The channel is not stored and can no longer be fetched, so there is no footer
+		// チャンネルは保存しておらず、もう取得もできないので、フッターはない
 		Thumbnail: &discordgo.MessageEmbedThumbnail{URL: notice.Video.Thumbnail()},
 	}
 

@@ -6,11 +6,11 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 )
 
-// Notifier posts to the Discord channels of the subscriptions. live holds the
-// channel and current views fetched right before posting; it may be nil or
-// miss some videos, and then they are posted without them.
+// Notifier は通知設定の Discord チャンネルに投稿する。live は投稿の直前に取得した
+// チャンネルと現在の再生数を持つ。nil のことも一部の動画が欠けていることもあり、
+// その場合はそれらなしで投稿する。
 type Notifier interface {
-	// NotifyNewVideos posts one message per video, and keeps posting the rest even if one fails.
+	// NotifyNewVideos は動画 1 件につき 1 通投稿し、1 件失敗しても残りの投稿を続ける。
 	NotifyNewVideos(news *notification.NewVideos, live map[library.VideoID]*library.LiveVideo) error
 	NotifyHiddenVideo(notice *notification.HiddenVideo) error
 	NotifyMilestone(notice *notification.Milestone, live map[library.VideoID]*library.LiveVideo) error

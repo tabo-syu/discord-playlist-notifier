@@ -1,4 +1,4 @@
-// Package youtube implements library.YouTube with the YouTube Data API v3.
+// Package youtube は YouTube Data API v3 で library.YouTube を実装する。
 package youtube
 
 import (
@@ -16,18 +16,18 @@ import (
 
 const (
 	YOUTUBE_TIMEFORMAT   = "2006-01-02T15:04:05Z"
-	MAX_RESULTS_PER_PAGE = 50 // Maximum allowed by YouTube API
-	MAX_BATCH_SIZE       = 50 // Maximum number of IDs per API call
+	MAX_RESULTS_PER_PAGE = 50 // YouTube API が許す最大値
+	MAX_BATCH_SIZE       = 50 // API 呼び出し 1 回あたりの ID の最大数
 
-	// Title YouTube returns for playlist items whose video has been deleted
+	// 動画が削除されたプレイリストのアイテムに YouTube が返すタイトル
 	DELETED_VIDEO_TITLE = "Deleted video"
 
-	// Region and language of the video category names
+	// 動画カテゴリの名前の地域と言語
 	CATEGORY_REGION   = "JP"
 	CATEGORY_LANGUAGE = "ja"
 )
 
-// ISO 8601 durations as YouTube returns them, e.g. PT4M13S or P1DT2H
+// YouTube が返す ISO 8601 の期間。例: PT4M13S、P1DT2H
 var durationPattern = regexp.MustCompile(`^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$`)
 
 type client struct {
@@ -38,7 +38,7 @@ func NewClient(yt *ytapi.Service) *client {
 	return &client{yt}
 }
 
-// FindPlaylist costs 1 unit.
+// FindPlaylist は 1 ユニットを消費する。
 func (c *client) FindPlaylist(id library.PlaylistID) (*library.PlaylistMeta, error) {
 	lists, err := c.youtube.Playlists.List([]string{"id", "snippet"}).
 		MaxResults(1).
@@ -58,7 +58,7 @@ func (c *client) FindPlaylist(id library.PlaylistID) (*library.PlaylistMeta, err
 	}, nil
 }
 
-// FetchPlaylistMetas costs 1 unit per 50 playlists.
+// FetchPlaylistMetas は 50 プレイリストごとに 1 ユニットを消費する。
 func (c *client) FetchPlaylistMetas(ids ...library.PlaylistID) (map[library.PlaylistID]*library.PlaylistMeta, error) {
 	metas := map[library.PlaylistID]*library.PlaylistMeta{}
 	for _, batch := range batches(ids) {
@@ -85,7 +85,7 @@ func (c *client) FetchPlaylistMetas(ids ...library.PlaylistID) (map[library.Play
 	return metas, nil
 }
 
-// FetchPlaylistItems costs 1 unit per 50 items.
+// FetchPlaylistItems は 50 アイテムごとに 1 ユニットを消費する。
 func (c *client) FetchPlaylistItems(id library.PlaylistID) ([]*library.FetchedItem, error) {
 	var items []*library.FetchedItem
 	nextPageToken := ""
@@ -129,8 +129,8 @@ func (c *client) FetchPlaylistItems(id library.PlaylistID) ([]*library.FetchedIt
 	return items, nil
 }
 
-// FetchVideos costs 1 unit per 50 videos. The number of parts does not
-// change the cost, and the channel names come with the videos.
+// FetchVideos は 50 動画ごとに 1 ユニットを消費する。part の数は消費量に
+// 影響せず、チャンネル名も動画と一緒に取れる。
 func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, []*library.Channel, error) {
 	var videos []*library.Video
 	channels := map[library.ChannelID]*library.Channel{}
@@ -166,8 +166,8 @@ func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, []*librar
 				video.ChannelYoutubeID = id
 				channels[id] = &library.Channel{YoutubeID: id, Title: v.Snippet.ChannelTitle}
 			}
-			// Live and upcoming streams report the time since they started,
-			// which is not the length of the video
+			// ライブ配信中・配信予定の動画は配信開始からの時間を返し、
+			// それは動画の長さではない
 			if v.ContentDetails != nil && (v.Snippet.LiveBroadcastContent == "" || v.Snippet.LiveBroadcastContent == "none") {
 				video.Duration = parseDuration(v.ContentDetails.Duration)
 			}
@@ -190,7 +190,7 @@ func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, []*librar
 	return videos, fetched, nil
 }
 
-// FetchCategories costs 1 unit.
+// FetchCategories は 1 ユニットを消費する。
 func (c *client) FetchCategories() ([]*library.Category, error) {
 	res, err := c.youtube.VideoCategories.List([]string{"id", "snippet"}).
 		RegionCode(CATEGORY_REGION).
@@ -214,7 +214,7 @@ func (c *client) FetchCategories() ([]*library.Category, error) {
 	return categories, nil
 }
 
-// FetchLiveVideos costs 1 unit per 50 videos plus 1 unit per 50 channels.
+// FetchLiveVideos は 50 動画ごとに 1 ユニット、加えて 50 チャンネルごとに 1 ユニットを消費する。
 func (c *client) FetchLiveVideos(ids []library.VideoID) (map[library.VideoID]*library.LiveVideo, error) {
 	live := map[library.VideoID]*library.LiveVideo{}
 	channelOf := map[library.VideoID]string{}
@@ -258,7 +258,7 @@ func (c *client) FetchLiveVideos(ids []library.VideoID) (map[library.VideoID]*li
 	return live, nil
 }
 
-// batches splits the IDs into chunks the API accepts at once.
+// batches は ID を API が一度に受け付ける塊に分ける。
 func batches[T ~string](ids []T) [][]string {
 	var result [][]string
 	for i := 0; i < len(ids); i += MAX_BATCH_SIZE {
@@ -273,8 +273,8 @@ func batches[T ~string](ids []T) [][]string {
 	return result
 }
 
-// Private items report "private", deleted items report
-// "privacyStatusUnspecified" with the title "Deleted video".
+// 非公開のアイテムは "private" を返し、削除済みのアイテムは
+// "privacyStatusUnspecified" とタイトル "Deleted video" を返す。
 func itemPrivacy(item *ytapi.PlaylistItem) library.PrivacyStatus {
 	if item.Snippet.Title == DELETED_VIDEO_TITLE {
 		return library.PrivacyDeleted
@@ -294,7 +294,7 @@ func itemPrivacy(item *ytapi.PlaylistItem) library.PrivacyStatus {
 	}
 }
 
-// Some fields of YouTube API responses may be missing, so read them nil-safely
+// YouTube API のレスポンスは一部のフィールドが欠けることがあるので、nil を考慮して読む
 func videoViews(v *ytapi.Video) library.ViewCount {
 	if v.Statistics == nil {
 		return 0
@@ -322,8 +322,8 @@ func unique(ids []string) []string {
 	return result
 }
 
-// parseDuration reads an ISO 8601 duration such as PT4M13S. Unknown forms,
-// such as P0D for live streams, are read as zero.
+// parseDuration は PT4M13S のような ISO 8601 の期間を読む。ライブ配信の
+// P0D のような未知の形はゼロとして読む。
 func parseDuration(s string) time.Duration {
 	m := durationPattern.FindStringSubmatch(s)
 	if m == nil {

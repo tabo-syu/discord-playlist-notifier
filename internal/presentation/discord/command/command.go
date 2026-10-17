@@ -4,14 +4,14 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-// Response is what a command replies with. Handlers only build it; sending
-// it is the job of the server.
+// Response はコマンドが返す応答。ハンドラは組み立てるだけで、
+// 送るのはサーバーの役目。
 type Response struct {
 	Content string
 	Files   []*discordgo.File
 }
 
-// Text is a response with a message only.
+// Text は本文だけの応答。
 func Text(content string) *Response {
 	return &Response{Content: content}
 }

@@ -17,8 +17,8 @@ func NewSubscriptionRepository(db *gorm.DB) *subscriptionRepository {
 	return &subscriptionRepository{db}
 }
 
-// ofGuild narrows the query to the subscriptions of a guild. When the guild
-// is not found, its ID is 0 and nothing matches.
+// ofGuild はクエリをギルドの通知設定に絞り込む。ギルドが見つからないときは
+// ID が 0 になり、何にも一致しない。
 func (r *subscriptionRepository) ofGuild(guildID guild.DiscordID) *gorm.DB {
 	var g guild.Guild
 	r.db.Where(guild.Guild{DiscordID: guildID}).Find(&g)
@@ -88,7 +88,7 @@ func (r *subscriptionRepository) Update(s *subscription.Subscription) error {
 	return nil
 }
 
-// UpdateColumn is used instead of Save, so that UpdatedAt is not touched.
+// UpdatedAt に触れないように、Save ではなく UpdateColumn を使う。
 func (r *subscriptionRepository) UpdatePickInterval(s *subscription.Subscription) error {
 	if s.ID == 0 {
 		return domain.ErrDBRecordNotFound

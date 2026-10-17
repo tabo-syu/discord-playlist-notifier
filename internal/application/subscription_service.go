@@ -23,7 +23,7 @@ func (s *SubscriptionService) FindByGuild(guildID guild.DiscordID) ([]*subscript
 	return s.subscriptions.FindByGuild(guildID)
 }
 
-// Subscribe starts notifying the channel of the playlist.
+// Subscribe はプレイリストのチャンネルへの通知を始める。
 func (s *SubscriptionService) Subscribe(guildID guild.DiscordID, channelID subscription.ChannelID, playlistID library.PlaylistID) error {
 	playlist, err := s.youtube.FindPlaylist(playlistID)
 	if errors.Is(err, domain.ErrYouTubePlaylistNotFound) {
@@ -49,7 +49,7 @@ func (s *SubscriptionService) Subscribe(guildID guild.DiscordID, channelID subsc
 	return s.subscriptions.Add(subscription.New(g, channelID, playlist.YoutubeID, playlist.Title))
 }
 
-// Unsubscribe stops notifying the guild of the playlist.
+// Unsubscribe はギルドへのプレイリストの通知をやめる。
 func (s *SubscriptionService) Unsubscribe(guildID guild.DiscordID, playlistID library.PlaylistID) error {
 	exists, err := s.subscriptions.Exists(guildID, playlistID)
 	if err != nil {

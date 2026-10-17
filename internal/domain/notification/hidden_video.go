@@ -5,8 +5,8 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 )
 
-// HiddenVideo tells a channel that a video in one of its playlists became
-// private or was deleted.
+// HiddenVideo は、チャンネルのプレイリストにある動画が非公開・削除になったことを
+// 伝える。
 type HiddenVideo struct {
 	ChannelID     subscription.ChannelID
 	PlaylistID    library.PlaylistID
@@ -14,10 +14,10 @@ type HiddenVideo struct {
 	Video         *library.Video
 }
 
-// FindHiddenVideos builds the notices for the videos that became hidden in
-// this sync. A video is stored once even if it is in several playlists, so
-// the change is only reported by the first synced playlist; every subscribed
-// playlist containing the video is notified, once per channel.
+// FindHiddenVideos は今回の同期で見られなくなった動画の通知を組み立てる。
+// 動画は複数のプレイリストにあっても 1 つしか保存しないので、変化は最初に
+// 同期したプレイリストでしか報告されない。その動画を含む通知登録済みの
+// 全プレイリストに、チャンネルごとに 1 回ずつ通知する。
 func FindHiddenVideos(subscriptions []*subscription.Subscription, snapshots map[library.PlaylistID]*library.Snapshot) []*HiddenVideo {
 	hidden := map[library.VideoID]*library.Video{}
 	var order []library.VideoID

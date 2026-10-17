@@ -2,19 +2,19 @@ package library
 
 import "time"
 
-// CategoryID is the ID of a YouTube video category, e.g. "10" for music.
+// CategoryID は YouTube の動画カテゴリの ID。例: 音楽は "10"
 type CategoryID string
 
-// Category is a YouTube video category, with its name as YouTube shows it in
-// the bot's region and language. Videos refer to it by ID.
+// Category は YouTube の動画カテゴリで、ボットの地域と言語で YouTube が表示する
+// 名前を持つ。動画は ID で参照する。
 type Category struct {
 	ID        uint `gorm:"primarykey"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	YoutubeID CategoryID `gorm:"uniqueIndex"`
 	Title     string
-	// Whether it can be set on new videos. The others are old categories that
-	// may still be set on old videos.
+	// 新しい動画に設定できるか。そうでないものは、古い動画に設定されたままに
+	// なっていることがある古いカテゴリ。
 	Assignable bool
 }
 

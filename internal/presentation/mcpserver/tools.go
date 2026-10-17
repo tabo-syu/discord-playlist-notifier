@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	// Some videos have dozens of tags. All of them are searched, but only
-	// the first ones are returned to keep the results small.
+	// タグが数十個ある動画もある。全て検索するが、結果を小さく保つため
+	// 返すのは先頭のいくつかだけにする。
 	MAX_TAGS_SHOWN        = 10
 	DEFAULT_VIDEO_LIMIT   = 20
 	MAX_VIDEO_LIMIT       = 100
@@ -33,7 +33,7 @@ const (
 	ERR_VIDEO_NOT_WATCHED = "登録されているプレイリストに、その動画は見つかりません。find_videos で video_id を確認してください。"
 )
 
-// Told to the client when it connects
+// クライアントの接続時に伝える
 const INSTRUCTIONS = `Discord の playlist-notifier ボットが通知登録している YouTube プレイリストの中身を調べるためのツールです。
 - 見られるのは通知登録されているプレイリストだけで、読み取り専用です。
 - まず list_playlists でプレイリストの ID と名前を確認し、ほかのツールにはその ID を渡してください。
@@ -93,8 +93,8 @@ func logged[In, Out any](name string, h mcp.ToolHandlerFor[In, Out]) mcp.ToolHan
 	}
 }
 
-// clientError turns an error of a use case into the message the client sees.
-// The cause of internal errors is only logged.
+// clientError はユースケースのエラーを、クライアントに見せるメッセージに変換する。
+// 内部エラーの原因はログに出すだけにする。
 func clientError(err error) error {
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
 		return errors.New(ERR_NOT_WATCHED)
@@ -104,7 +104,7 @@ func clientError(err error) error {
 	return errors.New(ERR_INTERNAL)
 }
 
-// ---------- outputs ----------
+// ---------- 出力 ----------
 
 type playlistOut struct {
 	ID    string `json:"id"`
@@ -152,7 +152,7 @@ func toPlaylist(p *application.WatchedPlaylist) playlistOut {
 	return playlistOut{ID: string(p.ID), Title: p.Title, URL: fmt.Sprintf(YOUTUBE_PLAYLIST_URL, p.ID)}
 }
 
-// videoNames holds the names that videos refer to by ID.
+// videoNames は動画が ID で参照する名前を持つ。
 type videoNames struct {
 	playlists  map[library.PlaylistID]string
 	channels   map[library.ChannelID]*library.Channel
@@ -233,7 +233,7 @@ func toRanked(videos []*library.Video, playlistID library.PlaylistID) []rankedVi
 	return ranked
 }
 
-// parseDate reads YYYY-MM-DD as the start of the day in the bot's time zone.
+// parseDate は YYYY-MM-DD を、ボットのタイムゾーンでのその日の始まりとして読む。
 func (t *tools) parseDate(name, value string) (time.Time, error) {
 	if value == "" {
 		return time.Time{}, nil
@@ -372,8 +372,8 @@ func (t *tools) findVideos(_ context.Context, _ *mcp.CallToolRequest, in findVid
 	return nil, findVideosOut{Total: page.Total, Offset: in.Offset, Videos: videos}, nil
 }
 
-// categoryByName returns the ID of the stored category with the given name.
-// When there is none, the error lists the names of the assignable ones.
+// categoryByName は指定した名前の保存済みのカテゴリの ID を返す。
+// ない場合、エラーには設定可能なカテゴリの名前を並べる。
 func (t *tools) categoryByName(name string) (library.CategoryID, error) {
 	categories, err := t.query.Categories()
 	if err != nil {

@@ -1,5 +1,5 @@
-// Package notification decides what is notified to which channel, from the
-// subscriptions and the contents of their playlists.
+// Package notification は通知設定とそのプレイリストの中身から、どのチャンネルに
+// 何を通知するかを決める。
 package notification
 
 import (
@@ -9,18 +9,18 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 )
 
-// NewVideos are the videos added to a subscribed playlist since its last notification.
+// NewVideos は通知登録されたプレイリストに、前回の通知以降に追加された動画。
 type NewVideos struct {
 	Subscription *subscription.Subscription
-	// The current title of the playlist on YouTube
+	// YouTube 上のプレイリストの現在のタイトル
 	PlaylistTitle string
-	// Ordered by the time they were added
+	// 追加された時刻の順
 	Videos []*library.PlaylistVideo
 }
 
-// FindNewVideos picks, for each subscription, the available videos added to
-// the playlist since its last notification. Subscriptions whose playlist
-// failed to sync or was deleted are left out.
+// FindNewVideos は通知設定ごとに、前回の通知以降にプレイリストへ追加された
+// 視聴可能な動画を選ぶ。プレイリストの同期に失敗したか、プレイリストが
+// 削除された通知設定は除く。
 func FindNewVideos(subscriptions []*subscription.Subscription, snapshots map[library.PlaylistID]*library.Snapshot) []*NewVideos {
 	var updates []*NewVideos
 	for _, sub := range subscriptions {
@@ -41,7 +41,7 @@ func FindNewVideos(subscriptions []*subscription.Subscription, snapshots map[lib
 			added = append(added, &library.PlaylistVideo{PlaylistID: sub.YoutubeID, Item: item, Video: video})
 		}
 		if len(added) != 0 {
-			// Notify in the order the videos were added, regardless of the playlist order
+			// プレイリストの順に関係なく、動画が追加された順に通知する
 			sort.SliceStable(added, func(i, j int) bool {
 				return added[i].Item.AddedAt.Before(added[j].Item.AddedAt)
 			})

@@ -11,11 +11,11 @@ import (
 	"gorm.io/gorm"
 )
 
-// Migrate brings the schema up to date. AutoMigrate only adds tables and
-// columns; renaming or dropping them has to be done by hand.
+// Migrate はスキーマを最新にする。AutoMigrate はテーブルとカラムの追加しか
+// しないので、リネームや削除は手作業で行う必要がある。
 func Migrate(db *gorm.DB) error {
-	// The videos table used to be a history of notified videos. It now holds
-	// the latest state of each video, so the old table is dropped once.
+	// videos テーブルは以前、通知した動画の履歴だった。今は各動画の最新の状態を
+	// 持つので、古いテーブルは一度だけ削除する。
 	if db.Migrator().HasColumn("videos", "playlist_id") {
 		if err := db.Migrator().DropTable("videos"); err != nil {
 			return fmt.Errorf("could not drop the old videos table: %w", err)
@@ -27,8 +27,8 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 
-	// Aggregates reference each other by ID only, so GORM no longer derives the
-	// foreign key it used to create from the Guild.Playlists association.
+	// 集約は互いを ID でのみ参照するので、GORM は Guild.Playlists の関連付けから
+	// 作っていた外部キーをもう導出しない。
 	if !db.Migrator().HasConstraint(&subscription.Subscription{}, "fk_guilds_playlists") {
 		err := db.Exec("ALTER TABLE playlists ADD CONSTRAINT fk_guilds_playlists FOREIGN KEY (guild_id) REFERENCES guilds(id)").Error
 		if err != nil {

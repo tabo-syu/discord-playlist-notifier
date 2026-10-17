@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	// YouTube playlists did not exist before this
+	// これより前には YouTube のプレイリストは存在しなかった
 	minWrappedYear = 2005.0
 
 	wrappedYearOption = &discordgo.ApplicationCommandOption{

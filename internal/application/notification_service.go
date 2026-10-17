@@ -11,13 +11,13 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 )
 
-// NotificationService holds the use cases run on a schedule. Failures are
-// logged rather than returned, since there is no one to return them to.
+// NotificationService は定期実行するユースケースを持つ。返す相手がいないので、
+// 失敗はエラーとして返さずログに出す。
 type NotificationService struct {
 	subscriptions subscription.Repository
 	library       *LibraryService
 	notifier      Notifier
-	// Time zone of the days and years the posts are based on
+	// 投稿の基準にする日付や年のタイムゾーン
 	location *time.Location
 }
 
@@ -25,12 +25,11 @@ func NewNotificationService(s subscription.Repository, l *LibraryService, n Noti
 	return &NotificationService{s, l, n, loc}
 }
 
-// NotifyUpdates syncs every subscribed playlist, and notifies the videos that
-// became hidden and the videos added since the last notification.
+// NotifyUpdates は通知登録された全てのプレイリストを同期し、非公開・削除に
+// なった動画と、前回の通知以降に追加された動画を通知する。
 //
-// The base time of a subscription is saved before its videos are sent, and
-// only the subscriptions saved successfully are notified. A notification may
-// be missed, but is never sent twice.
+// 通知設定の基準時刻は動画を送る前に保存し、保存に成功した通知設定だけを
+// 通知する。通知を取りこぼすことはあっても、二重には送らない。
 func (s *NotificationService) NotifyUpdates() {
 	subscriptions, err := s.subscriptions.FindAll()
 	if err != nil {
@@ -76,7 +75,7 @@ func (s *NotificationService) NotifyUpdates() {
 
 	for _, update := range saved {
 		sub := update.Subscription
-		// The channel is not stored, so fetch it now. Send without it on failure.
+		// チャンネルは保存していないのでここで取得する。失敗したらチャンネルなしで送る。
 		var videoIDs []library.VideoID
 		for _, v := range update.Videos {
 			videoIDs = append(videoIDs, v.Video.YoutubeID)
@@ -104,8 +103,8 @@ func (s *NotificationService) notifyHiddenVideos(subscriptions []*subscription.S
 	}
 }
 
-// RefreshVideos updates the details of every stored video, and notifies the
-// videos that reached a new view milestone.
+// RefreshVideos は保存済みの全動画の詳細を更新し、再生数の新しい節目に
+// 達した動画を通知する。
 func (s *NotificationService) RefreshVideos() {
 	reached, err := s.library.RefreshVideos()
 	if err != nil {
@@ -131,7 +130,7 @@ func (s *NotificationService) RefreshVideos() {
 		return
 	}
 
-	// The channel is not stored, so fetch it now. Send without it on failure.
+	// チャンネルは保存していないのでここで取得する。失敗したらチャンネルなしで送る。
 	live, err := s.library.LiveVideos(videoIDs)
 	if err != nil {
 		log.Println("Could not fetch channels for milestones cause:", err)
@@ -146,8 +145,8 @@ func (s *NotificationService) RefreshVideos() {
 	}
 }
 
-// PostWrapped posts the summary of this year of every subscribed playlist
-// that had videos added in the year.
+// PostWrapped は、今年動画が追加された通知登録済みの全プレイリストについて、
+// その年のまとめを投稿する。
 func (s *NotificationService) PostWrapped() {
 	subscriptions, err := s.subscriptions.FindAll()
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
@@ -177,8 +176,8 @@ func (s *NotificationService) PostWrapped() {
 	}
 }
 
-// PostPicks posts a random video of every subscribed playlist whose pick
-// interval is due today.
+// PostPicks は、ピックの間隔が今日に当たる通知登録済みの全プレイリストについて、
+// ランダムな動画を投稿する。
 func (s *NotificationService) PostPicks() {
 	subscriptions, err := s.subscriptions.FindAll()
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
@@ -205,7 +204,7 @@ func (s *NotificationService) PostPicks() {
 			continue
 		}
 
-		// The channel is not stored, so fetch it now. Send without it on failure.
+		// チャンネルは保存していないのでここで取得する。失敗したらチャンネルなしで送る。
 		live, err := s.library.LiveVideos([]library.VideoID{picked[0].Video.YoutubeID})
 		if err != nil {
 			log.Println("Could not fetch the channel for pick cause:", err)

@@ -31,7 +31,7 @@ func (n *notifier) NotifyMilestone(notice *notification.Milestone, live map[libr
 	return n.send(notice.ChannelID, embed)
 }
 
-// japaneseCount formats round numbers with Japanese units, e.g. 1000万, 1億.
+// japaneseCount はきりのいい数を日本語の単位で整形する。例: 1000万、1億
 func japaneseCount(n library.ViewCount) string {
 	switch {
 	case n >= 100_000_000 && n%100_000_000 == 0:

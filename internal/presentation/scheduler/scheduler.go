@@ -1,4 +1,4 @@
-// Package scheduler runs the scheduled use cases.
+// Package scheduler は定期実行するユースケースを動かす。
 package scheduler
 
 import (
@@ -24,7 +24,7 @@ func (s *scheduler) Start() {
 	s.scheduler.Every(6).Hours().WaitForSchedule().Do(guard("RefreshVideos", s.notification.RefreshVideos))
 	s.scheduler.Cron(WRAPPED_CRON).Do(guard("Wrapped", s.notification.PostWrapped))
 	s.scheduler.Every(1).Day().At(PICK_TIME).Do(guard("Pick", s.notification.PostPicks))
-	// Also right after starting, so that the names are there on a new database
+	// 新しい DB でも名前がそろうように、起動直後にも実行する
 	s.scheduler.Every(1).Day().Do(guard("RefreshCategories", s.library.RefreshCategories))
 	s.scheduler.StartAsync()
 

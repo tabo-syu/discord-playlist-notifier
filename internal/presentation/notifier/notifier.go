@@ -1,5 +1,5 @@
-// Package notifier implements application.Notifier by posting embeds to
-// Discord channels.
+// Package notifier は Discord のチャンネルに Embed を投稿することで
+// application.Notifier を実装する。
 package notifier
 
 import (
@@ -18,7 +18,7 @@ import (
 
 type notifier struct {
 	session *discordgo.Session
-	// Time zone used to show dates
+	// 日付の表示に使うタイムゾーン
 	location *time.Location
 }
 
@@ -60,11 +60,11 @@ func (n *notifier) NotifyNewVideos(news *notification.NewVideos, live map[librar
 			},
 			Image:  &discordgo.MessageEmbedImage{URL: video.Thumbnail()},
 			Footer: channelFooter(video, live),
-			// Passing UTC time allows Discord to convert to the user's appropriate timezone
+			// UTC の時刻を渡すと、Discord がユーザーに合ったタイムゾーンに変換する
 			Timestamp: video.PublishedAt.Format(time.RFC3339),
 		}
 
-		// Send one message per video, and keep sending the rest even if one fails
+		// 動画 1 件につき 1 通送り、1 件失敗しても残りを送り続ける
 		if err := n.send(sub.SendChannelID, embed); err != nil {
 			errs = append(errs, fmt.Errorf("video %s: %w", video.YoutubeID, err))
 		}
@@ -77,7 +77,7 @@ func videoURL(videoID library.VideoID, playlistID library.PlaylistID) string {
 	return fmt.Sprintf("https://www.youtube.com/watch?v=%s&list=%s", videoID, playlistID)
 }
 
-// views prefers the views fetched right before sending.
+// views は送る直前に取得した再生数を優先する。
 func views(video *library.Video, live map[library.VideoID]*library.LiveVideo) library.ViewCount {
 	if l, ok := live[video.YoutubeID]; ok {
 		return l.Views
@@ -85,8 +85,8 @@ func views(video *library.Video, live map[library.VideoID]*library.LiveVideo) li
 	return video.Views
 }
 
-// channelFooter shows the channel of the video, which is only known when it
-// was fetched right before sending.
+// channelFooter は動画のチャンネルを表示する。チャンネルは送る直前に
+// 取得したときにしかわからない。
 func channelFooter(video *library.Video, live map[library.VideoID]*library.LiveVideo) *discordgo.MessageEmbedFooter {
 	l, ok := live[video.YoutubeID]
 	if !ok {
@@ -98,7 +98,7 @@ func channelFooter(video *library.Video, live map[library.VideoID]*library.LiveV
 func color(hex string) int {
 	color, err := strconv.ParseInt(hex, 16, 0)
 	if err != nil {
-		// Default to red if there's an error
+		// エラーのときは赤にする
 		return 0xff0000
 	}
 
@@ -106,19 +106,19 @@ func color(hex string) int {
 }
 
 func separator(integer library.ViewCount) string {
-	// Use a more efficient approach with strings.Builder
+	// strings.Builder を使って効率よく組み立てる
 	var sb strings.Builder
 	str := fmt.Sprintf("%d", integer)
 
-	// Calculate the number of commas needed
+	// 必要なカンマの数を計算する
 	commas := (len(str) - 1) / 3
 
-	// Pre-allocate the buffer to avoid reallocations
+	// 再割り当てを避けるためにバッファを事前に確保する
 	sb.Grow(len(str) + commas)
 
-	// Add digits with commas
+	// カンマを入れながら数字を追加する
 	for i, char := range str {
-		// Add a comma before every 3rd digit from the right, except at the beginning
+		// 先頭を除き、右から 3 桁ごとにカンマを入れる
 		if i > 0 && (len(str)-i)%3 == 0 {
 			sb.WriteByte(',')
 		}

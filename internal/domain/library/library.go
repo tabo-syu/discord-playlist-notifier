@@ -1,13 +1,13 @@
-// Package library holds the contents of the watched YouTube playlists: their
-// items and videos. Unlike subscriptions, which are per-guild settings, the
-// contents are stored once per YouTube playlist and shared by every guild.
+// Package library は通知対象の YouTube プレイリストの中身（アイテムと動画）を
+// 持つ。ギルドごとの設定である通知設定とは違い、中身は YouTube の
+// プレイリストごとに 1 つだけ保存し、全てのギルドで共有する。
 package library
 
-// PlaylistID is the ID of a YouTube playlist.
+// PlaylistID は YouTube のプレイリストの ID。
 type PlaylistID string
 
-// VideoID is the ID of a YouTube video.
+// VideoID は YouTube の動画の ID。
 type VideoID string
 
-// ItemID is the ID of a playlist item, which differs from the ID of its video.
+// ItemID はプレイリストのアイテムの ID で、その動画の ID とは異なる。
 type ItemID string

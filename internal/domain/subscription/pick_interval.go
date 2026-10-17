@@ -2,7 +2,7 @@ package subscription
 
 import "time"
 
-// PickInterval is how often a random video of the playlist is posted.
+// PickInterval はプレイリストのランダムな動画を投稿する頻度。
 type PickInterval string
 
 const (
@@ -12,8 +12,8 @@ const (
 	PickMonthly PickInterval = "monthly"
 )
 
-// DueOn reports whether a pick with the interval is posted on the day of t.
-// Weekly picks are posted on Mondays and monthly picks on the 1st.
+// DueOn はその間隔のピックを t の日に投稿するかを返す。
+// 毎週のピックは月曜日、毎月のピックは 1 日に投稿する。
 func (i PickInterval) DueOn(t time.Time) bool {
 	switch i {
 	case PickDaily:

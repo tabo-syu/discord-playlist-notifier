@@ -18,7 +18,7 @@ func NewServer(s *discordgo.Session, rg *registrar, e *event, rt *router) *Serve
 }
 
 func (s *Server) Serve() error {
-	// When the bot joins a server
+	// ボットがサーバーに参加したとき
 	s.session.AddHandler(func(d *discordgo.Session, g *discordgo.GuildCreate) {
 		if err := s.registerer.Register(g.Guild.ID); err != nil {
 			log.Println("Commands could not register:", g.Guild.ID, "cause:", err)
@@ -33,7 +33,7 @@ func (s *Server) Serve() error {
 		}
 	})
 
-	// When the bot is removed from a server
+	// ボットがサーバーから削除されたとき
 	s.session.AddHandler(func(d *discordgo.Session, g *discordgo.GuildDelete) {
 		if err := s.event.GuildDelete(g.Guild.ID); err != nil {
 			log.Println("Guild record could not delete:", g.Guild.ID, "cause:", err)
@@ -42,13 +42,13 @@ func (s *Server) Serve() error {
 		}
 	})
 
-	// When a command is received
+	// コマンドを受け取ったとき
 	s.session.AddHandler(func(d *discordgo.Session, i *discordgo.InteractionCreate) {
 		request := i.ApplicationCommandData()
 		command := s.router.Route(request.Name)
 		if command == nil {
 			log.Println("Unknown command received:", request.Name)
-			// Respond with an error message
+			// エラーメッセージで応答する
 			err := d.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{

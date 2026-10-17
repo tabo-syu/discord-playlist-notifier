@@ -19,7 +19,7 @@ import (
 const (
 	DEFAULT_TRENDING_DAYS = 30
 	MAX_TRENDING_DAYS     = 365
-	// Discord rejects messages with more attachments than this
+	// Discord はこれより多い添付ファイルを持つメッセージを拒否する
 	MAX_ATTACHMENTS = 10
 )
 
