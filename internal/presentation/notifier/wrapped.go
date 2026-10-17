@@ -8,7 +8,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-// Discord rejects embed descriptions longer than this
+// Discord はこれより長い Embed の説明を拒否する
 const MAX_EMBED_DESCRIPTION_LENGTH = 4096
 
 func (n *notifier) PostWrapped(sub *subscription.Subscription, w *library.Wrapped) error {

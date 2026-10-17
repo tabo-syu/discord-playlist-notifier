@@ -11,9 +11,9 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 )
 
-// QueryService answers read-only questions about the subscribed playlists,
-// for clients outside Discord. Only the stored contents are read, so no
-// YouTube quota is used. Playlists no guild subscribes to are not shown.
+// QueryService は Discord の外のクライアント向けに、通知登録されたプレイリストに
+// 関する読み取り専用の問い合わせに答える。保存済みの中身だけを読むので
+// YouTube のクォータは使わない。どのギルドも登録していないプレイリストは見せない。
 type QueryService struct {
 	subscriptions subscription.Repository
 	library       *LibraryService
@@ -23,19 +23,19 @@ func NewQueryService(s subscription.Repository, l *LibraryService) *QueryService
 	return &QueryService{s, l}
 }
 
-// WatchedPlaylist is a playlist subscribed by at least one guild.
+// WatchedPlaylist は 1 つ以上のギルドが通知登録しているプレイリスト。
 type WatchedPlaylist struct {
 	ID    library.PlaylistID
 	Title string
 }
 
-// PlaylistOverview is a watched playlist together with its statistics.
+// PlaylistOverview は通知対象のプレイリストとその統計。
 type PlaylistOverview struct {
 	WatchedPlaylist
 	Stats *library.Stats
 }
 
-// VideoSort is the order of FindVideos.
+// VideoSort は FindVideos の並び順。
 type VideoSort string
 
 const (
@@ -44,31 +44,31 @@ const (
 	SortViewsDesc VideoSort = "views_desc"
 )
 
-// VideoQuery narrows down the videos of the watched playlists. Zero values
-// mean no condition.
+// VideoQuery は通知対象のプレイリストの動画を絞り込む。ゼロ値は
+// 条件なしを意味する。
 type VideoQuery struct {
 	PlaylistID library.PlaylistID
-	// Case-insensitive part of the title
+	// タイトルの一部（大文字・小文字を区別しない）
 	Title string
-	// Added at or after
+	// この時刻以降に追加された
 	AddedFrom time.Time
-	// Added before
+	// この時刻より前に追加された
 	AddedUntil time.Time
-	// Include private and deleted videos, whose title may be unknown
+	// タイトルがわからないこともある非公開・削除済みの動画も含める
 	IncludeUnavailable bool
 	Sort               VideoSort
 	Offset             int
 	Limit              int
 }
 
-// VideoPage is a page of FindVideos, with the number of all the matches.
+// VideoPage は FindVideos の 1 ページ分で、一致した全件の数を持つ。
 type VideoPage struct {
 	Total  int
 	Videos []*library.PlaylistVideo
 }
 
-// Playlists returns the watched playlists, once per YouTube playlist, ordered
-// by title. Returns an empty slice when there is none.
+// Playlists は通知対象のプレイリストを YouTube のプレイリストごとに 1 つずつ、
+// タイトル順に返す。1 つもなければ空のスライスを返す。
 func (s *QueryService) Playlists() ([]*WatchedPlaylist, error) {
 	subscriptions, err := s.subscriptions.FindAll()
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
@@ -94,7 +94,7 @@ func (s *QueryService) Playlists() ([]*WatchedPlaylist, error) {
 	return playlists, nil
 }
 
-// Overviews returns the watched playlists with their statistics.
+// Overviews は通知対象のプレイリストを統計と一緒に返す。
 func (s *QueryService) Overviews() ([]*PlaylistOverview, error) {
 	playlists, err := s.Playlists()
 	if err != nil {
@@ -113,7 +113,7 @@ func (s *QueryService) Overviews() ([]*PlaylistOverview, error) {
 	return overviews, nil
 }
 
-// Playlist returns the watched playlist, or domain.ErrDBRecordNotFound.
+// Playlist は通知対象のプレイリストを返す。なければ domain.ErrDBRecordNotFound を返す。
 func (s *QueryService) Playlist(id library.PlaylistID) (*WatchedPlaylist, error) {
 	playlists, err := s.Playlists()
 	if err != nil {
@@ -128,7 +128,7 @@ func (s *QueryService) Playlist(id library.PlaylistID) (*WatchedPlaylist, error)
 	return nil, domain.ErrDBRecordNotFound
 }
 
-// scope returns the given playlist, or every watched playlist when id is empty.
+// scope は指定したプレイリストを返す。id が空なら通知対象の全プレイリストを返す。
 func (s *QueryService) scope(id library.PlaylistID) ([]library.PlaylistID, error) {
 	if id != "" {
 		if _, err := s.Playlist(id); err != nil {
@@ -149,8 +149,8 @@ func (s *QueryService) scope(id library.PlaylistID) ([]library.PlaylistID, error
 	return ids, nil
 }
 
-// FindVideos returns the items of the watched playlists that match the query.
-// A video in several playlists, or added twice, appears once per item.
+// FindVideos は通知対象のプレイリストのアイテムのうち、条件に一致するものを返す。
+// 複数のプレイリストにある動画や 2 回追加された動画は、アイテムごとに現れる。
 func (s *QueryService) FindVideos(q VideoQuery) (*VideoPage, error) {
 	ids, err := s.scope(q.PlaylistID)
 	if err != nil {
@@ -178,7 +178,7 @@ func (s *QueryService) FindVideos(q VideoQuery) (*VideoPage, error) {
 		}
 	}
 
-	// Contents are ordered by the time they were added
+	// 中身は追加された時刻の順に並んでいる
 	switch q.Sort {
 	case SortAddedAsc:
 	case SortViewsDesc:
@@ -203,7 +203,7 @@ func (s *QueryService) FindVideos(q VideoQuery) (*VideoPage, error) {
 	return page, nil
 }
 
-// Stats aggregates the stored contents of a watched playlist.
+// Stats は通知対象のプレイリストの保存済みの中身を集計する。
 func (s *QueryService) Stats(id library.PlaylistID) (*library.Stats, error) {
 	if _, err := s.Playlist(id); err != nil {
 		return nil, err
@@ -212,7 +212,7 @@ func (s *QueryService) Stats(id library.PlaylistID) (*library.Stats, error) {
 	return s.library.Stats(id)
 }
 
-// Wrapped aggregates the items added to a watched playlist in the year.
+// Wrapped はその年に通知対象のプレイリストへ追加されたアイテムを集計する。
 func (s *QueryService) Wrapped(id library.PlaylistID, year int) (*library.Wrapped, error) {
 	if _, err := s.Playlist(id); err != nil {
 		return nil, err
@@ -221,8 +221,8 @@ func (s *QueryService) Wrapped(id library.PlaylistID, year int) (*library.Wrappe
 	return s.library.Wrapped(id, year)
 }
 
-// History returns the states of a video in the watched playlists recorded at
-// or after since, or domain.ErrDBRecordNotFound.
+// History は通知対象のプレイリストにある動画の、since 以降に記録された状態を
+// 返す。なければ domain.ErrDBRecordNotFound を返す。
 func (s *QueryService) History(id library.VideoID, since time.Time) (*library.VideoHistory, error) {
 	ids, err := s.scope("")
 	if err != nil {
@@ -232,8 +232,8 @@ func (s *QueryService) History(id library.VideoID, since time.Time) (*library.Vi
 	return s.library.History(ids, id, since)
 }
 
-// RandomVideos picks up to n distinct available videos from a watched
-// playlist, or from all of them when id is empty.
+// RandomVideos は通知対象のプレイリスト（id が空なら全て）から、
+// 重複のない視聴可能な動画を最大 n 件選ぶ。
 func (s *QueryService) RandomVideos(id library.PlaylistID, n int) ([]*library.PlaylistVideo, error) {
 	ids, err := s.scope(id)
 	if err != nil {

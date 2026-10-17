@@ -56,7 +56,7 @@ func (r *libraryRepository) FindItemsByVideos(ids []library.VideoID) ([]*library
 	return items, nil
 }
 
-// Filtering with a subquery avoids sending thousands of IDs in an IN clause.
+// サブクエリで絞り込むことで、何千もの ID を IN 句で送らずに済む。
 func (r *libraryRepository) FindVideosInPlaylists(playlistIDs ...library.PlaylistID) (map[library.VideoID]*library.Video, error) {
 	listed := r.db.Model(&library.PlaylistItem{}).Select("video_youtube_id").Where("playlist_youtube_id IN ?", playlistIDs)
 
@@ -130,8 +130,8 @@ func (r *libraryRepository) FindLatestSnapshots(ids []library.VideoID, since tim
 	return r.findBoundarySnapshots(ids, since, "recorded_at DESC")
 }
 
-// findBoundarySnapshots returns the first state of each video in the given
-// order, using DISTINCT ON (PostgreSQL) over the (video, recorded_at) index.
+// findBoundarySnapshots は各動画の、指定した順で最初の状態を返す。
+// (video, recorded_at) のインデックスに対して DISTINCT ON（PostgreSQL）を使う。
 func (r *libraryRepository) findBoundarySnapshots(ids []library.VideoID, since time.Time, order string) (map[library.VideoID]*library.VideoSnapshot, error) {
 	snapshots := map[library.VideoID]*library.VideoSnapshot{}
 	if len(ids) == 0 {
@@ -153,8 +153,8 @@ func (r *libraryRepository) findBoundarySnapshots(ids []library.VideoID, since t
 	return snapshots, nil
 }
 
-// Callers pass complete rows (existing values merged with the new ones), so
-// every column is overwritten on conflict.
+// 呼び出し側は完全な行（既存の値に新しい値をマージしたもの）を渡すので、
+// 競合時には全カラムを上書きする。
 func saveVideos(db *gorm.DB, videos []*library.Video) error {
 	if len(videos) == 0 {
 		return nil

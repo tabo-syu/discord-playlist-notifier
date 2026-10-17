@@ -100,7 +100,7 @@ func main() {
 	scheduler.Start()
 	defer scheduler.Stop()
 
-	// The MCP server only serves lookups, so the bot keeps running without it
+	// MCP サーバーは参照しかしないので、起動できなくてもボットは動き続ける
 	if env.MCP_ADDR != "" {
 		mcp := mcpserver.NewServer(env.MCP_ADDR, application.NewQueryService(sbr, ls), location)
 		if err := mcp.Serve(); err != nil {

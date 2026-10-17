@@ -1,6 +1,6 @@
-// Package mcpserver serves the read-only use cases as an MCP server over
-// Streamable HTTP, so that other bots (Claude Code) can look up the
-// subscribed playlists.
+// Package mcpserver は読み取り専用のユースケースを Streamable HTTP の
+// MCP サーバーとして提供し、他のボット（Claude Code）が通知登録された
+// プレイリストを参照できるようにする。
 package mcpserver
 
 import (
@@ -16,7 +16,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// Path the MCP endpoint is served at
+// MCP のエンドポイントを提供するパス
 const ENDPOINT_PATH = "/mcp"
 
 type server struct {
@@ -29,7 +29,7 @@ func NewServer(addr string, q *application.QueryService, loc *time.Location) *se
 	})
 	addTools(s, &tools{q, loc})
 
-	// Stateless: the tools never call back the client, so no session is kept
+	// ステートレス: ツールがクライアントを呼び返すことはないので、セッションは保持しない
 	handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s }, &mcp.StreamableHTTPOptions{
 		Stateless: true,
 	})
@@ -39,7 +39,7 @@ func NewServer(addr string, q *application.QueryService, loc *time.Location) *se
 	return &server{&http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}}
 }
 
-// Serve starts listening and serves in the background.
+// Serve は待ち受けを始め、バックグラウンドで提供する。
 func (s *server) Serve() error {
 	listener, err := net.Listen("tcp", s.http.Addr)
 	if err != nil {

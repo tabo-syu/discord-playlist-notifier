@@ -25,12 +25,12 @@ type Stats struct {
 	FirstAddedAt    time.Time
 	LastAddedAt     time.Time
 	TopViewed       []*Video
-	// The last STATS_MONTHS months including the current one, oldest first
+	// 今月を含む直近 STATS_MONTHS か月分、古い順
 	Monthly []MonthCount
 }
 
-// ComputeStats aggregates the contents of a playlist. Every item is counted,
-// so a video added twice counts twice, except in TopViewed.
+// ComputeStats はプレイリストの中身を集計する。全てのアイテムを数えるので、
+// 2 回追加された動画は 2 回数える。ただし TopViewed は除く。
 func ComputeStats(contents []*PlaylistVideo, now time.Time, loc *time.Location) *Stats {
 	stats := &Stats{}
 	now = now.In(loc)

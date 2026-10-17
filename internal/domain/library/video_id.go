@@ -8,9 +8,9 @@ import (
 
 var videoIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{11}$`)
 
-// ParseVideoID reads a video ID, or a URL of the video such as
-// https://www.youtube.com/watch?v=ID, https://youtu.be/ID or
-// https://www.youtube.com/shorts/ID.
+// ParseVideoID は動画 ID か、次のような動画の URL を読み取る。
+// https://www.youtube.com/watch?v=ID、https://youtu.be/ID、
+// https://www.youtube.com/shorts/ID
 func ParseVideoID(s string) (VideoID, bool) {
 	s = strings.TrimSpace(s)
 	if videoIDPattern.MatchString(s) {

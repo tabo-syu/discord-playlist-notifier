@@ -28,7 +28,7 @@ const (
 	ERR_VIDEO_NOT_WATCHED = "登録されているプレイリストに、その動画は見つかりません。find_videos で video_id を確認してください。"
 )
 
-// Told to the client when it connects
+// クライアントの接続時に伝える
 const INSTRUCTIONS = `Discord の playlist-notifier ボットが通知登録している YouTube プレイリストの中身を調べるためのツールです。
 - 見られるのは通知登録されているプレイリストだけで、読み取り専用です。
 - まず list_playlists でプレイリストの ID と名前を確認し、ほかのツールにはその ID を渡してください。
@@ -87,8 +87,8 @@ func logged[In, Out any](name string, h mcp.ToolHandlerFor[In, Out]) mcp.ToolHan
 	}
 }
 
-// clientError turns an error of a use case into the message the client sees.
-// The cause of internal errors is only logged.
+// clientError はユースケースのエラーを、クライアントに見せるメッセージに変換する。
+// 内部エラーの原因はログに出すだけにする。
 func clientError(err error) error {
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
 		return errors.New(ERR_NOT_WATCHED)
@@ -98,7 +98,7 @@ func clientError(err error) error {
 	return errors.New(ERR_INTERNAL)
 }
 
-// ---------- outputs ----------
+// ---------- 出力 ----------
 
 type playlistOut struct {
 	ID    string `json:"id"`
@@ -192,7 +192,7 @@ func toRanked(videos []*library.Video, playlistID library.PlaylistID) []rankedVi
 	return ranked
 }
 
-// parseDate reads YYYY-MM-DD as the start of the day in the bot's time zone.
+// parseDate は YYYY-MM-DD を、ボットのタイムゾーンでのその日の始まりとして読む。
 func (t *tools) parseDate(name, value string) (time.Time, error) {
 	if value == "" {
 		return time.Time{}, nil

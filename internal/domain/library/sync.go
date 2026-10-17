@@ -2,15 +2,15 @@ package library
 
 import "time"
 
-// PlaylistMeta is the playlist-level information used to decide whether the
-// items of a playlist need to be fetched again.
+// PlaylistMeta はプレイリストのアイテムを取得し直す必要があるかの判断に使う、
+// プレイリスト単位の情報。
 type PlaylistMeta struct {
 	YoutubeID PlaylistID
 	Title     string
 	ItemCount int64
 }
 
-// FetchedItem is one playlist item as fetched from YouTube.
+// FetchedItem は YouTube から取得したプレイリストのアイテム 1 件。
 type FetchedItem struct {
 	ItemID        ItemID
 	VideoID       VideoID
@@ -18,27 +18,27 @@ type FetchedItem struct {
 	PrivacyStatus PrivacyStatus
 }
 
-// Sync is the result of comparing the stored items of a playlist with the
-// ones fetched from YouTube.
+// Sync はプレイリストの保存済みのアイテムと、YouTube から取得したアイテムを
+// 突き合わせた結果。
 type Sync struct {
 	Added   []*PlaylistItem
 	Removed []*PlaylistItem
-	// Every video of the fetched items, including the ones seen for the first time
+	// 取得したアイテムの全ての動画。初めて見る動画も含む
 	Videos map[VideoID]*Video
-	// Videos that became private or deleted
+	// 非公開・削除になった動画
 	Hidden []*Video
-	// Watchable videos whose details have never been fetched
+	// 視聴可能で、詳細をまだ一度も取得していない動画
 	NeedDetails []VideoID
 
 	changed map[VideoID]*Video
 }
 
-// Reconcile compares the stored items of a playlist with the fetched ones.
-// videos must hold the stored videos of the fetched items; the map is taken
-// over by the returned Sync, which adds the videos seen for the first time.
+// Reconcile はプレイリストの保存済みのアイテムと取得したアイテムを突き合わせる。
+// videos には取得したアイテムの保存済みの動画を渡す。このマップは返す Sync が
+// 引き継ぎ、初めて見る動画を追加する。
 //
-// The privacy of a video is taken from its playlist items, which also
-// report private and deleted videos, unlike the videos endpoint.
+// 動画の公開状態はプレイリストのアイテムから取る。videos のエンドポイントとは
+// 違い、アイテムは非公開・削除済みの動画も返すため。
 func Reconcile(playlistID PlaylistID, stored []*PlaylistItem, fetched []*FetchedItem, videos map[VideoID]*Video) *Sync {
 	s := &Sync{Videos: videos, changed: map[VideoID]*Video{}}
 
@@ -87,7 +87,7 @@ func Reconcile(playlistID PlaylistID, stored []*PlaylistItem, fetched []*Fetched
 	return s
 }
 
-// ApplyDetails copies the fetched details of NeedDetails to the videos.
+// ApplyDetails は取得した詳細を NeedDetails の動画にコピーする。
 func (s *Sync) ApplyDetails(details []*Video) {
 	for _, d := range details {
 		video := s.Videos[d.YoutubeID]
@@ -97,7 +97,7 @@ func (s *Sync) ApplyDetails(details []*Video) {
 	}
 }
 
-// ChangedVideos returns the videos that need to be saved.
+// ChangedVideos は保存が必要な動画を返す。
 func (s *Sync) ChangedVideos() []*Video {
 	var videos []*Video
 	for _, v := range s.changed {

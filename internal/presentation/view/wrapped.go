@@ -8,12 +8,12 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 )
 
-// WrappedTitle is the heading of a yearly summary.
+// WrappedTitle は年間のまとめの見出し。
 func WrappedTitle(playlistTitle string, year int) string {
 	return fmt.Sprintf("🎁 %s の %d 年まとめ", playlistTitle, year)
 }
 
-// Wrapped formats the body of a yearly summary (without the heading).
+// Wrapped は年間のまとめの本文（見出しを除く）を整形する。
 func Wrapped(w *library.Wrapped, loc *time.Location, target Target) string {
 	if w.Added == 0 {
 		return fmt.Sprintf("%d 年に追加された曲はありません。\n", w.Year)

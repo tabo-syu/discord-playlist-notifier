@@ -1,12 +1,12 @@
-// Package guild is the aggregate of the Discord servers the bot has joined.
+// Package guild はボットが参加している Discord サーバーの集約。
 package guild
 
 import "gorm.io/gorm"
 
-// DiscordID is the ID Discord gives to a guild (server).
+// DiscordID は Discord がギルド（サーバー）に割り当てる ID。
 type DiscordID string
 
-// Guild is a Discord server the bot has joined.
+// Guild はボットが参加している Discord サーバー。
 type Guild struct {
 	gorm.Model
 	DiscordID DiscordID

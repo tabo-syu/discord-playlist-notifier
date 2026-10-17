@@ -2,7 +2,7 @@ package library
 
 import "time"
 
-// PlaylistItem is one entry of a YouTube playlist.
+// PlaylistItem は YouTube のプレイリストの 1 項目。
 type PlaylistItem struct {
 	ID                uint `gorm:"primarykey"`
 	CreatedAt         time.Time
@@ -10,7 +10,7 @@ type PlaylistItem struct {
 	PlaylistYoutubeID PlaylistID `gorm:"index"`
 	ItemID            ItemID     `gorm:"uniqueIndex"`
 	VideoYoutubeID    VideoID    `gorm:"index"`
-	// When the video was added to the playlist
+	// 動画がプレイリストに追加された時刻
 	AddedAt time.Time
 }
 

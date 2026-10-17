@@ -1,4 +1,4 @@
-// Package scheduler runs the scheduled use cases.
+// Package scheduler は定期実行するユースケースを動かす。
 package scheduler
 
 import (

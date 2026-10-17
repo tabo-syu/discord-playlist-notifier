@@ -1,5 +1,5 @@
-// Package subscription is the aggregate of the per-guild settings to be
-// notified of a YouTube playlist.
+// Package subscription は、YouTube のプレイリストを通知するための
+// ギルドごとの設定の集約。
 package subscription
 
 import (
@@ -11,27 +11,27 @@ import (
 	"gorm.io/gorm"
 )
 
-// ChannelID is the ID of the Discord text channel notifications are sent to.
+// ChannelID は通知を送る Discord のテキストチャンネルの ID。
 type ChannelID string
 
-// Subscription is the setting of a guild to be notified of a YouTube
-// playlist. The contents of the playlist itself belong to the library.
+// Subscription はギルドが YouTube のプレイリストの通知を受けるための設定。
+// プレイリスト自体の中身は library に属する。
 //
-// UpdatedAt is the base time of new video notifications: videos added to the
-// playlist at or after it are new (see IsNew).
+// UpdatedAt は新着動画の通知の基準時刻で、それ以降にプレイリストへ追加された
+// 動画が新着になる（IsNew を参照）。
 type Subscription struct {
 	gorm.Model
 	YoutubeID     library.PlaylistID
 	SendChannelID ChannelID
 	Title         string
-	// How often to post a random video from the playlist
+	// プレイリストからランダムな動画を投稿する頻度
 	PickInterval PickInterval
-	// The guild.Guild the subscription belongs to. Other aggregates are
-	// referenced by ID only.
+	// 通知設定が属する guild.Guild。他の集約は ID でのみ
+	// 参照する。
 	GuildID uint
 }
 
-// The table keeps the name the model had before it was renamed.
+// テーブル名はモデルのリネーム前の名前のままにしている。
 func (Subscription) TableName() string {
 	return "playlists"
 }
@@ -45,19 +45,19 @@ func New(g *guild.Guild, channelID ChannelID, youtubeID library.PlaylistID, titl
 	}
 }
 
-// IsNew reports whether the item was added after the last notification.
-// Uses !Before instead of After to include items added at exactly the same time.
+// IsNew はアイテムが前回の通知以降に追加されたかを返す。
+// ちょうど同時刻に追加されたアイテムを含めるため、After ではなく !Before を使う。
 func (s *Subscription) IsNew(item *library.PlaylistItem) bool {
 	return !item.AddedAt.Before(s.UpdatedAt)
 }
 
-// MarkNotified moves the base time of new video notifications. Moving it back
-// makes the videos added since then notified again.
+// MarkNotified は新着動画の通知の基準時刻を進める。過去に戻すと、
+// その時刻以降に追加された動画をもう一度通知する。
 func (s *Subscription) MarkNotified(at time.Time) {
 	s.UpdatedAt = at
 }
 
-// Rename follows the title of the playlist on YouTube.
+// Rename は YouTube 上のプレイリストのタイトルに合わせる。
 func (s *Subscription) Rename(title string) {
 	s.Title = title
 }

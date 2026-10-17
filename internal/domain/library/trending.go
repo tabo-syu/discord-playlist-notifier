@@ -7,28 +7,28 @@ import (
 
 const TRENDING_TOP = 3
 
-// TrendingVideo is a video whose views grew in a period.
+// TrendingVideo は期間内に再生数が伸びた動画。
 type TrendingVideo struct {
 	Video *Video
-	// Views gained from the first to the last recorded state in the period
+	// 期間内で最初に記録された状態から最後の状態までに伸びた再生数
 	Increase ViewCount
-	// The recorded states in the period, oldest first
+	// 期間内に記録された状態、古い順
 	Snapshots []*VideoSnapshot
 }
 
-// Trending is the videos of a playlist that gained the most views in a period.
+// Trending は期間内に再生数が最も伸びたプレイリストの動画。
 type Trending struct {
-	// The first and last time any video was recorded in the period. Zero when
-	// nothing was recorded.
+	// 期間内にいずれかの動画が記録された最初と最後の時刻。何も記録されて
+	// いなければゼロ値。
 	From time.Time
 	To   time.Time
-	// Most gained first
+	// 伸びが大きい順
 	Videos []*TrendingVideo
 }
 
-// ComputeTrending ranks the available videos by the views gained from their
-// earliest to their latest recorded state, and keeps the top n. Videos with
-// fewer than 2 states or no gain are left out. Snapshots are not filled.
+// ComputeTrending は視聴可能な動画を、最初に記録された状態から最後の状態までに
+// 伸びた再生数で順位付けし、上位 n 件を残す。状態が 2 つ未満の動画や伸びが
+// ない動画は除く。Snapshots は埋めない。
 func ComputeTrending(videos map[VideoID]*Video, earliest, latest map[VideoID]*VideoSnapshot, n int) *Trending {
 	t := &Trending{}
 	for id, first := range earliest {

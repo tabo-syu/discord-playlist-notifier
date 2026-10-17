@@ -10,9 +10,9 @@ import (
 	"github.com/wcharczuk/go-chart/v2"
 )
 
-// TrendingChart draws the views each video gained since its first recorded
-// state as a PNG image, one line per video. The lines are named #1, #2, ...
-// in the order of the videos, which should match the ranking in the message.
+// TrendingChart は各動画が最初に記録された状態から伸ばした再生数を、
+// 動画ごとに 1 本の線で PNG 画像として描く。線の名前は動画の順に #1、#2、…
+// で、メッセージの順位と一致させること。
 func TrendingChart(videos []*library.TrendingVideo, loc *time.Location) ([]byte, error) {
 	var series []chart.Series
 	var from, to time.Time
@@ -25,7 +25,7 @@ func TrendingChart(videos []*library.TrendingVideo, loc *time.Location) ([]byte,
 		var gained []float64
 		for _, s := range v.Snapshots {
 			times = append(times, s.RecordedAt)
-			// Views can go down when YouTube removes invalid ones
+			// YouTube が不正な再生を取り除くと、再生数が減ることがある
 			gained = append(gained, float64(s.Views)-float64(v.Snapshots[0].Views))
 		}
 		if first := v.Snapshots[0].RecordedAt; from.IsZero() || first.Before(from) {

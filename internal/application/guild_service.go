@@ -1,5 +1,5 @@
-// Package application holds the use cases of the bot. They load aggregates
-// through the repositories, let the domain decide, and save the results.
+// Package application はボットのユースケースを持つ。リポジトリから集約を
+// 読み込み、ドメインに判断させ、その結果を保存する。
 package application
 
 import (
@@ -17,7 +17,7 @@ func NewGuildService(g guild.Repository, s subscription.Repository) *GuildServic
 	return &GuildService{g, s}
 }
 
-// Register records a guild the bot has joined.
+// Register はボットが参加したギルドを記録する。
 func (s *GuildService) Register(id guild.DiscordID) error {
 	exists, err := s.guilds.Exists(id)
 	if err != nil {
@@ -30,7 +30,7 @@ func (s *GuildService) Register(id guild.DiscordID) error {
 	return s.guilds.Add(guild.New(id))
 }
 
-// Unregister deletes a guild the bot has left, together with its subscriptions.
+// Unregister はボットが退出したギルドを、その通知設定と一緒に削除する。
 func (s *GuildService) Unregister(id guild.DiscordID) error {
 	exists, err := s.guilds.Exists(id)
 	if err != nil {

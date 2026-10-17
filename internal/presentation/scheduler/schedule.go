@@ -5,14 +5,14 @@ import (
 	"runtime/debug"
 )
 
-// Local time (in the scheduler location) to post the picks. Weekly picks are
-// posted on Mondays and monthly picks on the 1st.
+// ピックを投稿する時刻（スケジューラのロケーションでの時刻）。
+// 毎週のピックは月曜日、毎月のピックは 1 日に投稿する。
 const PICK_TIME = "12:00"
 
-// Cron expression (in the scheduler location) to post the yearly summary: Dec 31 21:00
+// 年間のまとめを投稿する cron 式（スケジューラのロケーション）: 12/31 21:00
 const WRAPPED_CRON = "0 21 31 12 *"
 
-// guard keeps a panic in one run of a job from bringing the whole bot down.
+// guard はジョブの 1 回の実行での panic でボット全体が落ちないようにする。
 func guard(name string, job func()) func() {
 	return func() {
 		defer func() {

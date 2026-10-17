@@ -13,7 +13,7 @@ type PlaylistNotifier struct {
 	command       *discordgo.ApplicationCommand
 	subscriptions *application.SubscriptionService
 	library       *application.LibraryService
-	// Time zone used to show dates and to group them by month or year
+	// 日付の表示と、月や年での区切りに使うタイムゾーン
 	location *time.Location
 }
 
@@ -65,13 +65,13 @@ func (c *PlaylistNotifier) SetCommand(cmd *discordgo.ApplicationCommand) {
 }
 
 func (c *PlaylistNotifier) Handle(data *discordgo.ApplicationCommandInteractionData, guildId string, channelId string) *command.Response {
-	// Check if Options array is empty
+	// Options が空かを確認する
 	if len(data.Options) == 0 {
 		return command.Text("Error: No subcommand provided. Please use one of the available subcommands.")
 	}
 
 	subcommand := data.Options[0]
-	// Verify that the option is a subcommand
+	// オプションがサブコマンドであることを確認する
 	if subcommand.Type != discordgo.ApplicationCommandOptionSubCommand {
 		return command.Text("Error: Invalid command format. Please use one of the available subcommands.")
 	}
@@ -82,7 +82,7 @@ func (c *PlaylistNotifier) Handle(data *discordgo.ApplicationCommandInteractionD
 		message = c.list(guildId)
 	case addSubCommand.Name:
 		options := command.ParseArguments(subcommand.Options)
-		// Check if the required option exists
+		// 必須のオプションがあるかを確認する
 		playlistOption, exists := options[playlistIdOption.Name]
 		if !exists {
 			return command.Text("Error: Playlist ID is required.")
@@ -96,7 +96,7 @@ func (c *PlaylistNotifier) Handle(data *discordgo.ApplicationCommandInteractionD
 		message = c.add(guildId, channelId, playlistId)
 	case deleteSubCommand.Name:
 		options := command.ParseArguments(subcommand.Options)
-		// Check if the required option exists
+		// 必須のオプションがあるかを確認する
 		playlistOption, exists := options[playlistIdOption.Name]
 		if !exists {
 			return command.Text("Error: Playlist ID is required.")

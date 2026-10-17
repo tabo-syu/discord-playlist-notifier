@@ -2,9 +2,9 @@ package library
 
 import "time"
 
-// Video holds the latest known state of a video that appears in a watched
-// playlist, once per video. Details (title, views, ...) are kept after the
-// video becomes private or deleted, so they can still be shown.
+// Video は通知対象のプレイリストに含まれる動画の、わかっている最新の状態を
+// 動画ごとに 1 つ持つ。詳細（タイトル、再生数など）は動画が非公開・削除に
+// なっても表示できるように残す。
 type Video struct {
 	ID            uint `gorm:"primarykey"`
 	CreatedAt     time.Time
@@ -13,12 +13,12 @@ type Video struct {
 	Title         string
 	Views         ViewCount
 	PrivacyStatus PrivacyStatus
-	// When the video itself was published
+	// 動画自体が投稿された時刻
 	PublishedAt time.Time
-	// The highest view milestone already reached. Nil until the first time
-	// the views are known, so that existing views are not notified.
+	// すでに達した再生数の最も高い節目。既存の再生数を通知しないように、
+	// 初めて再生数がわかるまでは nil。
 	ViewMilestone *ViewCount
-	// Zero when hidden by the owner or turned off
+	// 所有者が非表示にしたか無効にしたときはゼロ
 	Likes    uint64
 	Comments uint64
 }
@@ -27,24 +27,24 @@ func (Video) TableName() string {
 	return "videos"
 }
 
-// HasDetails reports whether the video details have been fetched at least once.
+// HasDetails は動画の詳細を一度でも取得したかを返す。
 func (v *Video) HasDetails() bool {
 	return v.Title != ""
 }
 
-// Available reports whether the video can be watched and shown to users.
+// Available は動画が視聴でき、ユーザーに見せてよいかを返す。
 func (v *Video) Available() bool {
 	return v.HasDetails() && v.PrivacyStatus.Watchable()
 }
 
-// Thumbnail returns the URL of the video thumbnail, which YouTube derives from the video ID.
+// Thumbnail は動画のサムネイルの URL を返す。YouTube は動画 ID からこれを作る。
 func (v *Video) Thumbnail() string {
 	return "https://i.ytimg.com/vi/" + string(v.YoutubeID) + "/hqdefault.jpg"
 }
 
-// ChangePrivacy sets the privacy status, and reports whether it changed and
-// whether the video was hidden by the change. Videos seen for the first time
-// are not reported as hidden.
+// ChangePrivacy は公開状態を設定し、変わったかどうかと、その変化で動画が
+// 見られなくなったかどうかを返す。初めて見る動画は見られなくなったとは
+// みなさない。
 func (v *Video) ChangePrivacy(status PrivacyStatus) (changed bool, hidden bool) {
 	if v.PrivacyStatus == status {
 		return false, false
@@ -55,8 +55,8 @@ func (v *Video) ChangePrivacy(status PrivacyStatus) (changed bool, hidden bool) 
 	return true, hidden
 }
 
-// ApplyDetails copies the details fetched from the videos endpoint. The
-// privacy status is left untouched because it is owned by the playlist items.
+// ApplyDetails は videos のエンドポイントから取得した詳細をコピーする。
+// 公開状態はプレイリストのアイテムが持つものなので変えない。
 func (v *Video) ApplyDetails(details *Video) {
 	v.Title = details.Title
 	v.Views = details.Views
@@ -65,8 +65,8 @@ func (v *Video) ApplyDetails(details *Video) {
 	v.PublishedAt = details.PublishedAt
 }
 
-// InitMilestone records the milestone of the current views the first time the
-// views are known, so that they are not notified.
+// InitMilestone は初めて再生数がわかったときに、その再生数の節目を記録して
+// 通知されないようにする。
 func (v *Video) InitMilestone() {
 	if v.ViewMilestone == nil {
 		reached := v.Views.Milestone()
@@ -74,8 +74,8 @@ func (v *Video) InitMilestone() {
 	}
 }
 
-// UpdateMilestone records the milestone of the current views, and reports
-// whether the video reached a new one.
+// UpdateMilestone は現在の再生数の節目を記録し、新しい節目に達したかを
+// 返す。
 func (v *Video) UpdateMilestone() bool {
 	milestone := v.Views.Milestone()
 	if v.ViewMilestone == nil {
@@ -90,8 +90,8 @@ func (v *Video) UpdateMilestone() bool {
 	return false
 }
 
-// LiveVideo is information fetched from YouTube right before a video is
-// shown. The channel is not stored, and the views are fresher than the stored ones.
+// LiveVideo は動画を表示する直前に YouTube から取得する情報。チャンネルは
+// 保存せず、再生数は保存済みのものより新しい。
 type LiveVideo struct {
 	ChannelName string
 	ChannelIcon string

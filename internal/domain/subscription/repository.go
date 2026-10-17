@@ -8,14 +8,14 @@ import (
 type Repository interface {
 	Exists(guildID guild.DiscordID, playlistID library.PlaylistID) (bool, error)
 	Add(subscription *Subscription) error
-	// Update saves every field, including UpdatedAt.
+	// Update は UpdatedAt を含む全てのフィールドを保存する。
 	Update(subscription *Subscription) error
-	// UpdatePickInterval saves only the pick interval. It must not touch
-	// UpdatedAt, which is the base time of new video notifications.
+	// UpdatePickInterval はピックの間隔だけを保存する。新着動画の通知の基準時刻で
+	// ある UpdatedAt には触れてはならない。
 	UpdatePickInterval(subscription *Subscription) error
-	// FindAll returns domain.ErrDBRecordNotFound when there is no subscription.
+	// FindAll は通知設定が 1 つもないときに domain.ErrDBRecordNotFound を返す。
 	FindAll() ([]*Subscription, error)
-	// FindByGuild returns domain.ErrDBRecordNotFound when the guild has no subscription.
+	// FindByGuild はギルドに通知設定がないときに domain.ErrDBRecordNotFound を返す。
 	FindByGuild(guildID guild.DiscordID) ([]*Subscription, error)
 	DeleteAll(subscriptions []*Subscription) error
 }

@@ -113,7 +113,7 @@ func formatHistory(h *library.VideoHistory, days int) string {
 	return sb.String()
 }
 
-// change formats a value moving from before to after, e.g. 1,000 → 1,200（+200）.
+// change は before から after への値の変化を整形する。例: 1,000 → 1,200（+200）
 func change(before, after uint64) string {
 	sign := "+"
 	diff := after - before

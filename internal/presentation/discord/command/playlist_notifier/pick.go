@@ -11,7 +11,7 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 )
 
-// Choice value to stop posting, since Discord does not allow an empty value
+// Discord は空の値を許さないので、投稿をやめるための選択肢の値
 const PICK_OFF = "off"
 
 var (

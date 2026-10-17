@@ -10,8 +10,8 @@ import (
 	"github.com/wcharczuk/go-chart/v2"
 )
 
-// HistoryChart draws the views (right axis) and likes (left axis) of the
-// snapshots as a PNG image. At least 2 snapshots are needed.
+// HistoryChart はスナップショットの再生数（右軸）と高評価数（左軸）を
+// PNG 画像として描く。スナップショットは 2 つ以上必要。
 func HistoryChart(snapshots []*library.VideoSnapshot, loc *time.Location) ([]byte, error) {
 	if len(snapshots) < 2 {
 		return nil, fmt.Errorf("at least 2 snapshots are needed, got %d", len(snapshots))
@@ -55,8 +55,8 @@ func HistoryChart(snapshots []*library.VideoSnapshot, loc *time.Location) ([]byt
 	return buf.Bytes(), nil
 }
 
-// paddedRange leaves room above and below the values, and keeps the range
-// from being empty when every value is the same.
+// paddedRange は値の上下に余白を取り、全ての値が同じでも範囲が
+// 空にならないようにする。
 func paddedRange(values []float64) *chart.ContinuousRange {
 	lo, hi := values[0], values[0]
 	for _, v := range values {

@@ -1,6 +1,6 @@
 package library
 
-// PrivacyStatus is the privacy status of a YouTube video as seen through a playlist item.
+// PrivacyStatus はプレイリストのアイテムから見た YouTube の動画の公開状態。
 type PrivacyStatus string
 
 const (
@@ -10,12 +10,12 @@ const (
 	PrivacyDeleted  PrivacyStatus = "deleted"
 )
 
-// Watchable reports whether videos with the status can be watched.
+// Watchable はその状態の動画が視聴できるかを返す。
 func (s PrivacyStatus) Watchable() bool {
 	return s == PrivacyPublic || s == PrivacyUnlisted
 }
 
-// Hidden reports whether videos with the status became unavailable.
+// Hidden はその状態の動画が見られなくなったかを返す。
 func (s PrivacyStatus) Hidden() bool {
 	return s == PrivacyPrivate || s == PrivacyDeleted
 }

@@ -4,20 +4,20 @@ import "time"
 
 const WRAPPED_TOP = 5
 
-// Wrapped summarizes what was added to a playlist in one year.
+// Wrapped はある 1 年にプレイリストへ追加されたもののまとめ。
 type Wrapped struct {
 	Year              int
 	Added             int
 	PreviousYearAdded int
 	BusiestMonth      MonthCount
-	// The most viewed available videos added in the year
+	// その年に追加された視聴可能な動画のうち、再生数の多いもの
 	TopViewed []*Video
 	First     *PlaylistVideo
 	Last      *PlaylistVideo
 }
 
-// ComputeWrapped aggregates the items added in the given year (in loc).
-// contents must be ordered by the time they were added, as Contents returns them.
+// ComputeWrapped は指定した年（loc での年）に追加されたアイテムを集計する。
+// contents は Contents が返すとおり、追加された時刻の順に並んでいること。
 func ComputeWrapped(contents []*PlaylistVideo, year int, loc *time.Location) *Wrapped {
 	w := &Wrapped{Year: year}
 	monthly := map[time.Month]int{}

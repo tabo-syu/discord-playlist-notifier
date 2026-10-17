@@ -10,16 +10,16 @@ import (
 const (
 	CHART_WIDTH  = 960
 	CHART_HEIGHT = 480
-	// The bundled font has no Japanese glyphs, so the labels are in English
+	// 同梱のフォントには日本語のグリフがないので、ラベルは英語にする
 	CHART_TIME_FORMAT = "01/02"
-	// Used when the chart spans less than CHART_SHORT_SPAN, where many ticks
-	// fall on the same day
+	// グラフの期間が CHART_SHORT_SPAN より短く、多くの目盛りが同じ日に
+	// 重なるときに使う
 	CHART_SHORT_TIME_FORMAT = "01/02 15:04"
 	CHART_SHORT_SPAN        = 5 * 24 * time.Hour
 )
 
-// timeFormatter formats an axis value as a date in loc, with the time when
-// the chart spans from from to to is short.
+// timeFormatter は軸の値を loc での日付として整形する。グラフの期間
+// （from から to）が短いときは時刻も付ける。
 func timeFormatter(from, to time.Time, loc *time.Location) chart.ValueFormatter {
 	layout := CHART_TIME_FORMAT
 	if to.Sub(from) < CHART_SHORT_SPAN {
@@ -34,7 +34,7 @@ func timeFormatter(from, to time.Time, loc *time.Location) chart.ValueFormatter 
 	}
 }
 
-// compactNumber formats an axis value, e.g. 1.23M or 45.6K.
+// compactNumber は軸の値を整形する。例: 1.23M、45.6K
 func compactNumber(v any) string {
 	f, ok := v.(float64)
 	if !ok {

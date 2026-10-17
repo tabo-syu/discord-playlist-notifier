@@ -1,5 +1,5 @@
-// Package view formats data into the Japanese text shown on Discord. It is
-// shared by the slash commands and the scheduled posts.
+// Package view はデータを Discord に表示する日本語の文言に整形する。
+// スラッシュコマンドと定期投稿で共有する。
 package view
 
 import (
@@ -7,10 +7,10 @@ import (
 	"strings"
 )
 
-// Discord rejects messages longer than this
+// Discord はこれより長いメッセージを拒否する
 const MAX_MESSAGE_LENGTH = 2000
 
-// Number formats n with thousands separators, e.g. 1,234,567.
+// Number は n を 3 桁区切りで整形する。例: 1,234,567
 func Number[T ~int | ~uint64](n T) string {
 	s := fmt.Sprintf("%d", n)
 	var sb strings.Builder
@@ -24,7 +24,7 @@ func Number[T ~int | ~uint64](n T) string {
 	return sb.String()
 }
 
-// Truncate cuts s to at most max characters (not bytes), keeping code blocks closed.
+// Truncate は s を最大 max 文字（バイトではない）に切り詰め、コードブロックは閉じたままにする。
 func Truncate(s string, max int) string {
 	runes := []rune(s)
 	if len(runes) <= max {

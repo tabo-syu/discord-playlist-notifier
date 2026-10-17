@@ -1,4 +1,4 @@
-// Package youtube implements library.YouTube with the YouTube Data API v3.
+// Package youtube は YouTube Data API v3 で library.YouTube を実装する。
 package youtube
 
 import (
@@ -14,10 +14,10 @@ import (
 
 const (
 	YOUTUBE_TIMEFORMAT   = "2006-01-02T15:04:05Z"
-	MAX_RESULTS_PER_PAGE = 50 // Maximum allowed by YouTube API
-	MAX_BATCH_SIZE       = 50 // Maximum number of IDs per API call
+	MAX_RESULTS_PER_PAGE = 50 // YouTube API が許す最大値
+	MAX_BATCH_SIZE       = 50 // API 呼び出し 1 回あたりの ID の最大数
 
-	// Title YouTube returns for playlist items whose video has been deleted
+	// 動画が削除されたプレイリストのアイテムに YouTube が返すタイトル
 	DELETED_VIDEO_TITLE = "Deleted video"
 )
 
@@ -29,7 +29,7 @@ func NewClient(yt *ytapi.Service) *client {
 	return &client{yt}
 }
 
-// FindPlaylist costs 1 unit.
+// FindPlaylist は 1 ユニットを消費する。
 func (c *client) FindPlaylist(id library.PlaylistID) (*library.PlaylistMeta, error) {
 	lists, err := c.youtube.Playlists.List([]string{"id", "snippet"}).
 		MaxResults(1).
@@ -49,7 +49,7 @@ func (c *client) FindPlaylist(id library.PlaylistID) (*library.PlaylistMeta, err
 	}, nil
 }
 
-// FetchPlaylistMetas costs 1 unit per 50 playlists.
+// FetchPlaylistMetas は 50 プレイリストごとに 1 ユニットを消費する。
 func (c *client) FetchPlaylistMetas(ids ...library.PlaylistID) (map[library.PlaylistID]*library.PlaylistMeta, error) {
 	metas := map[library.PlaylistID]*library.PlaylistMeta{}
 	for _, batch := range batches(ids) {
@@ -76,7 +76,7 @@ func (c *client) FetchPlaylistMetas(ids ...library.PlaylistID) (map[library.Play
 	return metas, nil
 }
 
-// FetchPlaylistItems costs 1 unit per 50 items.
+// FetchPlaylistItems は 50 アイテムごとに 1 ユニットを消費する。
 func (c *client) FetchPlaylistItems(id library.PlaylistID) ([]*library.FetchedItem, error) {
 	var items []*library.FetchedItem
 	nextPageToken := ""
@@ -120,7 +120,7 @@ func (c *client) FetchPlaylistItems(id library.PlaylistID) ([]*library.FetchedIt
 	return items, nil
 }
 
-// FetchVideos costs 1 unit per 50 videos.
+// FetchVideos は 50 動画ごとに 1 ユニットを消費する。
 func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, error) {
 	var videos []*library.Video
 	for _, batch := range batches(ids) {
@@ -162,7 +162,7 @@ func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, error) {
 	return videos, nil
 }
 
-// FetchLiveVideos costs 1 unit per 50 videos plus 1 unit per 50 channels.
+// FetchLiveVideos は 50 動画ごとに 1 ユニット、加えて 50 チャンネルごとに 1 ユニットを消費する。
 func (c *client) FetchLiveVideos(ids []library.VideoID) (map[library.VideoID]*library.LiveVideo, error) {
 	live := map[library.VideoID]*library.LiveVideo{}
 	channelOf := map[library.VideoID]string{}
@@ -206,7 +206,7 @@ func (c *client) FetchLiveVideos(ids []library.VideoID) (map[library.VideoID]*li
 	return live, nil
 }
 
-// batches splits the IDs into chunks the API accepts at once.
+// batches は ID を API が一度に受け付ける塊に分ける。
 func batches[T ~string](ids []T) [][]string {
 	var result [][]string
 	for i := 0; i < len(ids); i += MAX_BATCH_SIZE {
@@ -221,8 +221,8 @@ func batches[T ~string](ids []T) [][]string {
 	return result
 }
 
-// Private items report "private", deleted items report
-// "privacyStatusUnspecified" with the title "Deleted video".
+// 非公開のアイテムは "private" を返し、削除済みのアイテムは
+// "privacyStatusUnspecified" とタイトル "Deleted video" を返す。
 func itemPrivacy(item *ytapi.PlaylistItem) library.PrivacyStatus {
 	if item.Snippet.Title == DELETED_VIDEO_TITLE {
 		return library.PrivacyDeleted
@@ -242,7 +242,7 @@ func itemPrivacy(item *ytapi.PlaylistItem) library.PrivacyStatus {
 	}
 }
 
-// Some fields of YouTube API responses may be missing, so read them nil-safely
+// YouTube API のレスポンスは一部のフィールドが欠けることがあるので、nil を考慮して読む
 func videoViews(v *ytapi.Video) library.ViewCount {
 	if v.Statistics == nil {
 		return 0

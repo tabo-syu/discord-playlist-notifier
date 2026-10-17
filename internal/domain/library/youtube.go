@@ -1,18 +1,18 @@
 package library
 
-// YouTube is where the contents of playlists come from. The daily quota is
-// limited, so prefer the stored contents (Repository) when they are enough.
+// YouTube はプレイリストの中身の取得元。1 日のクォータに上限があるので、
+// 保存済みの中身（Repository）で足りるときはそちらを使う。
 type YouTube interface {
-	// FindPlaylist returns domain.ErrYouTubePlaylistNotFound when the playlist
-	// does not exist or is private. The item count is not fetched.
+	// FindPlaylist はプレイリストが存在しないか非公開のときに
+	// domain.ErrYouTubePlaylistNotFound を返す。アイテム数は取得しない。
 	FindPlaylist(id PlaylistID) (*PlaylistMeta, error)
-	// FetchPlaylistMetas omits the playlists that no longer exist.
+	// FetchPlaylistMetas はもう存在しないプレイリストを結果から除く。
 	FetchPlaylistMetas(ids ...PlaylistID) (map[PlaylistID]*PlaylistMeta, error)
 	FetchPlaylistItems(id PlaylistID) ([]*FetchedItem, error)
-	// FetchVideos returns details of the given videos. Videos that cannot be
-	// seen (private, deleted) are missing from the result.
+	// FetchVideos は指定した動画の詳細を返す。見られない動画（非公開、削除済み）は
+	// 結果に含まれない。
 	FetchVideos(ids []VideoID) ([]*Video, error)
-	// FetchLiveVideos returns the channel and current views of the given
-	// videos, keyed by video ID. Videos that cannot be seen are missing.
+	// FetchLiveVideos は指定した動画のチャンネルと現在の再生数を、動画 ID を
+	// キーにして返す。見られない動画は結果に含まれない。
 	FetchLiveVideos(ids []VideoID) (map[VideoID]*LiveVideo, error)
 }

@@ -5,8 +5,8 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 )
 
-// Milestone tells a channel that a video in one of its playlists reached a
-// view milestone.
+// Milestone は、チャンネルのプレイリストにある動画が再生数の節目に達したことを
+// 伝える。
 type Milestone struct {
 	ChannelID  subscription.ChannelID
 	PlaylistID library.PlaylistID
@@ -14,9 +14,9 @@ type Milestone struct {
 	Milestone  library.ViewCount
 }
 
-// FindMilestones builds the notices for the videos that reached a milestone,
-// once per channel even if several of its playlists contain the video.
-// containing maps each video to the playlists that contain it.
+// FindMilestones は節目に達した動画の通知を、チャンネルの複数のプレイリストが
+// その動画を含んでいてもチャンネルごとに 1 回ずつ組み立てる。
+// containing は動画ごとに、それを含むプレイリストを対応付ける。
 func FindMilestones(subscriptions []*subscription.Subscription, videos []*library.Video, containing map[library.VideoID][]library.PlaylistID) []*Milestone {
 	var notices []*Milestone
 	for _, video := range videos {
