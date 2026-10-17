@@ -15,6 +15,9 @@ import (
 )
 
 const (
+	// Some videos have dozens of tags. All of them are searched, but only
+	// the first ones are returned to keep the results small.
+	MAX_TAGS_SHOWN        = 10
 	DEFAULT_VIDEO_LIMIT   = 20
 	MAX_VIDEO_LIMIT       = 100
 	MAX_RANDOM_COUNT      = 10
@@ -33,6 +36,7 @@ const INSTRUCTIONS = `Discord の playlist-notifier ボットが通知登録し�
 - 見られるのは通知登録されているプレイリストだけで、読み取り専用です。
 - まず list_playlists でプレイリストの ID と名前を確認し、ほかのツールにはその ID を渡してください。
 - データはボットのデータベースの内容です。プレイリストの中身は 5 分ごと、再生数は 6 時間ごとに更新されるので、YouTube の最新の状態と少しずれることがあります。
+- 曲のチャンネル名・長さ・タグ・カテゴリは 6 時間ごとの更新で取得します。取得前の曲では空になります。
 - 日時はボットのタイムゾーン（RFC 3339 形式）で返します。`
 
 type tools struct {
@@ -55,7 +59,7 @@ func addTools(s *mcp.Server, t *tools) {
 		"通知登録されている YouTube プレイリストの一覧を、曲数や最後に曲が追加された日時と一緒に返します。"),
 		logged("list_playlists", t.listPlaylists))
 	mcp.AddTool(s, readOnly("find_videos", "曲を探す",
-		"プレイリストの曲を、曲名の一部・追加された期間で絞り込んで返します。"+
+		"プレイリストの曲を、曲名・チャンネル名・タグの一部、カテゴリ、曲の長さ、追加された期間で絞り込んで返します。"+
 			"「最近追加された曲」「〇〇が入っているか」「再生数の多い曲」などを調べるのに使います。"+
 			"同じ曲が複数のプレイリストにある場合や、同じプレイリストに 2 回追加されている場合は、追加ごとに 1 件として返します。"),
 		logged("find_videos", t.findVideos))
@@ -107,15 +111,19 @@ type playlistOut struct {
 }
 
 type videoOut struct {
-	VideoID       string `json:"video_id"`
-	Title         string `json:"title" jsonschema:"曲名。非公開・削除の曲では空のことがある"`
-	URL           string `json:"url"`
-	PlaylistID    string `json:"playlist_id"`
-	PlaylistTitle string `json:"playlist_title"`
-	AddedAt       string `json:"added_at" jsonschema:"プレイリストに追加された日時"`
-	PublishedAt   string `json:"published_at,omitempty" jsonschema:"動画が YouTube に投稿された日時"`
-	Views         uint64 `json:"views"`
-	Status        string `json:"status" jsonschema:"public（公開）、unlisted（限定公開）、private（非公開）、deleted（削除）のいずれか"`
+	VideoID       string   `json:"video_id"`
+	Title         string   `json:"title" jsonschema:"曲名。非公開・削除の曲では空のことがある"`
+	URL           string   `json:"url"`
+	PlaylistID    string   `json:"playlist_id"`
+	PlaylistTitle string   `json:"playlist_title"`
+	AddedAt       string   `json:"added_at" jsonschema:"プレイリストに追加された日時"`
+	PublishedAt   string   `json:"published_at,omitempty" jsonschema:"動画が YouTube に投稿された日時"`
+	Views         uint64   `json:"views"`
+	Status        string   `json:"status" jsonschema:"public（公開）、unlisted（限定公開）、private（非公開）、deleted（削除）のいずれか"`
+	Channel       string   `json:"channel,omitempty" jsonschema:"動画を投稿したチャンネルの名前"`
+	DurationSec   int      `json:"duration_seconds,omitempty" jsonschema:"曲の長さ（秒）。不明なときは省略"`
+	Tags          []string `json:"tags" jsonschema:"投稿者が付けたタグ（最初の 10 個まで）。付いていないことも多い"`
+	Category      string   `json:"category,omitempty" jsonschema:"YouTube のカテゴリ（音楽、ゲームなど）"`
 }
 
 type rankedVideoOut struct {
@@ -156,6 +164,13 @@ func (t *tools) toVideo(c *library.PlaylistVideo, titles map[library.PlaylistID]
 	if v.HasDetails() {
 		out.PublishedAt = t.timeOut(v.PublishedAt)
 	}
+	out.Channel = v.ChannelTitle
+	out.DurationSec = int(v.Duration.Seconds())
+	out.Tags = []string{}
+	if v.Tags != nil {
+		out.Tags = v.Tags[:min(len(v.Tags), MAX_TAGS_SHOWN)]
+	}
+	out.Category = categoryNames[v.CategoryID]
 
 	return out
 }
@@ -250,6 +265,11 @@ func (t *tools) listPlaylists(_ context.Context, _ *mcp.CallToolRequest, _ listP
 type findVideosIn struct {
 	PlaylistID         string `json:"playlist_id,omitempty" jsonschema:"プレイリストの ID。省略するとすべてのプレイリストから探す"`
 	Title              string `json:"title,omitempty" jsonschema:"曲名に含まれる文字列（大文字・小文字は区別しない）"`
+	Channel            string `json:"channel,omitempty" jsonschema:"チャンネル名に含まれる文字列（大文字・小文字は区別しない）"`
+	Tag                string `json:"tag,omitempty" jsonschema:"どれかのタグに含まれる文字列（大文字・小文字は区別しない）"`
+	Category           string `json:"category,omitempty" jsonschema:"カテゴリ名（音楽、ゲーム、エンターテイメントなど。videos の category と同じ表記）"`
+	MinDurationSec     int    `json:"min_duration_seconds,omitempty" jsonschema:"この秒数以上の長さの曲。長さが不明な曲は除く"`
+	MaxDurationSec     int    `json:"max_duration_seconds,omitempty" jsonschema:"この秒数以下の長さの曲。長さが不明な曲は除く"`
 	AddedFrom          string `json:"added_from,omitempty" jsonschema:"この日以降に追加された曲（YYYY-MM-DD、この日を含む）"`
 	AddedUntil         string `json:"added_until,omitempty" jsonschema:"この日より前に追加された曲（YYYY-MM-DD、この日を含まない）"`
 	IncludeUnavailable bool   `json:"include_unavailable,omitempty" jsonschema:"非公開・削除になった曲も含める。省略すると観られる曲だけ"`
@@ -288,10 +308,25 @@ func (t *tools) findVideos(_ context.Context, _ *mcp.CallToolRequest, in findVid
 	if err != nil {
 		return nil, findVideosOut{}, err
 	}
+	var category library.CategoryID
+	if in.Category != "" {
+		var ok bool
+		if category, ok = categoryByName(in.Category); !ok {
+			return nil, findVideosOut{}, fmt.Errorf("category は次のどれかを指定してください: %s（指定された値: %q）", categoryList(), in.Category)
+		}
+	}
+	if in.MinDurationSec < 0 || in.MaxDurationSec < 0 {
+		return nil, findVideosOut{}, errors.New("min_duration_seconds と max_duration_seconds は 0 以上で指定してください")
+	}
 
 	page, err := t.query.FindVideos(application.VideoQuery{
 		PlaylistID:         library.PlaylistID(in.PlaylistID),
 		Title:              in.Title,
+		Channel:            in.Channel,
+		Tag:                in.Tag,
+		CategoryID:         category,
+		MinDuration:        time.Duration(in.MinDurationSec) * time.Second,
+		MaxDuration:        time.Duration(in.MaxDurationSec) * time.Second,
 		AddedFrom:          from,
 		AddedUntil:         until,
 		IncludeUnavailable: in.IncludeUnavailable,

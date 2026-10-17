@@ -185,6 +185,10 @@ erDiagram
         bigint view_milestone
         bigint likes
         bigint comments
+        text channel_title
+        bigint duration
+        text tags
+        text category_id
     }
     video_snapshots {
         bigint id PK
@@ -276,7 +280,7 @@ stateDiagram-v2
     direction LR
     [*] --> 詳細なし: アイテムとして初めて見つかる
     詳細なし --> 観られる: videos.list で詳細を取得（観られる動画のとき）
-    観られる --> 観られる: 6 時間ごとに再生数・タイトルを更新
+    観られる --> 観られる: 6 時間ごとに再生数・タイトル・長さ・タグなどを更新
     観られる --> 非公開_削除: アイテムの公開状態が private / deleted に
     非公開_削除 --> 観られる: 公開状態が戻る
     非公開_削除 --> 非公開_削除: 詳細は最後の値のまま
@@ -306,7 +310,7 @@ stateDiagram-v2
 
 | もの | どうしているか |
 |---|---|
-| 投稿者（チャンネル名・アイコン） | 通知を送る直前に YouTube から取る。失敗したら投稿者なしで送る |
+| 投稿者のアイコン | 通知を送る直前に YouTube から取る。失敗したら投稿者なしで送る（チャンネル名は検索用に `videos` にも保存する） |
 | 通知の直前の再生数 | 同上（DB の値より新しい） |
 | サムネイル | 動画 ID から URL を作れる |
 | 全件取得の状態（アイテム数・時刻） | メモリ上だけ。再起動で消える |
@@ -383,7 +387,7 @@ DDD のレイヤードアーキテクチャで構成しています。依存は�
 | ツール | 内容 |
 |---|---|
 | `list_playlists` | 通知登録されているプレイリストの一覧と曲数 |
-| `find_videos` | 曲名・追加された期間で曲を探す（新しい順・古い順・再生数順） |
+| `find_videos` | 曲名・チャンネル名・タグ・カテゴリ・曲の長さ・追加された期間で曲を探す（新しい順・古い順・再生数順） |
 | `playlist_stats` | プレイリストの統計（`/playlist-notifier summary` と同じ内容） |
 | `playlist_wrapped` | 1 年間のまとめ（`/playlist-notifier wrapped` と同じ内容） |
 | `random_videos` | ランダムに曲を選ぶ |

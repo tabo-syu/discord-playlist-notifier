@@ -2,6 +2,7 @@ package application
 
 import (
 	"errors"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -50,6 +51,15 @@ type VideoQuery struct {
 	PlaylistID library.PlaylistID
 	// Case-insensitive part of the title
 	Title string
+	// Case-insensitive part of the channel name
+	Channel string
+	// Case-insensitive part of one of the tags
+	Tag        string
+	CategoryID library.CategoryID
+	// Length at least / at most. Videos whose length is not known yet are
+	// left out when either is set.
+	MinDuration time.Duration
+	MaxDuration time.Duration
 	// Added at or after
 	AddedFrom time.Time
 	// Added before
@@ -165,12 +175,20 @@ func (s *QueryService) FindVideos(q VideoQuery) (*VideoPage, error) {
 		return nil, err
 	}
 
-	title := strings.ToLower(q.Title)
+	title, channel, tag := strings.ToLower(q.Title), strings.ToLower(q.Channel), strings.ToLower(q.Tag)
+	byDuration := q.MinDuration > 0 || q.MaxDuration > 0
 	matched := []*library.PlaylistVideo{}
 	for _, c := range contents {
+		v := c.Video
 		switch {
-		case !q.IncludeUnavailable && !c.Video.Available():
-		case title != "" && !strings.Contains(strings.ToLower(c.Video.Title), title):
+		case !q.IncludeUnavailable && !v.Available():
+		case title != "" && !strings.Contains(strings.ToLower(v.Title), title):
+		case channel != "" && !strings.Contains(strings.ToLower(v.ChannelTitle), channel):
+		case tag != "" && !slices.ContainsFunc(v.Tags, func(t string) bool { return strings.Contains(strings.ToLower(t), tag) }):
+		case q.CategoryID != "" && v.CategoryID != q.CategoryID:
+		case byDuration && v.Duration == 0:
+		case q.MinDuration > 0 && v.Duration < q.MinDuration:
+		case q.MaxDuration > 0 && v.Duration > q.MaxDuration:
 		case !q.AddedFrom.IsZero() && c.Item.AddedAt.Before(q.AddedFrom):
 		case !q.AddedUntil.IsZero() && !c.Item.AddedAt.Before(q.AddedUntil):
 		default:

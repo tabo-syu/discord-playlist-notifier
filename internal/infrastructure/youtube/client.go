@@ -4,6 +4,8 @@ package youtube
 import (
 	"fmt"
 	"log"
+	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
@@ -20,6 +22,9 @@ const (
 	// Title YouTube returns for playlist items whose video has been deleted
 	DELETED_VIDEO_TITLE = "Deleted video"
 )
+
+// ISO 8601 durations as YouTube returns them, e.g. PT4M13S or P1DT2H
+var durationPattern = regexp.MustCompile(`^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$`)
 
 type client struct {
 	youtube *ytapi.Service
@@ -120,11 +125,12 @@ func (c *client) FetchPlaylistItems(id library.PlaylistID) ([]*library.FetchedIt
 	return items, nil
 }
 
-// FetchVideos costs 1 unit per 50 videos.
+// FetchVideos costs 1 unit per 50 videos. The number of parts does not
+// change the cost.
 func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, error) {
 	var videos []*library.Video
 	for _, batch := range batches(ids) {
-		res, err := c.youtube.Videos.List([]string{"id", "snippet", "statistics", "status"}).
+		res, err := c.youtube.Videos.List([]string{"id", "snippet", "contentDetails", "statistics", "status"}).
 			MaxResults(int64(len(batch))).
 			Id(batch...).Do()
 		if err != nil {
@@ -147,6 +153,14 @@ func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, error) {
 				Views:         videoViews(v),
 				PrivacyStatus: library.PrivacyPublic,
 				PublishedAt:   publishedAt,
+				ChannelTitle:  v.Snippet.ChannelTitle,
+				Tags:          v.Snippet.Tags,
+				CategoryID:    library.CategoryID(v.Snippet.CategoryId),
+			}
+			// Live and upcoming streams report the time since they started,
+			// which is not the length of the video
+			if v.ContentDetails != nil && (v.Snippet.LiveBroadcastContent == "" || v.Snippet.LiveBroadcastContent == "none") {
+				video.Duration = parseDuration(v.ContentDetails.Duration)
 			}
 			if v.Statistics != nil {
 				video.Likes = v.Statistics.LikeCount
@@ -268,4 +282,27 @@ func unique(ids []string) []string {
 	}
 
 	return result
+}
+
+// parseDuration reads an ISO 8601 duration such as PT4M13S. Unknown forms,
+// such as P0D for live streams, are read as zero.
+func parseDuration(s string) time.Duration {
+	m := durationPattern.FindStringSubmatch(s)
+	if m == nil {
+		return 0
+	}
+
+	var d time.Duration
+	for i, unit := range []time.Duration{24 * time.Hour, time.Hour, time.Minute, time.Second} {
+		if m[i+1] == "" {
+			continue
+		}
+		n, err := strconv.Atoi(m[i+1])
+		if err != nil {
+			return 0
+		}
+		d += time.Duration(n) * unit
+	}
+
+	return d
 }
