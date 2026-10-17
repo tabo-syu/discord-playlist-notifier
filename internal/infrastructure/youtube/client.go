@@ -21,6 +21,10 @@ const (
 
 	// Title YouTube returns for playlist items whose video has been deleted
 	DELETED_VIDEO_TITLE = "Deleted video"
+
+	// Region and language of the video category names
+	CATEGORY_REGION   = "JP"
+	CATEGORY_LANGUAGE = "ja"
 )
 
 // ISO 8601 durations as YouTube returns them, e.g. PT4M13S or P1DT2H
@@ -184,6 +188,30 @@ func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, []*librar
 	}
 
 	return videos, fetched, nil
+}
+
+// FetchCategories costs 1 unit.
+func (c *client) FetchCategories() ([]*library.Category, error) {
+	res, err := c.youtube.VideoCategories.List([]string{"id", "snippet"}).
+		RegionCode(CATEGORY_REGION).
+		Hl(CATEGORY_LANGUAGE).Do()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch video categories: %w", err)
+	}
+
+	var categories []*library.Category
+	for _, item := range res.Items {
+		if item.Snippet == nil {
+			continue
+		}
+		categories = append(categories, &library.Category{
+			YoutubeID:  library.CategoryID(item.Id),
+			Title:      item.Snippet.Title,
+			Assignable: item.Snippet.Assignable,
+		})
+	}
+
+	return categories, nil
 }
 
 // FetchLiveVideos costs 1 unit per 50 videos plus 1 unit per 50 channels.

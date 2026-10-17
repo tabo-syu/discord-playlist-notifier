@@ -181,6 +181,31 @@ func (r *libraryRepository) FindChannels(ids []library.ChannelID) (map[library.C
 	return channels, nil
 }
 
+func (r *libraryRepository) SaveCategories(categories []*library.Category) error {
+	if len(categories) == 0 {
+		return nil
+	}
+
+	return r.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "youtube_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"title", "assignable", "updated_at"}),
+	}).Create(categories).Error
+}
+
+func (r *libraryRepository) FindCategories() (map[library.CategoryID]*library.Category, error) {
+	var rows []*library.Category
+	if err := r.db.Find(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	categories := map[library.CategoryID]*library.Category{}
+	for _, c := range rows {
+		categories[c.YoutubeID] = c
+	}
+
+	return categories, nil
+}
+
 // Callers pass complete rows (existing values merged with the new ones), so
 // every column is overwritten on conflict.
 func saveVideos(db *gorm.DB, videos []*library.Video) error {

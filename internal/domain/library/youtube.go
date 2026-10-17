@@ -13,6 +13,9 @@ type YouTube interface {
 	// published them. Videos that cannot be seen (private, deleted) are missing
 	// from the result.
 	FetchVideos(ids []VideoID) ([]*Video, []*Channel, error)
+	// FetchCategories returns the video categories of the bot's region, named
+	// in its language.
+	FetchCategories() ([]*Category, error)
 	// FetchLiveVideos returns the channel and current views of the given
 	// videos, keyed by video ID. Videos that cannot be seen are missing.
 	FetchLiveVideos(ids []VideoID) (map[VideoID]*LiveVideo, error)

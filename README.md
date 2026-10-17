@@ -144,7 +144,7 @@ DB の各テーブルの行が、いつ作られ、いつ更新され、いつ�
 テーブルは役割で 2 つに分かれます。
 
 - **サーバーごとの設定**（`guilds`、`playlists`）: Discord のイベントとスラッシュコマンドで変わる
-- **プレイリストの中身**（`playlist_items`、`videos`、`channels`、`video_snapshots`）: YouTube から取ってきたもの。全サーバーで共有し、定期実行で変わる
+- **プレイリストの中身**（`playlist_items`、`videos`、`channels`、`categories`、`video_snapshots`）: YouTube から取ってきたもの。全サーバーで共有し、定期実行で変わる
 
 ```mermaid
 erDiagram
@@ -153,6 +153,7 @@ erDiagram
     videos ||..o{ playlist_items : "youtube_id = video_youtube_id"
     videos ||..o{ video_snapshots : "youtube_id = video_youtube_id"
     channels ||..o{ videos : "youtube_id = channel_youtube_id"
+    categories ||..o{ videos : "youtube_id = category_id"
 
     guilds {
         bigint id PK
@@ -196,6 +197,12 @@ erDiagram
         text youtube_id UK
         text title
     }
+    categories {
+        bigint id PK
+        text youtube_id UK
+        text title "日本語名"
+        boolean assignable "新しい動画に設定できるか"
+    }
     video_snapshots {
         bigint id PK
         text video_youtube_id "複合 index (1)"
@@ -223,6 +230,7 @@ erDiagram
 | `NotifyUpdates`（新着の通知） | 5 分 | | `updated_at`・`title` を更新 | 追加・物理削除 | 作成・公開状態と詳細を更新 |
 | `RefreshVideos`（再生数の更新） | 6 時間 | | | | 詳細・節目を更新（`video_snapshots` に追記） |
 | `PostPicks` / `PostWrapped` | 毎日 / 年末 | | | | （読むだけ） |
+| `RefreshCategories`（カテゴリ名の更新） | 起動時と 1 日 | | | | （`categories` を上書き） |
 
 物理削除するのは `playlist_items` だけです。`guilds` と `playlists` は論理削除（`deleted_at`）、`videos` と `video_snapshots` は削除しません。
 
@@ -309,6 +317,13 @@ stateDiagram-v2
   - 保存に失敗してもログを出すだけで、同期や通知は続けます。
 - **読み出し**: MCP の `find_videos` が、チャンネル名での絞り込みと、結果のチャンネル名に使います。
 - **削除**: しません。アイコンは保存しません（通知の直前に取ります）。
+
+#### `categories` — 動画のカテゴリ
+
+- **作成・更新**: 起動時と 1 日ごとに、`videoCategories.list`（日本・日本語、1 ユニット）の結果で上書きします。カテゴリは地域ごとに違うので、固定の一覧は持ちません。
+  - 設定できない古いカテゴリ（`assignable` が偽）も保存します。古い動画に付いていることがあるためです。
+- **読み出し**: MCP の `find_videos` が、カテゴリ名での絞り込みと、結果のカテゴリ名に使います。
+- **削除**: しません。
 
 #### `video_snapshots` — 動画の状態の履歴
 

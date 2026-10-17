@@ -12,10 +12,11 @@ import (
 type scheduler struct {
 	scheduler    *gocron.Scheduler
 	notification *application.NotificationService
+	library      *application.LibraryService
 }
 
-func NewScheduler(sdr *gocron.Scheduler, n *application.NotificationService) *scheduler {
-	return &scheduler{sdr, n}
+func NewScheduler(sdr *gocron.Scheduler, n *application.NotificationService, l *application.LibraryService) *scheduler {
+	return &scheduler{sdr, n, l}
 }
 
 func (s *scheduler) Start() {
@@ -23,9 +24,17 @@ func (s *scheduler) Start() {
 	s.scheduler.Every(6).Hours().WaitForSchedule().Do(guard("RefreshVideos", s.notification.RefreshVideos))
 	s.scheduler.Cron(WRAPPED_CRON).Do(guard("Wrapped", s.notification.PostWrapped))
 	s.scheduler.Every(1).Day().At(PICK_TIME).Do(guard("Pick", s.notification.PostPicks))
+	// Also right after starting, so that the names are there on a new database
+	s.scheduler.Every(1).Day().Do(guard("RefreshCategories", s.refreshCategories))
 	s.scheduler.StartAsync()
 
 	log.Println("Scheduler started")
+}
+
+func (s *scheduler) refreshCategories() {
+	if err := s.library.RefreshCategories(); err != nil {
+		log.Println("Could not refresh video categories cause:", err)
+	}
 }
 
 func (s *scheduler) Stop() {

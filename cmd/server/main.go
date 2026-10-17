@@ -96,7 +96,7 @@ func main() {
 	}
 	defer server.Stop()
 
-	scheduler := scheduler.NewScheduler(sr, ns)
+	scheduler := scheduler.NewScheduler(sr, ns, ls)
 	scheduler.Start()
 	defer scheduler.Stop()
 

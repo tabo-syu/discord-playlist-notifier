@@ -22,6 +22,10 @@ type Repository interface {
 	SaveChannels(channels []*Channel) error
 	// FindChannels returns the stored channels among the given IDs.
 	FindChannels(ids []ChannelID) (map[ChannelID]*Channel, error)
+	// SaveCategories inserts the given categories, or updates them.
+	SaveCategories(categories []*Category) error
+	// FindCategories returns every stored category.
+	FindCategories() (map[CategoryID]*Category, error)
 	// AddSnapshots appends the given states of videos to the history.
 	AddSnapshots(snapshots []*VideoSnapshot) error
 	// FindSnapshots returns the states of the video recorded at or after

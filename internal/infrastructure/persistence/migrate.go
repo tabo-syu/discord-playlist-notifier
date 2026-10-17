@@ -23,7 +23,7 @@ func Migrate(db *gorm.DB) error {
 		log.Println("Dropped the old videos table")
 	}
 
-	if err := db.AutoMigrate(&guild.Guild{}, &subscription.Subscription{}, &library.PlaylistItem{}, &library.Video{}, &library.Channel{}, &library.VideoSnapshot{}); err != nil {
+	if err := db.AutoMigrate(&guild.Guild{}, &subscription.Subscription{}, &library.PlaylistItem{}, &library.Video{}, &library.Channel{}, &library.Category{}, &library.VideoSnapshot{}); err != nil {
 		return err
 	}
 

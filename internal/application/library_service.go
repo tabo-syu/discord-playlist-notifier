@@ -200,6 +200,21 @@ func (s *LibraryService) RefreshVideos() ([]*library.Video, error) {
 	return reached, nil
 }
 
+// RefreshCategories stores the video categories as YouTube currently names
+// them. Costs 1 unit.
+func (s *LibraryService) RefreshCategories() error {
+	categories, err := s.youtube.FetchCategories()
+	if err != nil {
+		return err
+	}
+	if err := s.library.SaveCategories(categories); err != nil {
+		return err
+	}
+	log.Println("Refreshed video categories:", len(categories))
+
+	return nil
+}
+
 // LiveVideos fetches the channel and current views of the given videos right
 // before they are shown. Nothing is stored. Costs about 2 units per 50 videos.
 func (s *LibraryService) LiveVideos(videoIDs []library.VideoID) (map[library.VideoID]*library.LiveVideo, error) {

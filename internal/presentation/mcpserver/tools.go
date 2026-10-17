@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"slices"
+	"strings"
 	"time"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
@@ -150,57 +152,68 @@ func toPlaylist(p *application.WatchedPlaylist) playlistOut {
 	return playlistOut{ID: string(p.ID), Title: p.Title, URL: fmt.Sprintf(YOUTUBE_PLAYLIST_URL, p.ID)}
 }
 
-func (t *tools) toVideo(c *library.PlaylistVideo, titles map[library.PlaylistID]string, channels map[library.ChannelID]*library.Channel) videoOut {
+// videoNames holds the names that videos refer to by ID.
+type videoNames struct {
+	playlists  map[library.PlaylistID]string
+	channels   map[library.ChannelID]*library.Channel
+	categories map[library.CategoryID]*library.Category
+}
+
+func (t *tools) toVideo(c *library.PlaylistVideo, names *videoNames) videoOut {
 	v := c.Video
 	out := videoOut{
 		VideoID:       string(v.YoutubeID),
 		Title:         v.Title,
 		URL:           fmt.Sprintf(YOUTUBE_WATCH_URL, v.YoutubeID, c.PlaylistID),
 		PlaylistID:    string(c.PlaylistID),
-		PlaylistTitle: titles[c.PlaylistID],
+		PlaylistTitle: names.playlists[c.PlaylistID],
 		AddedAt:       t.timeOut(c.Item.AddedAt),
 		Views:         uint64(v.Views),
 		Status:        string(v.PrivacyStatus),
+		ChannelID:     string(v.ChannelYoutubeID),
+		DurationSec:   int(v.Duration.Seconds()),
+		Tags:          []string{},
 	}
 	if v.HasDetails() {
 		out.PublishedAt = t.timeOut(v.PublishedAt)
 	}
-	out.ChannelID = string(v.ChannelYoutubeID)
-	if ch, ok := channels[v.ChannelYoutubeID]; ok {
+	if ch, ok := names.channels[v.ChannelYoutubeID]; ok {
 		out.Channel = ch.Title
 	}
-	out.DurationSec = int(v.Duration.Seconds())
-	out.Tags = []string{}
 	if v.Tags != nil {
 		out.Tags = v.Tags[:min(len(v.Tags), MAX_TAGS_SHOWN)]
 	}
-	out.Category = categoryNames[v.CategoryID]
+	if cat, ok := names.categories[v.CategoryID]; ok {
+		out.Category = cat.Title
+	}
 
 	return out
 }
 
 func (t *tools) toVideos(contents []*library.PlaylistVideo) ([]videoOut, error) {
+	names := &videoNames{playlists: map[library.PlaylistID]string{}}
 	playlists, err := t.query.Playlists()
 	if err != nil {
 		return nil, err
 	}
-	titles := map[library.PlaylistID]string{}
 	for _, p := range playlists {
-		titles[p.ID] = p.Title
+		names.playlists[p.ID] = p.Title
 	}
 
 	var channelIDs []library.ChannelID
 	for _, c := range contents {
 		channelIDs = append(channelIDs, c.Video.ChannelYoutubeID)
 	}
-	channels, err := t.query.Channels(channelIDs)
-	if err != nil {
+	if names.channels, err = t.query.Channels(channelIDs); err != nil {
+		return nil, err
+	}
+	if names.categories, err = t.query.Categories(); err != nil {
 		return nil, err
 	}
 
 	videos := []videoOut{}
 	for _, c := range contents {
-		videos = append(videos, t.toVideo(c, titles, channels))
+		videos = append(videos, t.toVideo(c, names))
 	}
 
 	return videos, nil
@@ -324,9 +337,8 @@ func (t *tools) findVideos(_ context.Context, _ *mcp.CallToolRequest, in findVid
 	}
 	var category library.CategoryID
 	if in.Category != "" {
-		var ok bool
-		if category, ok = categoryByName(in.Category); !ok {
-			return nil, findVideosOut{}, fmt.Errorf("category は次のどれかを指定してください: %s（指定された値: %q）", categoryList(), in.Category)
+		if category, err = t.categoryByName(in.Category); err != nil {
+			return nil, findVideosOut{}, err
 		}
 	}
 	if in.MinDurationSec < 0 || in.MaxDurationSec < 0 {
@@ -358,6 +370,28 @@ func (t *tools) findVideos(_ context.Context, _ *mcp.CallToolRequest, in findVid
 	}
 
 	return nil, findVideosOut{Total: page.Total, Offset: in.Offset, Videos: videos}, nil
+}
+
+// categoryByName returns the ID of the stored category with the given name.
+// When there is none, the error lists the names of the assignable ones.
+func (t *tools) categoryByName(name string) (library.CategoryID, error) {
+	categories, err := t.query.Categories()
+	if err != nil {
+		return "", clientError(err)
+	}
+
+	var names []string
+	for id, c := range categories {
+		if c.Title == name {
+			return id, nil
+		}
+		if c.Assignable {
+			names = append(names, c.Title)
+		}
+	}
+	slices.Sort(names)
+
+	return "", fmt.Errorf("category は次のどれかを指定してください: %s（指定された値: %q）", strings.Join(names, "、"), name)
 }
 
 // ---------- playlist_stats ----------
@@ -444,7 +478,6 @@ func (t *tools) playlistWrapped(_ context.Context, _ *mcp.CallToolRequest, in pl
 		return nil, playlistWrappedOut{}, clientError(err)
 	}
 
-	titles := map[library.PlaylistID]string{id: playlist.Title}
 	out := playlistWrappedOut{
 		Playlist:          toPlaylist(playlist),
 		Year:              w.Year,
@@ -456,12 +489,11 @@ func (t *tools) playlistWrapped(_ context.Context, _ *mcp.CallToolRequest, in pl
 		out.BusiestMonth = &monthCountOut{Month: w.BusiestMonth.Month.Format(MONTH_FORMAT), Count: w.BusiestMonth.Count}
 	}
 	if w.First != nil {
-		channels, err := t.query.Channels([]library.ChannelID{w.First.Video.ChannelYoutubeID, w.Last.Video.ChannelYoutubeID})
+		videos, err := t.toVideos([]*library.PlaylistVideo{w.First, w.Last})
 		if err != nil {
 			return nil, playlistWrappedOut{}, clientError(err)
 		}
-		first, last := t.toVideo(w.First, titles, channels), t.toVideo(w.Last, titles, channels)
-		out.First, out.Last = &first, &last
+		out.First, out.Last = &videos[0], &videos[1]
 	}
 
 	return nil, out, nil

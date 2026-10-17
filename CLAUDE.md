@@ -74,7 +74,8 @@ cmd/server/main.go                   コンポジションルート — 全て�
    のメソッドを呼ぶ → リポジトリと `LibraryService` → `application.Notifier`
    （実装は `presentation/notifier`）が Discord に投稿。
    5 分ごとに `NotifyUpdates`、6 時間ごとに `RefreshVideos`（再生数などの更新と
-   節目の通知）、毎日 12:00 に `PostPicks`、12/31 21:00 に `PostWrapped` が動きます
+   節目の通知）、毎日 12:00 に `PostPicks`、12/31 21:00 に `PostWrapped` が動きます。
+   動画のカテゴリ名だけは `LibraryService.RefreshCategories` を起動時と 1 日ごとに直接呼びます
 3. **MCP の経路** — 外部のクライアントが MCP のツールを呼ぶ → `presentation/mcpserver`
    → `application.QueryService` → リポジトリ（読み取りのみ）
 
@@ -195,6 +196,9 @@ YouTube プレイリストの中身は、サーバーごとの通知設定（`su
 - `channels`（`library.Channel`）— 動画を投稿したチャンネルの名前。`videos` は
   `ChannelYoutubeID` で参照します。`LibraryService` が動画の詳細を取るたびに
   `videos.list` の結果から作るか名前を上書きし、失敗してもログを出すだけです。
+- `categories`（`library.Category`）— YouTube の動画カテゴリ。`videoCategories.list`
+  （日本・日本語、1 ユニット）で起動時と 1 日ごとに上書きします。`videos` は
+  `CategoryID` で参照します。地域ごとに一覧が違うので、固定の一覧は持ちません。
 - `video_snapshots`（`library.VideoSnapshot`）— 動画の状態の履歴（タイトル、
   公開状態、再生数、高評価数、コメント数）。`RefreshVideos` が 6 時間ごとに、
   更新した全動画の分を同じ時刻で 1 行ずつ追記します。`/playlist-notifier history`、

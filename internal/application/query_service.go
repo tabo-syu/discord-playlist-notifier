@@ -261,6 +261,11 @@ func (s *QueryService) History(id library.VideoID, since time.Time) (*library.Vi
 	return s.library.History(ids, id, since)
 }
 
+// Categories returns every stored video category.
+func (s *QueryService) Categories() (map[library.CategoryID]*library.Category, error) {
+	return s.contents.FindCategories()
+}
+
 // Channels returns the stored channels among the given IDs.
 func (s *QueryService) Channels(ids []library.ChannelID) (map[library.ChannelID]*library.Channel, error) {
 	return s.contents.FindChannels(ids)
