@@ -12,10 +12,11 @@ import (
 type scheduler struct {
 	scheduler    *gocron.Scheduler
 	notification *application.NotificationService
+	library      *application.LibraryService
 }
 
-func NewScheduler(sdr *gocron.Scheduler, n *application.NotificationService) *scheduler {
-	return &scheduler{sdr, n}
+func NewScheduler(sdr *gocron.Scheduler, n *application.NotificationService, l *application.LibraryService) *scheduler {
+	return &scheduler{sdr, n, l}
 }
 
 func (s *scheduler) Start() {
@@ -23,6 +24,8 @@ func (s *scheduler) Start() {
 	s.scheduler.Every(6).Hours().WaitForSchedule().Do(guard("RefreshVideos", s.notification.RefreshVideos))
 	s.scheduler.Cron(WRAPPED_CRON).Do(guard("Wrapped", s.notification.PostWrapped))
 	s.scheduler.Every(1).Day().At(PICK_TIME).Do(guard("Pick", s.notification.PostPicks))
+	// 新しい DB でも名前がそろうように、起動直後にも実行する
+	s.scheduler.Every(1).Day().Do(guard("RefreshCategories", s.library.RefreshCategories))
 	s.scheduler.StartAsync()
 
 	log.Println("Scheduler started")

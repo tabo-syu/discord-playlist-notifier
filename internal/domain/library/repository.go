@@ -18,6 +18,14 @@ type Repository interface {
 	ApplyItems(playlistID PlaylistID, added []*PlaylistItem, removed []*PlaylistItem, videos []*Video) error
 	// SaveVideos は指定した動画の全カラムを上書きする。
 	SaveVideos(videos []*Video) error
+	// SaveChannels は指定したチャンネルを追加するか、名前を更新する。
+	SaveChannels(channels []*Channel) error
+	// FindChannels は指定した ID のうち保存済みのチャンネルを返す。
+	FindChannels(ids []ChannelID) (map[ChannelID]*Channel, error)
+	// SaveCategories は指定したカテゴリを追加するか、更新する。
+	SaveCategories(categories []*Category) error
+	// FindCategories は保存済みの全てのカテゴリを返す。
+	FindCategories() (map[CategoryID]*Category, error)
 	// AddSnapshots は指定した動画の状態を履歴に追記する。
 	AddSnapshots(snapshots []*VideoSnapshot) error
 	// FindSnapshots は since 以降に記録された動画の状態を、

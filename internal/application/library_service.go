@@ -108,11 +108,15 @@ func (s *LibraryService) syncPlaylist(meta *library.PlaylistMeta) (*library.Snap
 
 	changes := library.Reconcile(meta.YoutubeID, stored, fetched, videos)
 	if len(changes.NeedDetails) > 0 {
-		details, err := s.youtube.FetchVideos(changes.NeedDetails)
+		details, channels, err := s.youtube.FetchVideos(changes.NeedDetails)
 		if err != nil {
 			return nil, err
 		}
 		changes.ApplyDetails(details)
+		// チャンネルは動画の検索にしか使わない
+		if err := s.library.SaveChannels(channels); err != nil {
+			log.Println("Could not save channels cause:", err)
+		}
 	}
 
 	if err := s.library.ApplyItems(meta.YoutubeID, changes.Added, changes.Removed, changes.ChangedVideos()); err != nil {
@@ -160,9 +164,13 @@ func (s *LibraryService) RefreshVideos() ([]*library.Video, error) {
 		}
 	}
 
-	fetched, err := s.youtube.FetchVideos(targets)
+	fetched, channels, err := s.youtube.FetchVideos(targets)
 	if err != nil {
 		return nil, err
+	}
+	// チャンネルは動画の検索にしか使わない
+	if err := s.library.SaveChannels(channels); err != nil {
+		log.Println("Could not save channels cause:", err)
 	}
 
 	now := s.now()
@@ -189,6 +197,22 @@ func (s *LibraryService) RefreshVideos() ([]*library.Video, error) {
 	log.Println("Refreshed videos:", len(toSave), "reached milestones:", len(reached))
 
 	return reached, nil
+}
+
+// RefreshCategories は動画のカテゴリを、YouTube での現在の名前で保存する。
+// 1 ユニットを消費する。
+func (s *LibraryService) RefreshCategories() {
+	categories, err := s.youtube.FetchCategories()
+	if err != nil {
+		log.Println("Could not fetch video categories cause:", err)
+		return
+	}
+	if err := s.library.SaveCategories(categories); err != nil {
+		log.Println("Could not save video categories cause:", err)
+		return
+	}
+
+	log.Println("Refreshed video categories:", len(categories))
 }
 
 // LiveVideos は指定した動画のチャンネルと現在の再生数を、表示する直前に取得する。

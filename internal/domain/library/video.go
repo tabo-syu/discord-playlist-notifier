@@ -21,6 +21,13 @@ type Video struct {
 	// 所有者が非表示にしたか無効にしたときはゼロ
 	Likes    uint64
 	Comments uint64
+	// 動画を投稿したチャンネル。詳細を取得するまでは空
+	ChannelYoutubeID ChannelID `gorm:"index"`
+	// まだ取得していないとき、または動画がライブ配信中・配信予定のときはゼロ
+	Duration time.Duration
+	// 投稿者が設定したタグ。空のことが多い
+	Tags       []string `gorm:"serializer:json"`
+	CategoryID CategoryID
 }
 
 func (Video) TableName() string {
@@ -63,6 +70,10 @@ func (v *Video) ApplyDetails(details *Video) {
 	v.Likes = details.Likes
 	v.Comments = details.Comments
 	v.PublishedAt = details.PublishedAt
+	v.ChannelYoutubeID = details.ChannelYoutubeID
+	v.Duration = details.Duration
+	v.Tags = details.Tags
+	v.CategoryID = details.CategoryID
 }
 
 // InitMilestone は初めて再生数がわかったときに、その再生数の節目を記録して

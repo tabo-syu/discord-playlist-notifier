@@ -4,6 +4,8 @@ package youtube
 import (
 	"fmt"
 	"log"
+	"regexp"
+	"strconv"
 	"time"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
@@ -19,7 +21,14 @@ const (
 
 	// 動画が削除されたプレイリストのアイテムに YouTube が返すタイトル
 	DELETED_VIDEO_TITLE = "Deleted video"
+
+	// 動画カテゴリの名前の地域と言語
+	CATEGORY_REGION   = "JP"
+	CATEGORY_LANGUAGE = "ja"
 )
+
+// YouTube が返す ISO 8601 の期間。例: PT4M13S、P1DT2H
+var durationPattern = regexp.MustCompile(`^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$`)
 
 type client struct {
 	youtube *ytapi.Service
@@ -120,15 +129,17 @@ func (c *client) FetchPlaylistItems(id library.PlaylistID) ([]*library.FetchedIt
 	return items, nil
 }
 
-// FetchVideos は 50 動画ごとに 1 ユニットを消費する。
-func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, error) {
+// FetchVideos は 50 動画ごとに 1 ユニットを消費する。part の数は消費量に
+// 影響せず、チャンネル名も動画と一緒に取れる。
+func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, []*library.Channel, error) {
 	var videos []*library.Video
+	channels := map[library.ChannelID]*library.Channel{}
 	for _, batch := range batches(ids) {
-		res, err := c.youtube.Videos.List([]string{"id", "snippet", "statistics", "status"}).
+		res, err := c.youtube.Videos.List([]string{"id", "snippet", "contentDetails", "statistics", "status"}).
 			MaxResults(int64(len(batch))).
 			Id(batch...).Do()
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch videos: %w", err)
+			return nil, nil, fmt.Errorf("failed to fetch videos: %w", err)
 		}
 
 		for _, v := range res.Items {
@@ -138,7 +149,7 @@ func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, error) {
 
 			publishedAt, err := time.Parse(YOUTUBE_TIMEFORMAT, v.Snippet.PublishedAt)
 			if err != nil {
-				return nil, fmt.Errorf("failed to parse video publish time: %w", err)
+				return nil, nil, fmt.Errorf("failed to parse video publish time: %w", err)
 			}
 
 			video := &library.Video{
@@ -147,6 +158,18 @@ func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, error) {
 				Views:         videoViews(v),
 				PrivacyStatus: library.PrivacyPublic,
 				PublishedAt:   publishedAt,
+				Tags:          v.Snippet.Tags,
+				CategoryID:    library.CategoryID(v.Snippet.CategoryId),
+			}
+			if v.Snippet.ChannelId != "" {
+				id := library.ChannelID(v.Snippet.ChannelId)
+				video.ChannelYoutubeID = id
+				channels[id] = &library.Channel{YoutubeID: id, Title: v.Snippet.ChannelTitle}
+			}
+			// ライブ配信中・配信予定の動画は配信開始からの時間を返し、
+			// それは動画の長さではない
+			if v.ContentDetails != nil && (v.Snippet.LiveBroadcastContent == "" || v.Snippet.LiveBroadcastContent == "none") {
+				video.Duration = parseDuration(v.ContentDetails.Duration)
 			}
 			if v.Statistics != nil {
 				video.Likes = v.Statistics.LikeCount
@@ -159,7 +182,36 @@ func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, error) {
 		}
 	}
 
-	return videos, nil
+	var fetched []*library.Channel
+	for _, ch := range channels {
+		fetched = append(fetched, ch)
+	}
+
+	return videos, fetched, nil
+}
+
+// FetchCategories は 1 ユニットを消費する。
+func (c *client) FetchCategories() ([]*library.Category, error) {
+	res, err := c.youtube.VideoCategories.List([]string{"id", "snippet"}).
+		RegionCode(CATEGORY_REGION).
+		Hl(CATEGORY_LANGUAGE).Do()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch video categories: %w", err)
+	}
+
+	var categories []*library.Category
+	for _, item := range res.Items {
+		if item.Snippet == nil {
+			continue
+		}
+		categories = append(categories, &library.Category{
+			YoutubeID:  library.CategoryID(item.Id),
+			Title:      item.Snippet.Title,
+			Assignable: item.Snippet.Assignable,
+		})
+	}
+
+	return categories, nil
 }
 
 // FetchLiveVideos は 50 動画ごとに 1 ユニット、加えて 50 チャンネルごとに 1 ユニットを消費する。
@@ -268,4 +320,27 @@ func unique(ids []string) []string {
 	}
 
 	return result
+}
+
+// parseDuration は PT4M13S のような ISO 8601 の期間を読む。ライブ配信の
+// P0D のような未知の形はゼロとして読む。
+func parseDuration(s string) time.Duration {
+	m := durationPattern.FindStringSubmatch(s)
+	if m == nil {
+		return 0
+	}
+
+	var d time.Duration
+	for i, unit := range []time.Duration{24 * time.Hour, time.Hour, time.Minute, time.Second} {
+		if m[i+1] == "" {
+			continue
+		}
+		n, err := strconv.Atoi(m[i+1])
+		if err != nil {
+			return 0
+		}
+		d += time.Duration(n) * unit
+	}
+
+	return d
 }

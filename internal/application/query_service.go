@@ -2,6 +2,7 @@ package application
 
 import (
 	"errors"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -17,10 +18,11 @@ import (
 type QueryService struct {
 	subscriptions subscription.Repository
 	library       *LibraryService
+	contents      library.Repository
 }
 
-func NewQueryService(s subscription.Repository, l *LibraryService) *QueryService {
-	return &QueryService{s, l}
+func NewQueryService(s subscription.Repository, l *LibraryService, c library.Repository) *QueryService {
+	return &QueryService{s, l, c}
 }
 
 // WatchedPlaylist は 1 つ以上のギルドが通知登録しているプレイリスト。
@@ -50,6 +52,16 @@ type VideoQuery struct {
 	PlaylistID library.PlaylistID
 	// タイトルの一部（大文字・小文字を区別しない）
 	Title string
+	// チャンネル名の一部（大文字・小文字を区別しない）
+	Channel   string
+	ChannelID library.ChannelID
+	// いずれかのタグの一部（大文字・小文字を区別しない）
+	Tag        string
+	CategoryID library.CategoryID
+	// 長さの下限・上限。どちらかを指定すると、長さがまだわからない動画は
+	// 除く。
+	MinDuration time.Duration
+	MaxDuration time.Duration
 	// この時刻以降に追加された
 	AddedFrom time.Time
 	// この時刻より前に追加された
@@ -165,12 +177,29 @@ func (s *QueryService) FindVideos(q VideoQuery) (*VideoPage, error) {
 		return nil, err
 	}
 
-	title := strings.ToLower(q.Title)
+	// チャンネル名が条件のときの、名前が一致するチャンネル
+	var channels map[library.ChannelID]bool
+	if q.Channel != "" {
+		if channels, err = s.channelsNamed(contents, q.Channel); err != nil {
+			return nil, err
+		}
+	}
+
+	title, tag := strings.ToLower(q.Title), strings.ToLower(q.Tag)
+	byDuration := q.MinDuration > 0 || q.MaxDuration > 0
 	matched := []*library.PlaylistVideo{}
 	for _, c := range contents {
+		v := c.Video
 		switch {
-		case !q.IncludeUnavailable && !c.Video.Available():
-		case title != "" && !strings.Contains(strings.ToLower(c.Video.Title), title):
+		case !q.IncludeUnavailable && !v.Available():
+		case title != "" && !strings.Contains(strings.ToLower(v.Title), title):
+		case channels != nil && !channels[v.ChannelYoutubeID]:
+		case q.ChannelID != "" && v.ChannelYoutubeID != q.ChannelID:
+		case tag != "" && !slices.ContainsFunc(v.Tags, func(t string) bool { return strings.Contains(strings.ToLower(t), tag) }):
+		case q.CategoryID != "" && v.CategoryID != q.CategoryID:
+		case byDuration && v.Duration == 0:
+		case q.MinDuration > 0 && v.Duration < q.MinDuration:
+		case q.MaxDuration > 0 && v.Duration > q.MaxDuration:
 		case !q.AddedFrom.IsZero() && c.Item.AddedAt.Before(q.AddedFrom):
 		case !q.AddedUntil.IsZero() && !c.Item.AddedAt.Before(q.AddedUntil):
 		default:
@@ -230,6 +259,41 @@ func (s *QueryService) History(id library.VideoID, since time.Time) (*library.Vi
 	}
 
 	return s.library.History(ids, id, since)
+}
+
+// Categories は保存済みの全ての動画カテゴリを返す。
+func (s *QueryService) Categories() (map[library.CategoryID]*library.Category, error) {
+	return s.contents.FindCategories()
+}
+
+// Channels は指定した ID のうち保存済みのチャンネルを返す。
+func (s *QueryService) Channels(ids []library.ChannelID) (map[library.ChannelID]*library.Channel, error) {
+	return s.contents.FindChannels(ids)
+}
+
+// channelsNamed は中身の動画のチャンネルのうち、名前に name を含むものを
+// 返す。大文字・小文字は区別しない。
+func (s *QueryService) channelsNamed(contents []*library.PlaylistVideo, name string) (map[library.ChannelID]bool, error) {
+	var ids []library.ChannelID
+	for _, c := range contents {
+		if c.Video.ChannelYoutubeID != "" {
+			ids = append(ids, c.Video.ChannelYoutubeID)
+		}
+	}
+	stored, err := s.contents.FindChannels(ids)
+	if err != nil {
+		return nil, err
+	}
+
+	name = strings.ToLower(name)
+	matched := map[library.ChannelID]bool{}
+	for id, ch := range stored {
+		if strings.Contains(strings.ToLower(ch.Title), name) {
+			matched[id] = true
+		}
+	}
+
+	return matched, nil
 }
 
 // RandomVideos は通知対象のプレイリスト（id が空なら全て）から、

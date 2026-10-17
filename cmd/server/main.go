@@ -96,13 +96,13 @@ func main() {
 	}
 	defer server.Stop()
 
-	scheduler := scheduler.NewScheduler(sr, ns)
+	scheduler := scheduler.NewScheduler(sr, ns, ls)
 	scheduler.Start()
 	defer scheduler.Stop()
 
 	// MCP サーバーは参照しかしないので、起動できなくてもボットは動き続ける
 	if env.MCP_ADDR != "" {
-		mcp := mcpserver.NewServer(env.MCP_ADDR, application.NewQueryService(sbr, ls), location)
+		mcp := mcpserver.NewServer(env.MCP_ADDR, application.NewQueryService(sbr, ls, lr), location)
 		if err := mcp.Serve(); err != nil {
 			log.Println("Could not start the MCP server cause:", err)
 		} else {
