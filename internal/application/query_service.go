@@ -2,6 +2,7 @@ package application
 
 import (
 	"errors"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -17,10 +18,11 @@ import (
 type QueryService struct {
 	subscriptions subscription.Repository
 	library       *LibraryService
+	contents      library.Repository
 }
 
-func NewQueryService(s subscription.Repository, l *LibraryService) *QueryService {
-	return &QueryService{s, l}
+func NewQueryService(s subscription.Repository, l *LibraryService, c library.Repository) *QueryService {
+	return &QueryService{s, l, c}
 }
 
 // WatchedPlaylist is a playlist subscribed by at least one guild.
@@ -50,6 +52,16 @@ type VideoQuery struct {
 	PlaylistID library.PlaylistID
 	// Case-insensitive part of the title
 	Title string
+	// Case-insensitive part of the channel name
+	Channel   string
+	ChannelID library.ChannelID
+	// Case-insensitive part of one of the tags
+	Tag        string
+	CategoryID library.CategoryID
+	// Length at least / at most. Videos whose length is not known yet are
+	// left out when either is set.
+	MinDuration time.Duration
+	MaxDuration time.Duration
 	// Added at or after
 	AddedFrom time.Time
 	// Added before
@@ -165,12 +177,29 @@ func (s *QueryService) FindVideos(q VideoQuery) (*VideoPage, error) {
 		return nil, err
 	}
 
-	title := strings.ToLower(q.Title)
+	// Channels whose name matches, when the name is a condition
+	var channels map[library.ChannelID]bool
+	if q.Channel != "" {
+		if channels, err = s.channelsNamed(contents, q.Channel); err != nil {
+			return nil, err
+		}
+	}
+
+	title, tag := strings.ToLower(q.Title), strings.ToLower(q.Tag)
+	byDuration := q.MinDuration > 0 || q.MaxDuration > 0
 	matched := []*library.PlaylistVideo{}
 	for _, c := range contents {
+		v := c.Video
 		switch {
-		case !q.IncludeUnavailable && !c.Video.Available():
-		case title != "" && !strings.Contains(strings.ToLower(c.Video.Title), title):
+		case !q.IncludeUnavailable && !v.Available():
+		case title != "" && !strings.Contains(strings.ToLower(v.Title), title):
+		case channels != nil && !channels[v.ChannelYoutubeID]:
+		case q.ChannelID != "" && v.ChannelYoutubeID != q.ChannelID:
+		case tag != "" && !slices.ContainsFunc(v.Tags, func(t string) bool { return strings.Contains(strings.ToLower(t), tag) }):
+		case q.CategoryID != "" && v.CategoryID != q.CategoryID:
+		case byDuration && v.Duration == 0:
+		case q.MinDuration > 0 && v.Duration < q.MinDuration:
+		case q.MaxDuration > 0 && v.Duration > q.MaxDuration:
 		case !q.AddedFrom.IsZero() && c.Item.AddedAt.Before(q.AddedFrom):
 		case !q.AddedUntil.IsZero() && !c.Item.AddedAt.Before(q.AddedUntil):
 		default:
@@ -230,6 +259,41 @@ func (s *QueryService) History(id library.VideoID, since time.Time) (*library.Vi
 	}
 
 	return s.library.History(ids, id, since)
+}
+
+// Categories returns every stored video category.
+func (s *QueryService) Categories() (map[library.CategoryID]*library.Category, error) {
+	return s.contents.FindCategories()
+}
+
+// Channels returns the stored channels among the given IDs.
+func (s *QueryService) Channels(ids []library.ChannelID) (map[library.ChannelID]*library.Channel, error) {
+	return s.contents.FindChannels(ids)
+}
+
+// channelsNamed returns the channels of the contents whose name contains
+// name, ignoring case.
+func (s *QueryService) channelsNamed(contents []*library.PlaylistVideo, name string) (map[library.ChannelID]bool, error) {
+	var ids []library.ChannelID
+	for _, c := range contents {
+		if c.Video.ChannelYoutubeID != "" {
+			ids = append(ids, c.Video.ChannelYoutubeID)
+		}
+	}
+	stored, err := s.contents.FindChannels(ids)
+	if err != nil {
+		return nil, err
+	}
+
+	name = strings.ToLower(name)
+	matched := map[library.ChannelID]bool{}
+	for id, ch := range stored {
+		if strings.Contains(strings.ToLower(ch.Title), name) {
+			matched[id] = true
+		}
+	}
+
+	return matched, nil
 }
 
 // RandomVideos picks up to n distinct available videos from a watched

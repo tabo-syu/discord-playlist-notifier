@@ -144,7 +144,7 @@ DB の各テーブルの行が、いつ作られ、いつ更新され、いつ�
 テーブルは役割で 2 つに分かれます。
 
 - **サーバーごとの設定**（`guilds`、`playlists`）: Discord のイベントとスラッシュコマンドで変わる
-- **プレイリストの中身**（`playlist_items`、`videos`、`video_snapshots`）: YouTube から取ってきたもの。全サーバーで共有し、定期実行で変わる
+- **プレイリストの中身**（`playlist_items`、`videos`、`channels`、`categories`、`video_snapshots`）: YouTube から取ってきたもの。全サーバーで共有し、定期実行で変わる
 
 ```mermaid
 erDiagram
@@ -152,6 +152,8 @@ erDiagram
     playlists }o..o{ playlist_items : "youtube_id = playlist_youtube_id"
     videos ||..o{ playlist_items : "youtube_id = video_youtube_id"
     videos ||..o{ video_snapshots : "youtube_id = video_youtube_id"
+    channels ||..o{ videos : "youtube_id = channel_youtube_id"
+    categories ||..o{ videos : "youtube_id = category_id"
 
     guilds {
         bigint id PK
@@ -185,6 +187,21 @@ erDiagram
         bigint view_milestone
         bigint likes
         bigint comments
+        text channel_youtube_id
+        bigint duration "ナノ秒"
+        text tags "JSON の配列"
+        text category_id
+    }
+    channels {
+        bigint id PK
+        text youtube_id UK
+        text title
+    }
+    categories {
+        bigint id PK
+        text youtube_id UK
+        text title "日本語名"
+        boolean assignable "新しい動画に設定できるか"
     }
     video_snapshots {
         bigint id PK
@@ -213,6 +230,7 @@ erDiagram
 | `NotifyUpdates`（新着の通知） | 5 分 | | `updated_at`・`title` を更新 | 追加・物理削除 | 作成・公開状態と詳細を更新 |
 | `RefreshVideos`（再生数の更新） | 6 時間 | | | | 詳細・節目を更新（`video_snapshots` に追記） |
 | `PostPicks` / `PostWrapped` | 毎日 / 年末 | | | | （読むだけ） |
+| `RefreshCategories`（カテゴリ名の更新） | 起動時と 1 日 | | | | （`categories` を上書き） |
 
 物理削除するのは `playlist_items` だけです。`guilds` と `playlists` は論理削除（`deleted_at`）、`videos` と `video_snapshots` は削除しません。
 
@@ -276,7 +294,7 @@ stateDiagram-v2
     direction LR
     [*] --> 詳細なし: アイテムとして初めて見つかる
     詳細なし --> 観られる: videos.list で詳細を取得（観られる動画のとき）
-    観られる --> 観られる: 6 時間ごとに再生数・タイトルを更新
+    観られる --> 観られる: 6 時間ごとに再生数・タイトル・長さ・タグなどを更新
     観られる --> 非公開_削除: アイテムの公開状態が private / deleted に
     非公開_削除 --> 観られる: 公開状態が戻る
     非公開_削除 --> 非公開_削除: 詳細は最後の値のまま
@@ -293,6 +311,20 @@ stateDiagram-v2
   - `playlist_items` に入っている動画が対象なので、**全サーバーで登録が外れたプレイリストの動画も更新し続けます**。
 - **削除**: しません。非公開・削除になっても、どのプレイリストから外れても、最後に分かっている詳細を残します。
 
+#### `channels` — 動画を投稿したチャンネル
+
+- **作成・更新**: `videos.list` で動画の詳細を取るたびに（新しい動画の取得と、6 時間ごとの `RefreshVideos`）、その動画のチャンネルを作るか、名前を上書きします。名前は同じ `videos.list` の結果から取るので、クォータは増えません。
+  - 保存に失敗してもログを出すだけで、同期や通知は続けます。
+- **読み出し**: MCP の `find_videos` が、チャンネル名での絞り込みと、結果のチャンネル名に使います。
+- **削除**: しません。アイコンは保存しません（通知の直前に取ります）。
+
+#### `categories` — 動画のカテゴリ
+
+- **作成・更新**: 起動時と 1 日ごとに、`videoCategories.list`（日本・日本語、1 ユニット）の結果で上書きします。カテゴリは地域ごとに違うので、固定の一覧は持ちません。
+  - 設定できない古いカテゴリ（`assignable` が偽）も保存します。古い動画に付いていることがあるためです。
+- **読み出し**: MCP の `find_videos` が、カテゴリ名での絞り込みと、結果のカテゴリ名に使います。
+- **削除**: しません。
+
 #### `video_snapshots` — 動画の状態の履歴
 
 - **追記**: 6 時間ごとの `RefreshVideos` が `videos` を更新したあと、更新した全動画の状態（タイトル・公開状態・再生数・高評価数・コメント数）を、同じ `recorded_at` で 1 行ずつ追記します。値は同じ `videos.list` の結果から取るので、クォータは増えません。
@@ -306,7 +338,7 @@ stateDiagram-v2
 
 | もの | どうしているか |
 |---|---|
-| 投稿者（チャンネル名・アイコン） | 通知を送る直前に YouTube から取る。失敗したら投稿者なしで送る |
+| 投稿者のアイコン | 通知を送る直前に YouTube から取る。失敗したら投稿者なしで送る（チャンネル名は検索用に `channels` にも保存する） |
 | 通知の直前の再生数 | 同上（DB の値より新しい） |
 | サムネイル | 動画 ID から URL を作れる |
 | 全件取得の状態（アイテム数・時刻） | メモリ上だけ。再起動で消える |
@@ -383,7 +415,7 @@ DDD のレイヤードアーキテクチャで構成しています。依存は�
 | ツール | 内容 |
 |---|---|
 | `list_playlists` | 通知登録されているプレイリストの一覧と曲数 |
-| `find_videos` | 曲名・追加された期間で曲を探す（新しい順・古い順・再生数順） |
+| `find_videos` | 曲名・チャンネル名・タグ・カテゴリ・曲の長さ・追加された期間で曲を探す（新しい順・古い順・再生数順） |
 | `playlist_stats` | プレイリストの統計（`/playlist-notifier summary` と同じ内容） |
 | `playlist_wrapped` | 1 年間のまとめ（`/playlist-notifier wrapped` と同じ内容） |
 | `random_videos` | ランダムに曲を選ぶ |

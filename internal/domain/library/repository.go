@@ -18,6 +18,14 @@ type Repository interface {
 	ApplyItems(playlistID PlaylistID, added []*PlaylistItem, removed []*PlaylistItem, videos []*Video) error
 	// SaveVideos overwrites every column of the given videos.
 	SaveVideos(videos []*Video) error
+	// SaveChannels inserts the given channels, or updates their titles.
+	SaveChannels(channels []*Channel) error
+	// FindChannels returns the stored channels among the given IDs.
+	FindChannels(ids []ChannelID) (map[ChannelID]*Channel, error)
+	// SaveCategories inserts the given categories, or updates them.
+	SaveCategories(categories []*Category) error
+	// FindCategories returns every stored category.
+	FindCategories() (map[CategoryID]*Category, error)
 	// AddSnapshots appends the given states of videos to the history.
 	AddSnapshots(snapshots []*VideoSnapshot) error
 	// FindSnapshots returns the states of the video recorded at or after

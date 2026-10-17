@@ -21,6 +21,13 @@ type Video struct {
 	// Zero when hidden by the owner or turned off
 	Likes    uint64
 	Comments uint64
+	// The channel that published the video. Empty until the details are fetched.
+	ChannelYoutubeID ChannelID `gorm:"index"`
+	// Zero when not fetched yet, or while the video is a live or upcoming stream
+	Duration time.Duration
+	// Tags set by the publisher. Often empty.
+	Tags       []string `gorm:"serializer:json"`
+	CategoryID CategoryID
 }
 
 func (Video) TableName() string {
@@ -63,6 +70,10 @@ func (v *Video) ApplyDetails(details *Video) {
 	v.Likes = details.Likes
 	v.Comments = details.Comments
 	v.PublishedAt = details.PublishedAt
+	v.ChannelYoutubeID = details.ChannelYoutubeID
+	v.Duration = details.Duration
+	v.Tags = details.Tags
+	v.CategoryID = details.CategoryID
 }
 
 // InitMilestone records the milestone of the current views the first time the
