@@ -181,7 +181,7 @@ Discord のセッションには一切触れません。** 文字列だけなら
 ### プレイリストの中身の保存（`domain/library` と `LibraryService`）
 
 YouTube プレイリストの中身は、サーバーごとの通知設定（`subscription.Subscription`）
-とは別に、YouTube のプレイリスト ID 単位で 2 つのテーブルに保存し、動画の状態の履歴も残します。
+とは別に、YouTube のプレイリスト ID 単位でテーブルに保存し、動画の状態の履歴も残します。
 
 - `playlist_items`（`library.PlaylistItem`）— プレイリストの各アイテム。
   `AddedAt` はプレイリストに追加された時刻です。
@@ -189,11 +189,12 @@ YouTube プレイリストの中身は、サーバーごとの通知設定（`su
   高評価数、コメント数、公開状態、投稿日時、長さ、タグ、カテゴリ、チャンネルの ID）。
   長さ・タグ・カテゴリは MCP の `find_videos` で絞り込みに使います。
   `videos.list` の part を増やしてもクォータは変わらないので、同じ呼び出しで取ります。
-- `channels`（`library.Channel`）— 動画を投稿したチャンネルの名前。`videos` は
-  `ChannelYoutubeID` で参照します。動画の詳細を取るたびに `videos.list` の結果から
-  作るか名前を上書きし（`LibraryService.saveChannels`）、失敗してもログを出すだけです。非公開や削除になっても、タイトルなどの詳細は消さずに
+  非公開や削除になっても、タイトルなどの詳細は消さずに
   残します。`Available()` が真の動画だけをユーザーに見せます。サムネイルは
   動画 ID から作れるので保存しません（`Thumbnail()`）。
+- `channels`（`library.Channel`）— 動画を投稿したチャンネルの名前。`videos` は
+  `ChannelYoutubeID` で参照します。`LibraryService` が動画の詳細を取るたびに
+  `videos.list` の結果から作るか名前を上書きし、失敗してもログを出すだけです。
 - `video_snapshots`（`library.VideoSnapshot`）— 動画の状態の履歴（タイトル、
   公開状態、再生数、高評価数、コメント数）。`RefreshVideos` が 6 時間ごとに、
   更新した全動画の分を同じ時刻で 1 行ずつ追記します。`/playlist-notifier history`、

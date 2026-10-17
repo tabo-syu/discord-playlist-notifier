@@ -102,7 +102,7 @@ func main() {
 
 	// The MCP server only serves lookups, so the bot keeps running without it
 	if env.MCP_ADDR != "" {
-		mcp := mcpserver.NewServer(env.MCP_ADDR, application.NewQueryService(sbr, ls), location)
+		mcp := mcpserver.NewServer(env.MCP_ADDR, application.NewQueryService(sbr, ls, lr), location)
 		if err := mcp.Serve(); err != nil {
 			log.Println("Could not start the MCP server cause:", err)
 		} else {

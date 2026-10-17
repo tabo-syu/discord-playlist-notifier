@@ -18,10 +18,11 @@ import (
 type QueryService struct {
 	subscriptions subscription.Repository
 	library       *LibraryService
+	contents      library.Repository
 }
 
-func NewQueryService(s subscription.Repository, l *LibraryService) *QueryService {
-	return &QueryService{s, l}
+func NewQueryService(s subscription.Repository, l *LibraryService, c library.Repository) *QueryService {
+	return &QueryService{s, l, c}
 }
 
 // WatchedPlaylist is a playlist subscribed by at least one guild.
@@ -262,7 +263,7 @@ func (s *QueryService) History(id library.VideoID, since time.Time) (*library.Vi
 
 // Channels returns the stored channels among the given IDs.
 func (s *QueryService) Channels(ids []library.ChannelID) (map[library.ChannelID]*library.Channel, error) {
-	return s.library.Channels(ids)
+	return s.contents.FindChannels(ids)
 }
 
 // channelsNamed returns the channels of the contents whose name contains
@@ -274,7 +275,7 @@ func (s *QueryService) channelsNamed(contents []*library.PlaylistVideo, name str
 			ids = append(ids, c.Video.ChannelYoutubeID)
 		}
 	}
-	stored, err := s.library.Channels(ids)
+	stored, err := s.contents.FindChannels(ids)
 	if err != nil {
 		return nil, err
 	}

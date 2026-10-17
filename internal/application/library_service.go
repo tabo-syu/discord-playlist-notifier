@@ -114,7 +114,10 @@ func (s *LibraryService) syncPlaylist(meta *library.PlaylistMeta) (*library.Snap
 			return nil, err
 		}
 		changes.ApplyDetails(details)
-		s.saveChannels(channels)
+		// The channels are only used to search the videos
+		if err := s.library.SaveChannels(channels); err != nil {
+			log.Println("Could not save channels cause:", err)
+		}
 	}
 
 	if err := s.library.ApplyItems(meta.YoutubeID, changes.Added, changes.Removed, changes.ChangedVideos()); err != nil {
@@ -166,7 +169,10 @@ func (s *LibraryService) RefreshVideos() ([]*library.Video, error) {
 	if err != nil {
 		return nil, err
 	}
-	s.saveChannels(channels)
+	// The channels are only used to search the videos
+	if err := s.library.SaveChannels(channels); err != nil {
+		log.Println("Could not save channels cause:", err)
+	}
 
 	now := s.now()
 	var toSave []*library.Video
@@ -192,19 +198,6 @@ func (s *LibraryService) RefreshVideos() ([]*library.Video, error) {
 	log.Println("Refreshed videos:", len(toSave), "reached milestones:", len(reached))
 
 	return reached, nil
-}
-
-// saveChannels stores the channel names. They are only used to search the
-// videos, so a failure does not stop the sync or the notifications.
-func (s *LibraryService) saveChannels(channels []*library.Channel) {
-	if err := s.library.SaveChannels(channels); err != nil {
-		log.Println("Could not save channels cause:", err)
-	}
-}
-
-// Channels returns the stored channels among the given IDs.
-func (s *LibraryService) Channels(ids []library.ChannelID) (map[library.ChannelID]*library.Channel, error) {
-	return s.library.FindChannels(unique(ids))
 }
 
 // LiveVideos fetches the channel and current views of the given videos right
