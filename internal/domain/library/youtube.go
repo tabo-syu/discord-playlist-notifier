@@ -9,9 +9,10 @@ type YouTube interface {
 	// FetchPlaylistMetas omits the playlists that no longer exist.
 	FetchPlaylistMetas(ids ...PlaylistID) (map[PlaylistID]*PlaylistMeta, error)
 	FetchPlaylistItems(id PlaylistID) ([]*FetchedItem, error)
-	// FetchVideos returns details of the given videos. Videos that cannot be
-	// seen (private, deleted) are missing from the result.
-	FetchVideos(ids []VideoID) ([]*Video, error)
+	// FetchVideos returns details of the given videos, and the channels that
+	// published them. Videos that cannot be seen (private, deleted) are missing
+	// from the result.
+	FetchVideos(ids []VideoID) ([]*Video, []*Channel, error)
 	// FetchLiveVideos returns the channel and current views of the given
 	// videos, keyed by video ID. Videos that cannot be seen are missing.
 	FetchLiveVideos(ids []VideoID) (map[VideoID]*LiveVideo, error)

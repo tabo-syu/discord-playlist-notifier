@@ -186,9 +186,12 @@ YouTube プレイリストの中身は、サーバーごとの通知設定（`su
 - `playlist_items`（`library.PlaylistItem`）— プレイリストの各アイテム。
   `AddedAt` はプレイリストに追加された時刻です。
 - `videos`（`library.Video`）— 動画ごとの最新の情報（タイトル、再生数、
-  高評価数、コメント数、公開状態、投稿日時、チャンネル名、長さ、タグ、カテゴリ）。
-  長さ・タグ・カテゴリ・チャンネル名は MCP の `find_videos` で絞り込みに使います。
-  `videos.list` の part を増やしてもクォータは変わらないので、同じ呼び出しで取ります。非公開や削除になっても、タイトルなどの詳細は消さずに
+  高評価数、コメント数、公開状態、投稿日時、長さ、タグ、カテゴリ、チャンネルの ID）。
+  長さ・タグ・カテゴリは MCP の `find_videos` で絞り込みに使います。
+  `videos.list` の part を増やしてもクォータは変わらないので、同じ呼び出しで取ります。
+- `channels`（`library.Channel`）— 動画を投稿したチャンネルの名前。`videos` は
+  `ChannelYoutubeID` で参照します。動画の詳細を取るたびに `videos.list` の結果から
+  作るか名前を上書きし（`LibraryService.saveChannels`）、失敗してもログを出すだけです。非公開や削除になっても、タイトルなどの詳細は消さずに
   残します。`Available()` が真の動画だけをユーザーに見せます。サムネイルは
   動画 ID から作れるので保存しません（`Thumbnail()`）。
 - `video_snapshots`（`library.VideoSnapshot`）— 動画の状態の履歴（タイトル、
@@ -200,7 +203,7 @@ YouTube プレイリストの中身は、サーバーごとの通知設定（`su
 
 通知の Embed に出す投稿者（チャンネル名とアイコン）は、通知を送る直前に
 `LibraryService.LiveVideos` で取得し（最新の再生数も一緒に取れます）、
-取得に失敗したときは投稿者なしで送ります。`videos` のチャンネル名は検索用で、
+取得に失敗したときは投稿者なしで送ります。`channels` のチャンネル名は検索用で、
 アイコンは保存しません。
 
 `LibraryService.Sync` はまず `playlists.list` でアイテム数を確認し、アイテム数が

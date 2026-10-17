@@ -52,7 +52,8 @@ type VideoQuery struct {
 	// Case-insensitive part of the title
 	Title string
 	// Case-insensitive part of the channel name
-	Channel string
+	Channel   string
+	ChannelID library.ChannelID
 	// Case-insensitive part of one of the tags
 	Tag        string
 	CategoryID library.CategoryID
@@ -175,7 +176,15 @@ func (s *QueryService) FindVideos(q VideoQuery) (*VideoPage, error) {
 		return nil, err
 	}
 
-	title, channel, tag := strings.ToLower(q.Title), strings.ToLower(q.Channel), strings.ToLower(q.Tag)
+	// Channels whose name matches, when the name is a condition
+	var channels map[library.ChannelID]bool
+	if q.Channel != "" {
+		if channels, err = s.channelsNamed(contents, q.Channel); err != nil {
+			return nil, err
+		}
+	}
+
+	title, tag := strings.ToLower(q.Title), strings.ToLower(q.Tag)
 	byDuration := q.MinDuration > 0 || q.MaxDuration > 0
 	matched := []*library.PlaylistVideo{}
 	for _, c := range contents {
@@ -183,7 +192,8 @@ func (s *QueryService) FindVideos(q VideoQuery) (*VideoPage, error) {
 		switch {
 		case !q.IncludeUnavailable && !v.Available():
 		case title != "" && !strings.Contains(strings.ToLower(v.Title), title):
-		case channel != "" && !strings.Contains(strings.ToLower(v.ChannelTitle), channel):
+		case channels != nil && !channels[v.ChannelYoutubeID]:
+		case q.ChannelID != "" && v.ChannelYoutubeID != q.ChannelID:
 		case tag != "" && !slices.ContainsFunc(v.Tags, func(t string) bool { return strings.Contains(strings.ToLower(t), tag) }):
 		case q.CategoryID != "" && v.CategoryID != q.CategoryID:
 		case byDuration && v.Duration == 0:
@@ -248,6 +258,36 @@ func (s *QueryService) History(id library.VideoID, since time.Time) (*library.Vi
 	}
 
 	return s.library.History(ids, id, since)
+}
+
+// Channels returns the stored channels among the given IDs.
+func (s *QueryService) Channels(ids []library.ChannelID) (map[library.ChannelID]*library.Channel, error) {
+	return s.library.Channels(ids)
+}
+
+// channelsNamed returns the channels of the contents whose name contains
+// name, ignoring case.
+func (s *QueryService) channelsNamed(contents []*library.PlaylistVideo, name string) (map[library.ChannelID]bool, error) {
+	var ids []library.ChannelID
+	for _, c := range contents {
+		if c.Video.ChannelYoutubeID != "" {
+			ids = append(ids, c.Video.ChannelYoutubeID)
+		}
+	}
+	stored, err := s.library.Channels(ids)
+	if err != nil {
+		return nil, err
+	}
+
+	name = strings.ToLower(name)
+	matched := map[library.ChannelID]bool{}
+	for id, ch := range stored {
+		if strings.Contains(strings.ToLower(ch.Title), name) {
+			matched[id] = true
+		}
+	}
+
+	return matched, nil
 }
 
 // RandomVideos picks up to n distinct available videos from a watched

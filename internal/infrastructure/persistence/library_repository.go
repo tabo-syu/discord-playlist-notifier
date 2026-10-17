@@ -153,6 +153,34 @@ func (r *libraryRepository) findBoundarySnapshots(ids []library.VideoID, since t
 	return snapshots, nil
 }
 
+func (r *libraryRepository) SaveChannels(channels []*library.Channel) error {
+	if len(channels) == 0 {
+		return nil
+	}
+
+	return r.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "youtube_id"}},
+		DoUpdates: clause.AssignmentColumns([]string{"title", "updated_at"}),
+	}).CreateInBatches(channels, 500).Error
+}
+
+func (r *libraryRepository) FindChannels(ids []library.ChannelID) (map[library.ChannelID]*library.Channel, error) {
+	channels := map[library.ChannelID]*library.Channel{}
+	if len(ids) == 0 {
+		return channels, nil
+	}
+
+	var rows []*library.Channel
+	if err := r.db.Where("youtube_id IN ?", ids).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, c := range rows {
+		channels[c.YoutubeID] = c
+	}
+
+	return channels, nil
+}
+
 // Callers pass complete rows (existing values merged with the new ones), so
 // every column is overwritten on conflict.
 func saveVideos(db *gorm.DB, videos []*library.Video) error {

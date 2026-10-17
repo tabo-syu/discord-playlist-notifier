@@ -121,6 +121,7 @@ type videoOut struct {
 	Views         uint64   `json:"views"`
 	Status        string   `json:"status" jsonschema:"public（公開）、unlisted（限定公開）、private（非公開）、deleted（削除）のいずれか"`
 	Channel       string   `json:"channel,omitempty" jsonschema:"動画を投稿したチャンネルの名前"`
+	ChannelID     string   `json:"channel_id,omitempty" jsonschema:"チャンネルの ID。同じ名前の別のチャンネルを見分けるときに使う"`
 	DurationSec   int      `json:"duration_seconds,omitempty" jsonschema:"曲の長さ（秒）。不明なときは省略"`
 	Tags          []string `json:"tags" jsonschema:"投稿者が付けたタグ（最初の 10 個まで）。付いていないことも多い"`
 	Category      string   `json:"category,omitempty" jsonschema:"YouTube のカテゴリ（音楽、ゲームなど）"`
@@ -149,7 +150,7 @@ func toPlaylist(p *application.WatchedPlaylist) playlistOut {
 	return playlistOut{ID: string(p.ID), Title: p.Title, URL: fmt.Sprintf(YOUTUBE_PLAYLIST_URL, p.ID)}
 }
 
-func (t *tools) toVideo(c *library.PlaylistVideo, titles map[library.PlaylistID]string) videoOut {
+func (t *tools) toVideo(c *library.PlaylistVideo, titles map[library.PlaylistID]string, channels map[library.ChannelID]*library.Channel) videoOut {
 	v := c.Video
 	out := videoOut{
 		VideoID:       string(v.YoutubeID),
@@ -164,7 +165,10 @@ func (t *tools) toVideo(c *library.PlaylistVideo, titles map[library.PlaylistID]
 	if v.HasDetails() {
 		out.PublishedAt = t.timeOut(v.PublishedAt)
 	}
-	out.Channel = v.ChannelTitle
+	out.ChannelID = string(v.ChannelYoutubeID)
+	if ch, ok := channels[v.ChannelYoutubeID]; ok {
+		out.Channel = ch.Title
+	}
 	out.DurationSec = int(v.Duration.Seconds())
 	out.Tags = []string{}
 	if v.Tags != nil {
@@ -185,9 +189,18 @@ func (t *tools) toVideos(contents []*library.PlaylistVideo) ([]videoOut, error) 
 		titles[p.ID] = p.Title
 	}
 
+	var channelIDs []library.ChannelID
+	for _, c := range contents {
+		channelIDs = append(channelIDs, c.Video.ChannelYoutubeID)
+	}
+	channels, err := t.query.Channels(channelIDs)
+	if err != nil {
+		return nil, err
+	}
+
 	videos := []videoOut{}
 	for _, c := range contents {
-		videos = append(videos, t.toVideo(c, titles))
+		videos = append(videos, t.toVideo(c, titles, channels))
 	}
 
 	return videos, nil
@@ -266,6 +279,7 @@ type findVideosIn struct {
 	PlaylistID         string `json:"playlist_id,omitempty" jsonschema:"プレイリストの ID。省略するとすべてのプレイリストから探す"`
 	Title              string `json:"title,omitempty" jsonschema:"曲名に含まれる文字列（大文字・小文字は区別しない）"`
 	Channel            string `json:"channel,omitempty" jsonschema:"チャンネル名に含まれる文字列（大文字・小文字は区別しない）"`
+	ChannelID          string `json:"channel_id,omitempty" jsonschema:"チャンネルの ID（videos の channel_id）。名前より確実に絞り込める"`
 	Tag                string `json:"tag,omitempty" jsonschema:"どれかのタグに含まれる文字列（大文字・小文字は区別しない）"`
 	Category           string `json:"category,omitempty" jsonschema:"カテゴリ名（音楽、ゲーム、エンターテイメントなど。videos の category と同じ表記）"`
 	MinDurationSec     int    `json:"min_duration_seconds,omitempty" jsonschema:"この秒数以上の長さの曲。長さが不明な曲は除く"`
@@ -323,6 +337,7 @@ func (t *tools) findVideos(_ context.Context, _ *mcp.CallToolRequest, in findVid
 		PlaylistID:         library.PlaylistID(in.PlaylistID),
 		Title:              in.Title,
 		Channel:            in.Channel,
+		ChannelID:          library.ChannelID(in.ChannelID),
 		Tag:                in.Tag,
 		CategoryID:         category,
 		MinDuration:        time.Duration(in.MinDurationSec) * time.Second,
@@ -441,7 +456,11 @@ func (t *tools) playlistWrapped(_ context.Context, _ *mcp.CallToolRequest, in pl
 		out.BusiestMonth = &monthCountOut{Month: w.BusiestMonth.Month.Format(MONTH_FORMAT), Count: w.BusiestMonth.Count}
 	}
 	if w.First != nil {
-		first, last := t.toVideo(w.First, titles), t.toVideo(w.Last, titles)
+		channels, err := t.query.Channels([]library.ChannelID{w.First.Video.ChannelYoutubeID, w.Last.Video.ChannelYoutubeID})
+		if err != nil {
+			return nil, playlistWrappedOut{}, clientError(err)
+		}
+		first, last := t.toVideo(w.First, titles, channels), t.toVideo(w.Last, titles, channels)
 		out.First, out.Last = &first, &last
 	}
 

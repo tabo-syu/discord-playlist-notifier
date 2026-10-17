@@ -126,15 +126,16 @@ func (c *client) FetchPlaylistItems(id library.PlaylistID) ([]*library.FetchedIt
 }
 
 // FetchVideos costs 1 unit per 50 videos. The number of parts does not
-// change the cost.
-func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, error) {
+// change the cost, and the channel names come with the videos.
+func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, []*library.Channel, error) {
 	var videos []*library.Video
+	channels := map[library.ChannelID]*library.Channel{}
 	for _, batch := range batches(ids) {
 		res, err := c.youtube.Videos.List([]string{"id", "snippet", "contentDetails", "statistics", "status"}).
 			MaxResults(int64(len(batch))).
 			Id(batch...).Do()
 		if err != nil {
-			return nil, fmt.Errorf("failed to fetch videos: %w", err)
+			return nil, nil, fmt.Errorf("failed to fetch videos: %w", err)
 		}
 
 		for _, v := range res.Items {
@@ -144,7 +145,7 @@ func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, error) {
 
 			publishedAt, err := time.Parse(YOUTUBE_TIMEFORMAT, v.Snippet.PublishedAt)
 			if err != nil {
-				return nil, fmt.Errorf("failed to parse video publish time: %w", err)
+				return nil, nil, fmt.Errorf("failed to parse video publish time: %w", err)
 			}
 
 			video := &library.Video{
@@ -153,9 +154,13 @@ func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, error) {
 				Views:         videoViews(v),
 				PrivacyStatus: library.PrivacyPublic,
 				PublishedAt:   publishedAt,
-				ChannelTitle:  v.Snippet.ChannelTitle,
 				Tags:          v.Snippet.Tags,
 				CategoryID:    library.CategoryID(v.Snippet.CategoryId),
+			}
+			if v.Snippet.ChannelId != "" {
+				id := library.ChannelID(v.Snippet.ChannelId)
+				video.ChannelYoutubeID = id
+				channels[id] = &library.Channel{YoutubeID: id, Title: v.Snippet.ChannelTitle}
 			}
 			// Live and upcoming streams report the time since they started,
 			// which is not the length of the video
@@ -173,7 +178,12 @@ func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, error) {
 		}
 	}
 
-	return videos, nil
+	var fetched []*library.Channel
+	for _, ch := range channels {
+		fetched = append(fetched, ch)
+	}
+
+	return videos, fetched, nil
 }
 
 // FetchLiveVideos costs 1 unit per 50 videos plus 1 unit per 50 channels.

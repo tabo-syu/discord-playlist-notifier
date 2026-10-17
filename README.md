@@ -144,7 +144,7 @@ DB の各テーブルの行が、いつ作られ、いつ更新され、いつ�
 テーブルは役割で 2 つに分かれます。
 
 - **サーバーごとの設定**（`guilds`、`playlists`）: Discord のイベントとスラッシュコマンドで変わる
-- **プレイリストの中身**（`playlist_items`、`videos`、`video_snapshots`）: YouTube から取ってきたもの。全サーバーで共有し、定期実行で変わる
+- **プレイリストの中身**（`playlist_items`、`videos`、`channels`、`video_snapshots`）: YouTube から取ってきたもの。全サーバーで共有し、定期実行で変わる
 
 ```mermaid
 erDiagram
@@ -152,6 +152,7 @@ erDiagram
     playlists }o..o{ playlist_items : "youtube_id = playlist_youtube_id"
     videos ||..o{ playlist_items : "youtube_id = video_youtube_id"
     videos ||..o{ video_snapshots : "youtube_id = video_youtube_id"
+    channels ||..o{ videos : "youtube_id = channel_youtube_id"
 
     guilds {
         bigint id PK
@@ -185,10 +186,15 @@ erDiagram
         bigint view_milestone
         bigint likes
         bigint comments
-        text channel_title
-        bigint duration
-        text tags
+        text channel_youtube_id
+        bigint duration "ナノ秒"
+        text tags "JSON の配列"
         text category_id
+    }
+    channels {
+        bigint id PK
+        text youtube_id UK
+        text title
     }
     video_snapshots {
         bigint id PK
@@ -297,6 +303,13 @@ stateDiagram-v2
   - `playlist_items` に入っている動画が対象なので、**全サーバーで登録が外れたプレイリストの動画も更新し続けます**。
 - **削除**: しません。非公開・削除になっても、どのプレイリストから外れても、最後に分かっている詳細を残します。
 
+#### `channels` — 動画を投稿したチャンネル
+
+- **作成・更新**: `videos.list` で動画の詳細を取るたびに（新しい動画の取得と、6 時間ごとの `RefreshVideos`）、その動画のチャンネルを作るか、名前を上書きします。名前は同じ `videos.list` の結果から取るので、クォータは増えません。
+  - 保存に失敗してもログを出すだけで、同期や通知は続けます。
+- **読み出し**: MCP の `find_videos` が、チャンネル名での絞り込みと、結果のチャンネル名に使います。
+- **削除**: しません。アイコンは保存しません（通知の直前に取ります）。
+
 #### `video_snapshots` — 動画の状態の履歴
 
 - **追記**: 6 時間ごとの `RefreshVideos` が `videos` を更新したあと、更新した全動画の状態（タイトル・公開状態・再生数・高評価数・コメント数）を、同じ `recorded_at` で 1 行ずつ追記します。値は同じ `videos.list` の結果から取るので、クォータは増えません。
@@ -310,7 +323,7 @@ stateDiagram-v2
 
 | もの | どうしているか |
 |---|---|
-| 投稿者のアイコン | 通知を送る直前に YouTube から取る。失敗したら投稿者なしで送る（チャンネル名は検索用に `videos` にも保存する） |
+| 投稿者のアイコン | 通知を送る直前に YouTube から取る。失敗したら投稿者なしで送る（チャンネル名は検索用に `channels` にも保存する） |
 | 通知の直前の再生数 | 同上（DB の値より新しい） |
 | サムネイル | 動画 ID から URL を作れる |
 | 全件取得の状態（アイテム数・時刻） | メモリ上だけ。再起動で消える |
