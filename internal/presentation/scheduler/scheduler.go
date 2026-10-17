@@ -25,16 +25,10 @@ func (s *scheduler) Start() {
 	s.scheduler.Cron(WRAPPED_CRON).Do(guard("Wrapped", s.notification.PostWrapped))
 	s.scheduler.Every(1).Day().At(PICK_TIME).Do(guard("Pick", s.notification.PostPicks))
 	// Also right after starting, so that the names are there on a new database
-	s.scheduler.Every(1).Day().Do(guard("RefreshCategories", s.refreshCategories))
+	s.scheduler.Every(1).Day().Do(guard("RefreshCategories", s.library.RefreshCategories))
 	s.scheduler.StartAsync()
 
 	log.Println("Scheduler started")
-}
-
-func (s *scheduler) refreshCategories() {
-	if err := s.library.RefreshCategories(); err != nil {
-		log.Println("Could not refresh video categories cause:", err)
-	}
 }
 
 func (s *scheduler) Stop() {

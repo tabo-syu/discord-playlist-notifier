@@ -202,17 +202,18 @@ func (s *LibraryService) RefreshVideos() ([]*library.Video, error) {
 
 // RefreshCategories stores the video categories as YouTube currently names
 // them. Costs 1 unit.
-func (s *LibraryService) RefreshCategories() error {
+func (s *LibraryService) RefreshCategories() {
 	categories, err := s.youtube.FetchCategories()
 	if err != nil {
-		return err
+		log.Println("Could not fetch video categories cause:", err)
+		return
 	}
 	if err := s.library.SaveCategories(categories); err != nil {
-		return err
+		log.Println("Could not save video categories cause:", err)
+		return
 	}
-	log.Println("Refreshed video categories:", len(categories))
 
-	return nil
+	log.Println("Refreshed video categories:", len(categories))
 }
 
 // LiveVideos fetches the channel and current views of the given videos right
