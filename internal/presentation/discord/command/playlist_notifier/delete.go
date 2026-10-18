@@ -2,6 +2,7 @@ package playlist_notifier
 
 import (
 	"github.com/bwmarrin/discordgo"
+
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
@@ -18,6 +19,7 @@ var deleteSubCommand = &discordgo.ApplicationCommandOption{
 
 func (c *PlaylistNotifier) delete(guildId string, playlistId string) string {
 	var message string
+	//nolint:errorlint // 完全一致での比較は既知の挙動（CLAUDE.md）
 	switch c.subscriptions.Unsubscribe(guild.DiscordID(guildId), library.PlaylistID(playlistId)) {
 	case nil:
 		message = "指定されたプレイリストを削除しました。"

@@ -43,6 +43,8 @@ func date(year int, month time.Month, day, hour int) time.Time {
 
 // connect は偽物のリポジトリで MCP サーバーを HTTP で立て、クライアントとして接続する。
 func connect(t *testing.T, subscriptions *fake.SubscriptionRepository, lib *fake.LibraryRepository) *mcp.ClientSession {
+	t.Helper()
+
 	query := application.NewQueryService(subscriptions, application.NewLibraryService(&fake.YouTube{}, lib, jst, clock), lib)
 	ts := httptest.NewServer(mcpserver.NewServer("", query, jst, clock).Handler())
 	t.Cleanup(ts.Close)
@@ -58,6 +60,8 @@ func connect(t *testing.T, subscriptions *fake.SubscriptionRepository, lib *fake
 // call はツールを呼び、構造化された出力の JSON と、ツールが返したエラーの文言を返す。
 // エラーのときの出力は null、成功したときのエラーの文言は空になる。
 func call(t *testing.T, session *mcp.ClientSession, name string, arguments map[string]any) (string, string) {
+	t.Helper()
+
 	res, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: name, Arguments: arguments})
 	require.NoError(t, err)
 

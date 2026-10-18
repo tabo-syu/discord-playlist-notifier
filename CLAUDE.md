@@ -14,11 +14,11 @@ Discord のテキストチャンネルに Embed を投稿する Discord ボッ�
 ## コマンド
 
 ```bash
-# ビルド / 静的チェック / テスト（「テスト」の節を参照）
-go build ./...
-go vet ./...
-gofmt -l .          # 何も出力されないこと
-go test ./...
+# 整形 / 静的チェック / テスト（Taskfile.yml、Task v3 が必要）
+task fmt            # gofumpt + goimports で整形する
+task lint           # golangci-lint（.golangci.yml）
+task test           # go test ./...
+task check          # build・lint・test をまとめて実行する。コミット前はこれ
 
 # スタック全体（ボット + PostgreSQL）を起動する。通常はこちらを使う
 cp .env.example .env   # コピー後、実際の値を記入する
@@ -30,9 +30,15 @@ docker compose logs -f bot
 go run cmd/server/main.go
 ```
 
-Makefile、CI ワークフロー、golangci-lint の設定ファイルはいずれもリポジトリに
-ありません。devcontainer が VS Code の設定として `go.lintTool: golangci-lint` を
-指定しているだけなので、lint はエディタ側の機能であり、どこでも強制されていません。
+golangci-lint は `Taskfile.yml` の中で `go run ...@v2.15.0` としてバージョンを固定して
+呼ぶので、別にインストールする必要はなく、go.mod にも入りません（手元の Go でビルド
+されるので、go.mod の Go のバージョンより古い Go でビルドしたバイナリが動かない問題も
+避けられます）。上げるときは `Taskfile.yml` のバージョンを書き換えます。CI はありません。
+
+`.golangci.yml` で revive は使いません（ALL_CAPS の定数名と、英語の定型コメントを
+強制するため）。testifylint の `require-error` は「テストの書き方」と衝突するので
+外しています。`add.go` と `delete.go` の `switch err` は「既知の挙動」なので
+`//nolint:errorlint` を付けて残しています。
 
 ## アーキテクチャ
 
@@ -275,6 +281,9 @@ YouTube プレイリストの中身は、サーバーごとの通知設定（`su
 - エラーは `internal/domain/errors.go` に置いた**センチネル値**で、発生源
   （Discord / YouTube / DB）ごとにグループ分けされています。リポジトリと
   アプリケーションサービスがこれを返し、コマンド層がユーザー向けの文言に変換します。
+- 整形は gofumpt + goimports（`task fmt`）です。import は、このモジュール
+  （`github.com/tabo-syu/discord-playlist-notifier/...`）のものを外部のパッケージと
+  空行で分けます（goimports が強制します）。
 - ログは標準ライブラリの `log` を使い、フィールドをスペース区切りで並べます
   （`log.Println("Guild record created:", guildId)`）。構造化ロガーは使いません。
 
@@ -434,7 +443,7 @@ func TestComputeWrapped(t *testing.T) {
 - view のゴールデンテストだけは例外で、ケース名から golden のファイル名を決めるため
   `map[string]string`（ケース名 → 整形した結果）のテーブルにしています。
 
-変更の検証は最低でも `go build ./... && go vet ./... && go test ./...` で行ってください。
+変更の検証は最低でも `task check`（build・lint・test）で行ってください。
 Discord や YouTube の挙動に関わる変更は実際の認証情報とテスト用サーバーが
 必要です。検証できていない場合は、検証したと述べずにその旨を明示してください。
 

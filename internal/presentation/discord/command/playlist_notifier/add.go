@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/bwmarrin/discordgo"
+
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
@@ -21,6 +22,7 @@ var addSubCommand = &discordgo.ApplicationCommandOption{
 
 func (c *PlaylistNotifier) add(guildId string, channelId string, playlistId string) string {
 	var message string
+	//nolint:errorlint // 完全一致での比較は既知の挙動（CLAUDE.md）
 	switch c.subscriptions.Subscribe(guild.DiscordID(guildId), subscription.ChannelID(channelId), library.PlaylistID(playlistId)) {
 	case nil:
 		message = fmt.Sprintf("通知登録しました！\nhttps://www.youtube.com/playlist?list=%s", playlistId)

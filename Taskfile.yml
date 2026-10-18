@@ -1,0 +1,24 @@
+version: "3"
+
+vars:
+  GOLANGCI_LINT: go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
+
+tasks:
+  fmt:
+    desc: gofumpt と goimports で整形する
+    cmds:
+      - "{{.GOLANGCI_LINT}} fmt"
+  lint:
+    desc: golangci-lint で静的チェックする
+    cmds:
+      - "{{.GOLANGCI_LINT}} run"
+  test:
+    desc: テストを実行する
+    cmds:
+      - go test ./...
+  check:
+    desc: コミット前の確認（build・lint・test）
+    cmds:
+      - go build ./...
+      - task: lint
+      - task: test

@@ -50,7 +50,7 @@ func TestListPlaylists(t *testing.T) {
 			got, gotError := call(t, session, "list_playlists", nil)
 
 			assert.JSONEq(t, tt.want, got)
-			assert.Equal(t, "", gotError)
+			assert.Empty(t, gotError)
 		})
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/bwmarrin/discordgo"
+
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"

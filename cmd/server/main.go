@@ -94,10 +94,18 @@ func main() {
 	if err := server.Serve(); err != nil {
 		log.Fatalf("Cannot open the session: %v", err)
 	}
-	defer server.Stop()
+	defer func() {
+		if err := server.Stop(); err != nil {
+			log.Println("Could not stop the session cause:", err)
+		}
+	}()
 
 	scheduler := scheduler.NewScheduler(sr, ns, ls)
-	scheduler.Start()
+	if err := scheduler.Start(); err != nil {
+		// log.Fatalf では defer の server.Stop が動かず、コマンドの登録が残るので return する
+		log.Println("Cannot start the scheduler:", err)
+		return
+	}
 	defer scheduler.Stop()
 
 	// MCP サーバーは参照しかしないので、起動できなくてもボットは動き続ける
@@ -106,7 +114,11 @@ func main() {
 		if err := mcp.Serve(); err != nil {
 			log.Println("Could not start the MCP server cause:", err)
 		} else {
-			defer mcp.Stop()
+			defer func() {
+				if err := mcp.Stop(); err != nil {
+					log.Println("Could not stop the MCP server cause:", err)
+				}
+			}()
 		}
 	}
 

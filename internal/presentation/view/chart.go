@@ -77,16 +77,22 @@ func newChart(title string, from, to time.Time, loc *time.Location) chart.Chart 
 // 名前を付けないので、凡例には出ない。
 func starLine(name string, color drawing.Color, times []time.Time, values []float64, yAxis chart.YAxisType) []chart.Series {
 	last := len(times) - 1
-	halo := chart.TimeSeries{XValues: times, YValues: values, YAxis: yAxis,
-		Style: chart.Style{StrokeColor: color.WithAlpha(60), StrokeWidth: 10}}
-	line := chart.TimeSeries{Name: name, XValues: times, YValues: values, YAxis: yAxis,
-		Style: chart.Style{StrokeColor: color, StrokeWidth: 4, DotColor: color,
+	halo := chart.TimeSeries{
+		XValues: times, YValues: values, YAxis: yAxis,
+		Style: chart.Style{StrokeColor: color.WithAlpha(60), StrokeWidth: 10},
+	}
+	line := chart.TimeSeries{
+		Name: name, XValues: times, YValues: values, YAxis: yAxis,
+		Style: chart.Style{
+			StrokeColor: color, StrokeWidth: 4, DotColor: color,
 			DotWidthProvider: func(_, _ chart.Range, index int, _, _ float64) float64 {
 				if index == last {
 					return 9
 				}
 				return 0
-			}}}
+			},
+		},
+	}
 
 	return []chart.Series{halo, line}
 }
