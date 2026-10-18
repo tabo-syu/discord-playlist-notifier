@@ -7,30 +7,22 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/fake"
 )
 
 func TestListPlaylists(t *testing.T) {
 	tests := []struct {
-		name          string
-		subscriptions []*subscription.Subscription
-		storedItems   []*library.PlaylistItem
-		storedVideos  []*library.Video
-		want          string
+		name  string
+		setup func(m *deps)
+		want  string
 	}{
 		{
 			name: "プレイリストを曲数と一緒に返す",
-			subscriptions: []*subscription.Subscription{
-				sub(1, "PL", "お気に入り"),
-			},
-			storedItems: []*library.PlaylistItem{
-				item("PL", "1", "a", date(2026, time.October, 1, 0)),
-				item("PL", "2", "b", date(2026, time.October, 2, 0)),
-			},
-			storedVideos: []*library.Video{
-				video("a", 100),
-				{YoutubeID: "b", Title: "b", PrivacyStatus: library.PrivacyDeleted},
+			setup: func(m *deps) {
+				m.watched(sub(1, "PL", "お気に入り"))
+				m.playlistHas("PL",
+					added("PL", video("a", 100), date(2026, time.October, 1, 0)),
+					added("PL", &library.Video{YoutubeID: "b", Title: "b", PrivacyStatus: library.PrivacyDeleted}, date(2026, time.October, 2, 0)),
+				)
 			},
 			want: `{"playlists": [{
 				"id": "PL", "title": "お気に入り", "url": "https://www.youtube.com/playlist?list=PL",
@@ -40,12 +32,17 @@ func TestListPlaylists(t *testing.T) {
 		},
 		{
 			name: "通知設定がなければ空の配列を返す",
+			setup: func(m *deps) {
+				m.watched()
+			},
 			want: `{"playlists": []}`,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			session := connect(t, &fake.SubscriptionRepository{Subscriptions: tt.subscriptions}, &fake.LibraryRepository{Items: tt.storedItems, Videos: tt.storedVideos})
+			m := newDeps(t)
+			tt.setup(m)
+			session := connect(t, m)
 
 			got, gotError := call(t, session, "list_playlists", nil)
 
@@ -56,53 +53,55 @@ func TestListPlaylists(t *testing.T) {
 }
 
 func TestFindVideos(t *testing.T) {
-	subscriptions := []*subscription.Subscription{
-		sub(1, "PL", "お気に入り"),
-	}
-	// 詳細を全て持つ動画。タグは 12 個あり、返すのは最初の 10 個だけ
-	song := &library.Video{
-		YoutubeID:        "song",
-		Title:            "夜に駆ける",
-		PrivacyStatus:    library.PrivacyPublic,
-		Views:            1234,
-		PublishedAt:      date(2019, time.December, 15, 0),
-		Duration:         261 * time.Second,
-		Tags:             []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"},
-		CategoryID:       "10",
-		ChannelYoutubeID: "UC1",
+	// 詳細を全て持つ動画。タグは 12 個あり、返すのは最初の 10 個だけ。
+	// UTC では 10/17 の 15 時、JST では 10/18 の 0 時に追加された。JST で返すことを確かめる
+	song := &library.PlaylistVideo{
+		PlaylistID: "PL",
+		Item:       item("PL", "1", "song", time.Date(2026, time.October, 17, 15, 0, 0, 0, time.UTC)),
+		Video: &library.Video{
+			YoutubeID:        "song",
+			Title:            "夜に駆ける",
+			PrivacyStatus:    library.PrivacyPublic,
+			Views:            1234,
+			PublishedAt:      date(2019, time.December, 15, 0),
+			Duration:         261 * time.Second,
+			Tags:             []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"},
+			CategoryID:       "10",
+			ChannelYoutubeID: "UC1",
+		},
 	}
 	// 詳細のほとんどがわからない動画
-	game := &library.Video{
-		YoutubeID:     "game",
-		Title:         "実況",
-		PrivacyStatus: library.PrivacyPublic,
-		CategoryID:    "20",
+	game := &library.PlaylistVideo{
+		PlaylistID: "PL",
+		Item:       item("PL", "2", "game", date(2026, time.October, 17, 23)),
+		Video: &library.Video{
+			YoutubeID:     "game",
+			Title:         "実況",
+			PrivacyStatus: library.PrivacyPublic,
+			CategoryID:    "20",
+		},
 	}
-	newLibrary := func() *fake.LibraryRepository {
-		return &fake.LibraryRepository{
-			Items: []*library.PlaylistItem{
-				// UTC では 10/17 の 15 時、JST では 10/18 の 0 時。JST で返すことを確かめる
-				item("PL", "1", "song", time.Date(2026, time.October, 17, 15, 0, 0, 0, time.UTC)),
-				item("PL", "2", "game", date(2026, time.October, 17, 23)),
-			},
-			Videos: []*library.Video{
-				song,
-				game,
-			},
-			Channels: []*library.Channel{
-				{YoutubeID: "UC1", Title: "YOASOBI"},
-			},
-			Categories: []*library.Category{
-				{YoutubeID: "10", Title: "音楽", Assignable: true},
-				{YoutubeID: "20", Title: "ゲーム", Assignable: true},
-				{YoutubeID: "99", Title: "古いカテゴリ", Assignable: false},
-			},
-		}
+	channels := map[library.ChannelID]*library.Channel{
+		"UC1": {YoutubeID: "UC1", Title: "YOASOBI"},
 	}
+	songOut := `{
+		"video_id": "song", "title": "夜に駆ける", "url": "https://www.youtube.com/watch?v=song&list=PL",
+		"playlist_id": "PL", "playlist_title": "お気に入り",
+		"added_at": "2026-10-18T00:00:00+09:00", "published_at": "2019-12-15T00:00:00+09:00",
+		"views": 1234, "status": "public", "channel": "YOASOBI", "channel_id": "UC1",
+		"duration_seconds": 261, "tags": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"], "category": "音楽"
+	}`
+	gameOut := `{
+		"video_id": "game", "title": "実況", "url": "https://www.youtube.com/watch?v=game&list=PL",
+		"playlist_id": "PL", "playlist_title": "お気に入り",
+		"added_at": "2026-10-17T23:00:00+09:00",
+		"views": 0, "status": "public", "tags": [], "category": "ゲーム"
+	}`
 
 	tests := []struct {
 		name      string
 		arguments map[string]any
+		setup     func(m *deps)
 		want      string
 		wantError string
 	}{
@@ -111,55 +110,58 @@ func TestFindVideos(t *testing.T) {
 			arguments: map[string]any{
 				"title": "夜に",
 			},
-			want: `{"total": 1, "offset": 0, "videos": [{
-				"video_id": "song", "title": "夜に駆ける", "url": "https://www.youtube.com/watch?v=song&list=PL",
-				"playlist_id": "PL", "playlist_title": "お気に入り",
-				"added_at": "2026-10-18T00:00:00+09:00", "published_at": "2019-12-15T00:00:00+09:00",
-				"views": 1234, "status": "public", "channel": "YOASOBI", "channel_id": "UC1",
-				"duration_seconds": 261, "tags": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"], "category": "音楽"
-			}]}`,
+			setup: func(m *deps) {
+				m.watched(sub(1, "PL", "お気に入り"))
+				m.playlistHas("PL", song, game)
+				m.names([]library.ChannelID{"UC1"}, channels)
+			},
+			want: `{"total": 1, "offset": 0, "videos": [` + songOut + `]}`,
 		},
 		{
 			name: "わからない情報は省き、タグは空の配列にする",
 			arguments: map[string]any{
 				"title": "実況",
 			},
-			want: `{"total": 1, "offset": 0, "videos": [{
-				"video_id": "game", "title": "実況", "url": "https://www.youtube.com/watch?v=game&list=PL",
-				"playlist_id": "PL", "playlist_title": "お気に入り",
-				"added_at": "2026-10-17T23:00:00+09:00",
-				"views": 0, "status": "public", "tags": [], "category": "ゲーム"
-			}]}`,
+			setup: func(m *deps) {
+				m.watched(sub(1, "PL", "お気に入り"))
+				m.playlistHas("PL", song, game)
+				m.names([]library.ChannelID{""}, map[library.ChannelID]*library.Channel{})
+			},
+			want: `{"total": 1, "offset": 0, "videos": [` + gameOut + `]}`,
 		},
 		{
 			name: "カテゴリを名前で絞り込む",
 			arguments: map[string]any{
 				"category": "ゲーム",
 			},
-			want: `{"total": 1, "offset": 0, "videos": [{
-				"video_id": "game", "title": "実況", "url": "https://www.youtube.com/watch?v=game&list=PL",
-				"playlist_id": "PL", "playlist_title": "お気に入り",
-				"added_at": "2026-10-17T23:00:00+09:00",
-				"views": 0, "status": "public", "tags": [], "category": "ゲーム"
-			}]}`,
+			setup: func(m *deps) {
+				m.watched(sub(1, "PL", "お気に入り"))
+				m.playlistHas("PL", song, game)
+				m.names([]library.ChannelID{""}, map[library.ChannelID]*library.Channel{})
+			},
+			want: `{"total": 1, "offset": 0, "videos": [` + gameOut + `]}`,
 		},
 		{
 			name: "追加された日を JST で区切る",
 			arguments: map[string]any{
 				"added_from": "2026-10-18",
 			},
-			want: `{"total": 1, "offset": 0, "videos": [{
-				"video_id": "song", "title": "夜に駆ける", "url": "https://www.youtube.com/watch?v=song&list=PL",
-				"playlist_id": "PL", "playlist_title": "お気に入り",
-				"added_at": "2026-10-18T00:00:00+09:00", "published_at": "2019-12-15T00:00:00+09:00",
-				"views": 1234, "status": "public", "channel": "YOASOBI", "channel_id": "UC1",
-				"duration_seconds": 261, "tags": ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"], "category": "音楽"
-			}]}`,
+			setup: func(m *deps) {
+				m.watched(sub(1, "PL", "お気に入り"))
+				m.playlistHas("PL", song, game)
+				m.names([]library.ChannelID{"UC1"}, channels)
+			},
+			want: `{"total": 1, "offset": 0, "videos": [` + songOut + `]}`,
 		},
 		{
 			name: "見つからなければ空の配列を返す",
 			arguments: map[string]any{
 				"title": "見つからない",
+			},
+			setup: func(m *deps) {
+				m.watched(sub(1, "PL", "お気に入り"))
+				m.playlistHas("PL", song, game)
+				m.names([]library.ChannelID(nil), map[library.ChannelID]*library.Channel{})
 			},
 			want: `{"total": 0, "offset": 0, "videos": []}`,
 		},
@@ -168,13 +170,19 @@ func TestFindVideos(t *testing.T) {
 			arguments: map[string]any{
 				"category": "アニメ",
 			},
+			setup: func(m *deps) {
+				m.library.EXPECT().FindCategories().Return(categories(), nil)
+			},
 			want:      `null`,
 			wantError: `category は次のどれかを指定してください: ゲーム、音楽（指定された値: "アニメ"）`,
 		},
 		{
-			name: "通知登録されていないプレイリストは断る",
+			name: "通知登録されていないプレイリストは、中身を読まずに断る",
 			arguments: map[string]any{
 				"playlist_id": "UNWATCHED",
+			},
+			setup: func(m *deps) {
+				m.watched(sub(1, "PL", "お気に入り"))
 			},
 			want:      `null`,
 			wantError: "登録されていないプレイリストです。list_playlists で ID を確認してください。",
@@ -184,6 +192,7 @@ func TestFindVideos(t *testing.T) {
 			arguments: map[string]any{
 				"added_until": "2026/10/18",
 			},
+			setup:     func(m *deps) {},
 			want:      `null`,
 			wantError: `added_until は YYYY-MM-DD の形式で指定してください: "2026/10/18"`,
 		},
@@ -192,6 +201,7 @@ func TestFindVideos(t *testing.T) {
 			arguments: map[string]any{
 				"sort": "random",
 			},
+			setup:     func(m *deps) {},
 			want:      `null`,
 			wantError: `sort は added_desc、added_asc、views_desc のいずれかを指定してください: "random"`,
 		},
@@ -200,6 +210,7 @@ func TestFindVideos(t *testing.T) {
 			arguments: map[string]any{
 				"limit": 101,
 			},
+			setup:     func(m *deps) {},
 			want:      `null`,
 			wantError: "limit は 1〜100、offset は 0 以上で指定してください",
 		},
@@ -208,6 +219,7 @@ func TestFindVideos(t *testing.T) {
 			arguments: map[string]any{
 				"offset": -1,
 			},
+			setup:     func(m *deps) {},
 			want:      `null`,
 			wantError: "limit は 1〜100、offset は 0 以上で指定してください",
 		},
@@ -216,13 +228,16 @@ func TestFindVideos(t *testing.T) {
 			arguments: map[string]any{
 				"min_duration_seconds": -1,
 			},
+			setup:     func(m *deps) {},
 			want:      `null`,
 			wantError: "min_duration_seconds と max_duration_seconds は 0 以上で指定してください",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			session := connect(t, &fake.SubscriptionRepository{Subscriptions: subscriptions}, newLibrary())
+			m := newDeps(t)
+			tt.setup(m)
+			session := connect(t, m)
 
 			got, gotError := call(t, session, "find_videos", tt.arguments)
 
@@ -233,13 +248,10 @@ func TestFindVideos(t *testing.T) {
 }
 
 func TestPlaylistStats(t *testing.T) {
-	subscriptions := []*subscription.Subscription{
-		sub(1, "PL", "お気に入り"),
-	}
-
 	tests := []struct {
 		name      string
 		arguments map[string]any
+		setup     func(m *deps)
 		want      string
 		wantError string
 	}{
@@ -247,6 +259,10 @@ func TestPlaylistStats(t *testing.T) {
 			name: "プレイリストの統計を返す",
 			arguments: map[string]any{
 				"playlist_id": "PL",
+			},
+			setup: func(m *deps) {
+				m.watched(sub(1, "PL", "お気に入り"))
+				m.playlistHas("PL", added("PL", video("a", 100), date(2026, time.October, 1, 0)))
 			},
 			want: `{
 				"playlist": {"id": "PL", "title": "お気に入り", "url": "https://www.youtube.com/playlist?list=PL"},
@@ -265,9 +281,12 @@ func TestPlaylistStats(t *testing.T) {
 			}`,
 		},
 		{
-			name: "通知登録されていないプレイリストは断る",
+			name: "通知登録されていないプレイリストは、中身を読まずに断る",
 			arguments: map[string]any{
 				"playlist_id": "UNWATCHED",
+			},
+			setup: func(m *deps) {
+				m.watched(sub(1, "PL", "お気に入り"))
 			},
 			want:      `null`,
 			wantError: "登録されていないプレイリストです。list_playlists で ID を確認してください。",
@@ -275,11 +294,9 @@ func TestPlaylistStats(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lib := &fake.LibraryRepository{
-				Items:  []*library.PlaylistItem{item("PL", "1", "a", date(2026, time.October, 1, 0))},
-				Videos: []*library.Video{video("a", 100)},
-			}
-			session := connect(t, &fake.SubscriptionRepository{Subscriptions: subscriptions}, lib)
+			m := newDeps(t)
+			tt.setup(m)
+			session := connect(t, m)
 
 			got, gotError := call(t, session, "playlist_stats", tt.arguments)
 
@@ -290,13 +307,10 @@ func TestPlaylistStats(t *testing.T) {
 }
 
 func TestPlaylistWrapped(t *testing.T) {
-	subscriptions := []*subscription.Subscription{
-		sub(1, "PL", "お気に入り"),
-	}
-
 	tests := []struct {
 		name      string
 		arguments map[string]any
+		setup     func(m *deps)
 		want      string
 		wantError string
 	}{
@@ -304,6 +318,12 @@ func TestPlaylistWrapped(t *testing.T) {
 			name: "年を省略すると今年をまとめる",
 			arguments: map[string]any{
 				"playlist_id": "PL",
+			},
+			setup: func(m *deps) {
+				m.watched(sub(1, "PL", "お気に入り"))
+				m.playlistHas("PL", added("PL", video("a", 100), date(2026, time.March, 1, 0)))
+				// 最初と最後の曲のチャンネル
+				m.names([]library.ChannelID{"", ""}, map[library.ChannelID]*library.Channel{})
 			},
 			want: `{
 				"playlist": {"id": "PL", "title": "お気に入り", "url": "https://www.youtube.com/playlist?list=PL"},
@@ -328,6 +348,10 @@ func TestPlaylistWrapped(t *testing.T) {
 				"playlist_id": "PL",
 				"year":        2025,
 			},
+			setup: func(m *deps) {
+				m.watched(sub(1, "PL", "お気に入り"))
+				m.playlistHas("PL", added("PL", video("a", 100), date(2026, time.March, 1, 0)))
+			},
 			want: `{
 				"playlist": {"id": "PL", "title": "お気に入り", "url": "https://www.youtube.com/playlist?list=PL"},
 				"year": 2025, "added": 0, "previous_year_added": 0,
@@ -335,9 +359,12 @@ func TestPlaylistWrapped(t *testing.T) {
 			}`,
 		},
 		{
-			name: "通知登録されていないプレイリストは断る",
+			name: "通知登録されていないプレイリストは、中身を読まずに断る",
 			arguments: map[string]any{
 				"playlist_id": "UNWATCHED",
+			},
+			setup: func(m *deps) {
+				m.watched(sub(1, "PL", "お気に入り"))
 			},
 			want:      `null`,
 			wantError: "登録されていないプレイリストです。list_playlists で ID を確認してください。",
@@ -345,11 +372,9 @@ func TestPlaylistWrapped(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lib := &fake.LibraryRepository{
-				Items:  []*library.PlaylistItem{item("PL", "1", "a", date(2026, time.March, 1, 0))},
-				Videos: []*library.Video{video("a", 100)},
-			}
-			session := connect(t, &fake.SubscriptionRepository{Subscriptions: subscriptions}, lib)
+			m := newDeps(t)
+			tt.setup(m)
+			session := connect(t, m)
 
 			got, gotError := call(t, session, "playlist_wrapped", tt.arguments)
 
@@ -360,20 +385,22 @@ func TestPlaylistWrapped(t *testing.T) {
 }
 
 func TestRandomVideos(t *testing.T) {
-	subscriptions := []*subscription.Subscription{
-		sub(1, "PL", "お気に入り"),
-	}
-
 	// 選ぶ順はランダムなので、候補は 1 曲だけにする
 	tests := []struct {
 		name      string
 		arguments map[string]any
+		setup     func(m *deps)
 		want      string
 		wantError string
 	}{
 		{
 			name:      "観られる曲を選ぶ",
 			arguments: map[string]any{},
+			setup: func(m *deps) {
+				m.watched(sub(1, "PL", "お気に入り"))
+				m.playlistHas("PL", added("PL", video("a", 100), date(2026, time.March, 1, 0)))
+				m.names([]library.ChannelID{""}, map[library.ChannelID]*library.Channel{})
+			},
 			want: `{"videos": [{
 				"video_id": "a", "title": "a", "url": "https://www.youtube.com/watch?v=a&list=PL",
 				"playlist_id": "PL", "playlist_title": "お気に入り", "added_at": "2026-03-01T00:00:00+09:00",
@@ -385,13 +412,17 @@ func TestRandomVideos(t *testing.T) {
 			arguments: map[string]any{
 				"count": 11,
 			},
+			setup:     func(m *deps) {},
 			want:      `null`,
 			wantError: "count は 1〜10 で指定してください",
 		},
 		{
-			name: "通知登録されていないプレイリストは断る",
+			name: "通知登録されていないプレイリストは、中身を読まずに断る",
 			arguments: map[string]any{
 				"playlist_id": "UNWATCHED",
+			},
+			setup: func(m *deps) {
+				m.watched(sub(1, "PL", "お気に入り"))
 			},
 			want:      `null`,
 			wantError: "登録されていないプレイリストです。list_playlists で ID を確認してください。",
@@ -399,11 +430,9 @@ func TestRandomVideos(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lib := &fake.LibraryRepository{
-				Items:  []*library.PlaylistItem{item("PL", "1", "a", date(2026, time.March, 1, 0))},
-				Videos: []*library.Video{video("a", 100)},
-			}
-			session := connect(t, &fake.SubscriptionRepository{Subscriptions: subscriptions}, lib)
+			m := newDeps(t)
+			tt.setup(m)
+			session := connect(t, m)
 
 			got, gotError := call(t, session, "random_videos", tt.arguments)
 
@@ -414,13 +443,10 @@ func TestRandomVideos(t *testing.T) {
 }
 
 func TestVideoHistory(t *testing.T) {
-	subscriptions := []*subscription.Subscription{
-		sub(1, "PL", "お気に入り"),
-	}
-
 	tests := []struct {
 		name      string
 		arguments map[string]any
+		setup     func(m *deps)
 		want      string
 		wantError string
 	}{
@@ -428,6 +454,19 @@ func TestVideoHistory(t *testing.T) {
 			name: "直近 30 日の記録を古い順に返す",
 			arguments: map[string]any{
 				"video_id": "a",
+			},
+			setup: func(m *deps) {
+				m.watched(sub(1, "PL", "お気に入り"))
+				m.library.EXPECT().FindItemsByVideos([]library.VideoID{"a"}).Return([]*library.PlaylistItem{
+					item("PL", "1", "a", date(2026, time.March, 1, 0)),
+				}, nil)
+				m.library.EXPECT().FindVideos([]library.VideoID{"a"}).Return(map[library.VideoID]*library.Video{
+					"a": video("a", 200),
+				}, nil)
+				m.library.EXPECT().FindSnapshots(library.VideoID("a"), now.AddDate(0, 0, -30)).Return([]*library.VideoSnapshot{
+					{VideoYoutubeID: "a", RecordedAt: date(2026, time.October, 10, 0), Title: "a", PrivacyStatus: library.PrivacyPublic, Views: 100, Likes: 10, Comments: 1},
+					{VideoYoutubeID: "a", RecordedAt: date(2026, time.October, 18, 0), Title: "a", PrivacyStatus: library.PrivacyPublic, Views: 200, Likes: 20, Comments: 2},
+				}, nil)
 			},
 			want: `{
 				"video_id": "a", "title": "a", "url": "https://www.youtube.com/watch?v=a",
@@ -443,17 +482,29 @@ func TestVideoHistory(t *testing.T) {
 				"video_id": "a",
 				"days":     1,
 			},
+			setup: func(m *deps) {
+				m.watched(sub(1, "PL", "お気に入り"))
+				m.library.EXPECT().FindItemsByVideos([]library.VideoID{"a"}).Return([]*library.PlaylistItem{
+					item("PL", "1", "a", date(2026, time.March, 1, 0)),
+				}, nil)
+				m.library.EXPECT().FindVideos([]library.VideoID{"a"}).Return(map[library.VideoID]*library.Video{
+					"a": video("a", 200),
+				}, nil)
+				m.library.EXPECT().FindSnapshots(library.VideoID("a"), now.AddDate(0, 0, -1)).Return([]*library.VideoSnapshot{}, nil)
+			},
 			want: `{
 				"video_id": "a", "title": "a", "url": "https://www.youtube.com/watch?v=a",
-				"snapshots": [
-					{"recorded_at": "2026-10-18T00:00:00+09:00", "title": "a", "status": "public", "views": 200, "likes": 20, "comments": 2}
-				]
+				"snapshots": []
 			}`,
 		},
 		{
 			name: "通知登録されたプレイリストにない動画は断る",
 			arguments: map[string]any{
 				"video_id": "unknown",
+			},
+			setup: func(m *deps) {
+				m.watched(sub(1, "PL", "お気に入り"))
+				m.library.EXPECT().FindItemsByVideos([]library.VideoID{"unknown"}).Return([]*library.PlaylistItem{}, nil)
 			},
 			want:      `null`,
 			wantError: "登録されているプレイリストに、その動画は見つかりません。find_videos で video_id を確認してください。",
@@ -464,22 +515,16 @@ func TestVideoHistory(t *testing.T) {
 				"video_id": "a",
 				"days":     366,
 			},
+			setup:     func(m *deps) {},
 			want:      `null`,
 			wantError: "days は 1〜365 で指定してください",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lib := &fake.LibraryRepository{
-				Items:  []*library.PlaylistItem{item("PL", "1", "a", date(2026, time.March, 1, 0))},
-				Videos: []*library.Video{video("a", 200)},
-				Snapshots: []*library.VideoSnapshot{
-					{VideoYoutubeID: "a", RecordedAt: date(2026, time.September, 1, 0), Title: "a", PrivacyStatus: library.PrivacyPublic, Views: 50, Likes: 5},
-					{VideoYoutubeID: "a", RecordedAt: date(2026, time.October, 10, 0), Title: "a", PrivacyStatus: library.PrivacyPublic, Views: 100, Likes: 10, Comments: 1},
-					{VideoYoutubeID: "a", RecordedAt: date(2026, time.October, 18, 0), Title: "a", PrivacyStatus: library.PrivacyPublic, Views: 200, Likes: 20, Comments: 2},
-				},
-			}
-			session := connect(t, &fake.SubscriptionRepository{Subscriptions: subscriptions}, lib)
+			m := newDeps(t)
+			tt.setup(m)
+			session := connect(t, m)
 
 			got, gotError := call(t, session, "video_history", tt.arguments)
 

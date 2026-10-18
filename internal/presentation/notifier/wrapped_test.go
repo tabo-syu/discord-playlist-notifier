@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/fake"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/mocks"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/notifier"
 )
 
@@ -17,35 +17,32 @@ func TestPostWrapped(t *testing.T) {
 	tests := []struct {
 		name    string
 		wrapped *library.Wrapped
-		want    []*fake.SentEmbed
+		setup   func(discord *mocks.MockSender)
 	}{
 		{
 			name: "まとめを Embed の説明に入れて投稿する",
 			wrapped: &library.Wrapped{
 				Year: 2026,
 			},
-			want: []*fake.SentEmbed{
-				{
-					ChannelID: "ch",
-					Embed: &discordgo.MessageEmbed{
-						Color:       notifier.PURPLE,
-						Title:       "🎁 お気に入り の 2026 年まとめ",
-						URL:         "https://www.youtube.com/playlist?list=PL",
-						Description: "2026 年に追加された曲はありません。\n",
-					},
-				},
+			setup: func(discord *mocks.MockSender) {
+				discord.EXPECT().ChannelMessageSendEmbed("ch", &discordgo.MessageEmbed{
+					Color:       notifier.PURPLE,
+					Title:       "🎁 お気に入り の 2026 年まとめ",
+					URL:         "https://www.youtube.com/playlist?list=PL",
+					Description: "2026 年に追加された曲はありません。\n",
+				}).Return(&discordgo.Message{}, nil)
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			discord := &fake.Discord{}
+			discord := mocks.NewMockSender(t)
+			tt.setup(discord)
 			n := notifier.New(discord, jst)
 
 			err := n.PostWrapped(sub("お気に入り", ""), tt.wrapped)
 
 			assert.NoError(t, err)
-			assert.Equal(t, tt.want, discord.Sent)
 		})
 	}
 }

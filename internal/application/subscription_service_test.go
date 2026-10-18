@@ -4,169 +4,153 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"gorm.io/gorm"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/fake"
 )
 
 func TestSubscriptionServiceSubscribe(t *testing.T) {
 	tests := []struct {
-		name              string
-		subscriptions     []*subscription.Subscription
-		playlists         []*fake.Playlist
-		playlistID        library.PlaylistID
-		wantErr           error
-		wantSubscriptions []*subscription.Subscription
+		name    string
+		setup   func(m *deps)
+		wantErr error
 	}{
 		{
 			name: "YouTube のタイトルで登録する",
-			playlists: []*fake.Playlist{
-				{
-					ID:    "PL",
-					Title: "タイトル",
-				},
+			setup: func(m *deps) {
+				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(&library.PlaylistMeta{YoutubeID: "PL", Title: "タイトル"}, nil)
+				m.subscriptions.EXPECT().Exists(guild.DiscordID("guild"), library.PlaylistID("PL")).Return(false, nil)
+				m.guilds.EXPECT().FindByDiscordID(guild.DiscordID("guild")).Return(guildOf(1, "guild"), nil)
+				m.subscriptions.EXPECT().Add(&subscription.Subscription{
+					YoutubeID:     "PL",
+					SendChannelID: "ch",
+					Title:         "タイトル",
+					GuildID:       1,
+				}).Return(nil)
 			},
-			playlistID: "PL",
-			wantErr:    nil,
-			wantSubscriptions: []*subscription.Subscription{
-				{Model: gorm.Model{ID: 1}, YoutubeID: "PL", SendChannelID: "ch", Title: "タイトル", GuildID: 1},
-			},
+			wantErr: nil,
 		},
 		{
 			name: "登録済みのプレイリストは登録しない",
-			subscriptions: []*subscription.Subscription{
-				sub(1, "PL", "other", "タイトル", lastNotified),
+			setup: func(m *deps) {
+				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(&library.PlaylistMeta{YoutubeID: "PL", Title: "タイトル"}, nil)
+				m.subscriptions.EXPECT().Exists(guild.DiscordID("guild"), library.PlaylistID("PL")).Return(true, nil)
 			},
-			playlists: []*fake.Playlist{
-				{
-					ID:    "PL",
-					Title: "タイトル",
-				},
-			},
-			playlistID: "PL",
-			wantErr:    domain.ErrDBRecordAlreadyCreated,
-			wantSubscriptions: []*subscription.Subscription{
-				sub(1, "PL", "other", "タイトル", lastNotified),
-			},
+			wantErr: domain.ErrDBRecordAlreadyCreated,
 		},
 		{
-			name:       "YouTube にないプレイリストは登録しない",
-			playlistID: "PL",
-			wantErr:    domain.ErrYouTubePlaylistNotFound,
+			name: "YouTube にないプレイリストは登録しない",
+			setup: func(m *deps) {
+				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(nil, domain.ErrYouTubePlaylistNotFound)
+			},
+			wantErr: domain.ErrYouTubePlaylistNotFound,
+		},
+		{
+			name: "YouTube API の失敗は一般的なエラーにする",
+			setup: func(m *deps) {
+				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(nil, errMock)
+			},
+			wantErr: domain.ErrYouTubeGeneralError,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			guilds := &fake.GuildRepository{Guilds: []*guild.Guild{guildOf(1, "guild")}}
-			subscriptions := &fake.SubscriptionRepository{Guilds: guilds, Subscriptions: tt.subscriptions}
-			s := application.NewSubscriptionService(&fake.YouTube{Playlists: tt.playlists}, subscriptions, guilds)
+			m := newDeps(t)
+			tt.setup(m)
+			s := application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds)
 
-			err := s.Subscribe("guild", "ch", tt.playlistID)
+			err := s.Subscribe("guild", "ch", "PL")
 
 			assert.ErrorIs(t, err, tt.wantErr)
-			assert.Equal(t, tt.wantSubscriptions, subscriptions.Subscriptions)
 		})
 	}
 }
 
 func TestSubscriptionServiceUnsubscribe(t *testing.T) {
 	tests := []struct {
-		name              string
-		subscriptions     []*subscription.Subscription
-		playlistID        library.PlaylistID
-		wantErr           error
-		wantSubscriptions []*subscription.Subscription
+		name       string
+		playlistID library.PlaylistID
+		setup      func(m *deps)
+		wantErr    error
 	}{
 		{
-			name: "指定したプレイリストだけ解除する",
-			subscriptions: []*subscription.Subscription{
-				sub(1, "PL1", "ch", "PL1", lastNotified),
-				sub(2, "PL2", "ch", "PL2", lastNotified),
-			},
+			name:       "指定したプレイリストだけ解除する",
 			playlistID: "PL1",
-			wantErr:    nil,
-			wantSubscriptions: []*subscription.Subscription{
-				sub(2, "PL2", "ch", "PL2", lastNotified),
+			setup: func(m *deps) {
+				m.subscriptions.EXPECT().Exists(guild.DiscordID("guild"), library.PlaylistID("PL1")).Return(true, nil)
+				m.subscriptions.EXPECT().FindByGuild(guild.DiscordID("guild")).Return([]*subscription.Subscription{
+					sub(1, "PL1", "ch", "PL1", lastNotified),
+					sub(2, "PL2", "ch", "PL2", lastNotified),
+				}, nil)
+				m.subscriptions.EXPECT().DeleteAll([]*subscription.Subscription{
+					sub(1, "PL1", "ch", "PL1", lastNotified),
+				}).Return(nil)
 			},
+			wantErr: nil,
 		},
 		{
-			name: "登録していないプレイリストは解除できない",
-			subscriptions: []*subscription.Subscription{
-				sub(1, "PL1", "ch", "PL1", lastNotified),
-			},
+			name:       "登録していないプレイリストは解除できない",
 			playlistID: "PL2",
-			wantErr:    domain.ErrDBRecordNotFound,
-			wantSubscriptions: []*subscription.Subscription{
-				sub(1, "PL1", "ch", "PL1", lastNotified),
+			setup: func(m *deps) {
+				m.subscriptions.EXPECT().Exists(guild.DiscordID("guild"), library.PlaylistID("PL2")).Return(false, nil)
 			},
+			wantErr: domain.ErrDBRecordNotFound,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			guilds := &fake.GuildRepository{Guilds: []*guild.Guild{guildOf(1, "guild")}}
-			subscriptions := &fake.SubscriptionRepository{Guilds: guilds, Subscriptions: tt.subscriptions}
-			s := application.NewSubscriptionService(&fake.YouTube{}, subscriptions, guilds)
+			m := newDeps(t)
+			tt.setup(m)
+			s := application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds)
 
 			err := s.Unsubscribe("guild", tt.playlistID)
 
 			assert.ErrorIs(t, err, tt.wantErr)
-			assert.Equal(t, tt.wantSubscriptions, subscriptions.Subscriptions)
 		})
 	}
 }
 
 func TestSubscriptionServiceSetPickInterval(t *testing.T) {
 	tests := []struct {
-		name              string
-		subscriptions     []*subscription.Subscription
-		playlistID        library.PlaylistID
-		interval          subscription.PickInterval
-		wantErr           error
-		wantSubscriptions []*subscription.Subscription
+		name       string
+		playlistID library.PlaylistID
+		setup      func(m *deps)
+		wantErr    error
 	}{
 		{
-			name: "ピックの間隔だけを変え、新着動画の基準時刻は変えない",
-			subscriptions: []*subscription.Subscription{
-				sub(1, "PL", "ch", "PL", lastNotified),
-			},
+			name:       "ピックの間隔だけを保存する",
 			playlistID: "PL",
-			interval:   subscription.PickWeekly,
-			wantErr:    nil,
-			wantSubscriptions: []*subscription.Subscription{
-				{Model: gorm.Model{
-					ID:        1,
-					UpdatedAt: lastNotified,
-				}, YoutubeID: "PL", SendChannelID: "ch", Title: "PL", PickInterval: subscription.PickWeekly, GuildID: 1},
+			setup: func(m *deps) {
+				m.subscriptions.EXPECT().FindByGuild(guild.DiscordID("guild")).Return([]*subscription.Subscription{
+					sub(1, "PL", "ch", "PL", lastNotified),
+				}, nil)
+				m.subscriptions.EXPECT().UpdatePickInterval(picking(1, "PL", subscription.PickWeekly)).Return(nil)
 			},
+			wantErr: nil,
 		},
 		{
-			name: "登録していないプレイリストは変えられない",
-			subscriptions: []*subscription.Subscription{
-				sub(1, "PL", "ch", "PL", lastNotified),
-			},
+			name:       "登録していないプレイリストは変えられない",
 			playlistID: "OTHER",
-			interval:   subscription.PickWeekly,
-			wantErr:    domain.ErrDBRecordNotFound,
-			wantSubscriptions: []*subscription.Subscription{
-				sub(1, "PL", "ch", "PL", lastNotified),
+			setup: func(m *deps) {
+				m.subscriptions.EXPECT().FindByGuild(guild.DiscordID("guild")).Return([]*subscription.Subscription{
+					sub(1, "PL", "ch", "PL", lastNotified),
+				}, nil)
 			},
+			wantErr: domain.ErrDBRecordNotFound,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			guilds := &fake.GuildRepository{Guilds: []*guild.Guild{guildOf(1, "guild")}}
-			subscriptions := &fake.SubscriptionRepository{Guilds: guilds, Subscriptions: tt.subscriptions}
-			s := application.NewSubscriptionService(&fake.YouTube{}, subscriptions, guilds)
+			m := newDeps(t)
+			tt.setup(m)
+			s := application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds)
 
-			err := s.SetPickInterval("guild", tt.playlistID, tt.interval)
+			err := s.SetPickInterval("guild", tt.playlistID, subscription.PickWeekly)
 
 			assert.ErrorIs(t, err, tt.wantErr)
-			assert.Equal(t, tt.wantSubscriptions, subscriptions.Subscriptions)
 		})
 	}
 }

@@ -66,7 +66,7 @@ cmd/server/main.go                   コンポジションルート — 全て�
         │
         ├── internal/env/                    プロセスの環境変数
         │
-        └── internal/fake/                   テスト用の、リポジトリと外部サービスの偽物（本番のコードからは import しない）
+        └── internal/mocks/                  mockery が生成したテスト用の mock（本番のコードからは import しない）
 ```
 
 アプリを駆動する経路は独立して 3 つあります。
@@ -349,24 +349,22 @@ YouTube から直接データを取る前に、DB に保存した中身（`libra
   関数とメソッドのテスト。境界の値（基準時刻ちょうど、タイムゾーンをまたぐ
   月・年の区切り、節目ちょうどの再生数）とチャンネルごとの重複の排除を固定しています。
 - **アプリケーション**（`internal/application`）— リポジトリ・YouTube・`Notifier` を
-  `internal/fake` のメモリ上の偽物に差し替えて、ユースケースの流れを確かめます。
+  mock に差し替えて、ユースケースの流れを確かめます。
   基準時刻を送信の前に保存すること、保存に失敗した通知設定には送らないこと、
   `FULL_SYNC_INTERVAL` 以内は全件取得しないこと、詳細を持っていない動画だけ
   `videos.list` を呼ぶこと、定期投稿（ピック・年間のまとめ）の曜日や年を JST で
   決めること、MCP の `QueryService` が通知登録されたプレイリストしか見せないことと
-  `FindVideos` の絞り込み・並び順・ページング などを固定しています。偽物は本物の DB と同じく読み書きの
-  たびに値をコピーし、空の結果で `domain.ErrDBRecordNotFound` を返すこと、`Update` が
-  `UpdatedAt` を上書きすることなど、本物の挙動に合わせます。偽物は
-  `var _ library.Repository = (*LibraryRepository)(nil)` などでインターフェースを
-  満たすことを確かめています。ログは各パッケージの `TestMain` で捨てています。
+  `FindVideos` の絞り込み・並び順・ページング などを固定しています。保存や送信は
+  「期待した引数で呼ばれたこと」で確かめます（`Update(sub(..., now))` など）。
+  ログは各パッケージの `TestMain` で捨てています。
 - **コマンドハンドラ**（`command/playlist_notifier`）— 本物のアプリケーションサービスを
-  `internal/fake` の偽物で組み立て、`Handle` に Discord の入力を渡して、返した
+  mock で組み立て、`Handle` に Discord の入力を渡して、返した
   `*command.Response` を比べます。テストのファイルはサブコマンドのファイルと
   1 対 1 にしています（`add.go` と `add_test.go`）。オプションの検証、エラーの文言、
   どのプレイリストを表示するかを確かめ、本文の整形は view のゴールデンテストに任せて
   中身のないプレイリストで確かめます。グラフの PNG は比べられないので、グラフを
   添付しない場合だけを確かめています。
-- **MCP のツール**（`presentation/mcpserver`）— 偽物で組み立てたサーバーの
+- **MCP のツール**（`presentation/mcpserver`）— mock で組み立てたサーバーの
   `Handler()` を `httptest` で立て、SDK のクライアントで実際にツールを呼びます。
   SDK が出力スキーマで検証するので、nil のスライスを返すとテストが失敗します。
   出力は JSON の文字列で書き、`assert.JSONEq` で比べます。エラーのときは出力が
@@ -374,7 +372,7 @@ YouTube から直接データを取る前に、DB に保存した中身（`libra
   ため、テストデータの時刻は UTC で書きます。
 - **通知の Embed**（`presentation/notifier`）— `notifier.New` は `*discordgo.Session` ではなく
   `ChannelMessageSendEmbed` だけを持つ `notifier.Sender` を受け取ります。テストでは
-  `fake.Discord` を渡し、送った宛先と `*discordgo.MessageEmbed` を丸ごと比べます。
+  `mocks.MockSender` に、送るはずの宛先と `*discordgo.MessageEmbed` を丸ごと期待します。
 - **view のテキスト** — `text_test.go` が固定のデータで整形した結果を
   `view/testdata/*.golden` と比べます（ゴールデンテスト）。文言を変えたら
   `go test ./internal/presentation/view/ -update` で期待値を書き直し、golden の差分で
@@ -418,9 +416,8 @@ func TestComputeWrapped(t *testing.T) {
   （`{Month: ..., Count: 0},` のような表の行として読めるように）。
 - ケースは 1 つのことだけを確かめ、入力は最小限にします。`name` で何を確かめるかを書きます。
 - ループの中身は「呼ぶ → 空行 → `assert`」だけで、`if` などの分岐は書きません。
-  偽物を使うテストは、その前に「テーブルのフィールドから偽物とサービスを組み立てる
-  → 空行」を置きます。偽物の状態（保存された値、送った通知、YouTube を呼んだ回数）は
-  呼んだ後に `want` と比べます。
+  mock を使うテストは、その前に「mock を作る → `tt.setup(m)` → サービスを組み立てる
+  → 空行」を置きます（下の「mock」を参照）。
 - 期待値は加工せず、戻り値の型そのものを書きます（ID の一覧などに変換して比べない）。
   状態を変えるメソッドは、呼んだ後のレシーバーを `want` に書きます。
 - 比べ方は `assert.Equal(t, tt.want, got)` が基本です。順序が決まらない結果
@@ -433,6 +430,62 @@ func TestComputeWrapped(t *testing.T) {
 - 「既知の挙動」の節にある挙動は、直さずに今の挙動のまま固定します。
 - view のゴールデンテストだけは例外で、ケース名から golden のファイル名を決めるため
   `map[string]string`（ケース名 → 整形した結果）のテーブルにしています。
+
+### mock
+
+依存先のインターフェース（リポジトリ、`library.YouTube`、`application.Notifier`、
+`notifier.Sender`）の mock は、mockery（testify の `mock.Mock` を使う）で
+`internal/mocks` に生成します。生成するインターフェースは `.mockery.yml` に並べて
+あります。インターフェースを変えたら `go tool mockery` で生成し直し、生成した
+ファイルは手で編集しません。mockery は `go.mod` の `tool` で版を固定しています。
+
+```go
+tests := []struct {
+	name  string
+	setup func(m *deps) // 呼ばれるはずのメソッドと戻り値
+	want  ...
+}{
+	{
+		name: "...",
+		setup: func(m *deps) {
+			m.subscriptions.EXPECT().FindByGuild(guild.DiscordID("guild")).Return(subs, nil)
+			m.subscriptions.EXPECT().UpdatePickInterval(picking(subscription.PickDaily)).Return(nil)
+		},
+		want: ...,
+	},
+}
+for _, tt := range tests {
+	t.Run(tt.name, func(t *testing.T) {
+		m := newDeps(t)
+		tt.setup(m)
+		s := application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds)
+
+		err := s.SetPickInterval(...)
+
+		assert.ErrorIs(t, err, tt.wantErr)
+	})
+}
+```
+
+- パッケージごとに、使う mock をまとめた `deps` と `newDeps(t)` を `helpers_test.go` に
+  置きます。`mocks.NewMockX(t)` は、期待した呼び出しがなければテストの終わりに失敗させます。
+- `setup` には、そのケースで呼ばれる全てのメソッドを、引数と戻り値つきで書きます。
+  期待していない呼び出しはテストを失敗させます。何も呼ばれないケースは `func(m *deps) {}` です。
+- 引数は型を合わせて書きます（`"PL"` ではなく `library.PlaylistID("PL")`）。mock は
+  型も含めて比べるので、型が違うと一致しません。nil のスライスも型付きで書きます
+  （`[]*library.Video(nil)`）。
+- 同じ引数で何度も呼ばれるメソッドは、何度でも同じ値を返します。回数を確かめたいとき
+  （全件取得を省くかなど）は `.Times(n)` / `.Once()`、順序を確かめたいときは
+  `.NotBefore(...)` を使います。順序の決まらない引数（マップから組み立てたスライス）は
+  `sameElements(want)` で比べます。
+- 何度も同じ組み合わせで期待する呼び出し（同期で何も変わらない、ギルドの通知設定、
+  プレイリストの中身など）は `m.expectUnchangedSync(...)`・`m.guildHas(...)`・
+  `m.playlistHas(...)` のような `deps` のメソッドにまとめ、何を期待するかをコメントに書きます。
+- mock が返した値をサービスが書き換えるとき（同期で動画の公開状態を変えるなど）は、
+  その値をケースごとに `video(...)` などで新しく作ります。読むだけのユースケース
+  （`QueryService` や MCP のツール）では、テスト関数の先頭で作った値を使い回して構いません。
+- 定期実行のユースケースのように何も返さないメソッドは、`setup` の期待（保存と送信の
+  引数）だけで確かめ、ループの中に `assert` を書きません。
 
 変更の検証は最低でも `go build ./... && go vet ./... && go test ./...` で行ってください。
 Discord や YouTube の挙動に関わる変更は実際の認証情報とテスト用サーバーが
