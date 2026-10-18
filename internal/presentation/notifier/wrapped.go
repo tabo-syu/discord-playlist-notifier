@@ -13,11 +13,13 @@ const MAX_EMBED_DESCRIPTION_LENGTH = 4096
 
 func (n *notifier) PostWrapped(sub *subscription.Subscription, w *library.Wrapped) error {
 	embed := &discordgo.MessageEmbed{
-		Color:       color("9b59b6"),
+		Color:       PURPLE,
 		Title:       view.WrappedTitle(sub.Title, w.Year),
 		URL:         "https://www.youtube.com/playlist?list=" + string(sub.YoutubeID),
 		Description: view.Truncate(view.Wrapped(w, n.location, view.InEmbed), MAX_EMBED_DESCRIPTION_LENGTH),
 	}
 
-	return n.send(sub.SendChannelID, embed)
+	_, err := n.session.ChannelMessageSendEmbed(string(sub.SendChannelID), embed)
+
+	return err
 }

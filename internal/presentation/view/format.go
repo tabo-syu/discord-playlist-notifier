@@ -38,3 +38,15 @@ func Truncate(s string, max int) string {
 
 	return cut + "\n…"
 }
+
+// JapaneseCount はきりのいい数を日本語の単位で整形する。例: 1000万、1億
+func JapaneseCount[T ~int | ~uint64](n T) string {
+	switch {
+	case n >= 100_000_000 && n%100_000_000 == 0:
+		return fmt.Sprintf("%d億", n/100_000_000)
+	case n >= 10_000 && n%10_000 == 0:
+		return fmt.Sprintf("%d万", n/10_000)
+	default:
+		return Number(n)
+	}
+}
