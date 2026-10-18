@@ -107,7 +107,7 @@ cmd/server/main.go                   コンポジションルート — 全て�
 `yt` YouTube サービス）を構築し、`persistence.Migrate` でスキーマを更新します。
 失敗時は全て `log.Fatalf` で落とします。その後 `main()` が infrastructure →
 application → presentation の順に組み立て、`SIGINT` を待ってブロックします。
-`LibraryService`、`NotificationService`、`PlaylistNotifier` には現在時刻の関数
+`LibraryService`、`NotificationService`、`PlaylistNotifier`、MCP サーバーには現在時刻の関数
 （`time.Now`）を渡します。
 テストで時刻を固定するためで、サービスの中では `time.Now()` を直接呼びません。
 新しい依存を追加する場合はここに書きます。DI コンテナや設定フレームワークの
@@ -343,7 +343,7 @@ YouTube から直接データを取る前に、DB に保存した中身（`libra
 
 テストは層ごとに少しずつ増やしています。カバレッジ 100% は目指さず、壊れると
 通知の二重送信・取りこぼしや集計の誤りにつながるロジックを優先します。
-今あるのは次の 4 つです。
+今あるのは次の 5 つです。
 
 - **ドメイン**（`internal/domain/library`、`notification`、`subscription`）— 純粋な
   関数とメソッドのテスト。境界の値（基準時刻ちょうど、タイムゾーンをまたぐ
@@ -366,6 +366,12 @@ YouTube から直接データを取る前に、DB に保存した中身（`libra
   どのプレイリストを表示するかを確かめ、本文の整形は view のゴールデンテストに任せて
   中身のないプレイリストで確かめます。グラフの PNG は比べられないので、グラフを
   添付しない場合だけを確かめています。
+- **MCP のツール**（`presentation/mcpserver`）— 偽物で組み立てたサーバーの
+  `Handler()` を `httptest` で立て、SDK のクライアントで実際にツールを呼びます。
+  SDK が出力スキーマで検証するので、nil のスライスを返すとテストが失敗します。
+  出力は JSON の文字列で書き、`assert.JSONEq` で比べます。エラーのときは出力が
+  `null` で、エラーの文言を `wantError` と比べます。日時を JST で返すことを確かめる
+  ため、テストデータの時刻は UTC で書きます。
 - **view のテキスト** — `text_test.go` が固定のデータで整形した結果を
   `view/testdata/*.golden` と比べます（ゴールデンテスト）。文言を変えたら
   `go test ./internal/presentation/view/ -update` で期待値を書き直し、golden の差分で

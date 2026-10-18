@@ -23,11 +23,11 @@ type server struct {
 	http *http.Server
 }
 
-func NewServer(addr string, q *application.QueryService, loc *time.Location) *server {
+func NewServer(addr string, q *application.QueryService, loc *time.Location, now func() time.Time) *server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "playlist-notifier", Version: "1.0.0"}, &mcp.ServerOptions{
 		Instructions: INSTRUCTIONS,
 	})
-	addTools(s, &tools{q, loc})
+	addTools(s, &tools{q, loc, now})
 
 	// ステートレス: ツールがクライアントを呼び返すことはないので、セッションは保持しない
 	handler := mcp.NewStreamableHTTPHandler(func(*http.Request) *mcp.Server { return s }, &mcp.StreamableHTTPOptions{
@@ -37,6 +37,12 @@ func NewServer(addr string, q *application.QueryService, loc *time.Location) *se
 	mux.Handle(ENDPOINT_PATH, handler)
 
 	return &server{&http.Server{Addr: addr, Handler: mux, ReadHeaderTimeout: 10 * time.Second}}
+}
+
+// Handler は MCP のエンドポイントを持つ HTTP ハンドラを返す。テストで
+// 待ち受けずにサーバーを動かすのに使う。
+func (s *server) Handler() http.Handler {
+	return s.http.Handler
 }
 
 // Serve は待ち受けを始め、バックグラウンドで提供する。

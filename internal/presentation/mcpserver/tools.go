@@ -44,6 +44,8 @@ const INSTRUCTIONS = `Discord の playlist-notifier ボットが通知登録し�
 type tools struct {
 	query    *application.QueryService
 	location *time.Location
+	// 現在時刻。テストで固定できるように外から渡す
+	now func() time.Time
 }
 
 func readOnly(name, title, description string) *mcp.Tool {
@@ -466,7 +468,7 @@ type playlistWrappedOut struct {
 func (t *tools) playlistWrapped(_ context.Context, _ *mcp.CallToolRequest, in playlistWrappedIn) (*mcp.CallToolResult, playlistWrappedOut, error) {
 	year := in.Year
 	if year == 0 {
-		year = time.Now().In(t.location).Year()
+		year = t.now().In(t.location).Year()
 	}
 	id := library.PlaylistID(in.PlaylistID)
 	playlist, err := t.query.Playlist(id)
@@ -568,7 +570,7 @@ func (t *tools) videoHistory(_ context.Context, _ *mcp.CallToolRequest, in video
 		return nil, videoHistoryOut{}, fmt.Errorf("days は 1〜%d で指定してください", MAX_HISTORY_DAYS)
 	}
 
-	h, err := t.query.History(library.VideoID(in.VideoID), time.Now().AddDate(0, 0, -days))
+	h, err := t.query.History(library.VideoID(in.VideoID), t.now().AddDate(0, 0, -days))
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
 		return nil, videoHistoryOut{}, errors.New(ERR_VIDEO_NOT_WATCHED)
 	}
