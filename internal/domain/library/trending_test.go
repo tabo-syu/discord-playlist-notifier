@@ -28,9 +28,15 @@ func TestComputeTrending(t *testing.T) {
 				"a": video("a", library.PrivacyPublic, 0),
 				"b": video("b", library.PrivacyPublic, 0),
 			},
-			earliest: map[library.VideoID]*library.VideoSnapshot{"a": recorded(0, 100), "b": recorded(0, 100)},
-			latest:   map[library.VideoID]*library.VideoSnapshot{"a": recorded(6, 200), "b": recorded(6, 400)},
-			n:        3,
+			earliest: map[library.VideoID]*library.VideoSnapshot{
+				"a": recorded(0, 100),
+				"b": recorded(0, 100),
+			},
+			latest: map[library.VideoID]*library.VideoSnapshot{
+				"a": recorded(6, 200),
+				"b": recorded(6, 400),
+			},
+			n: 3,
 			want: &library.Trending{
 				From: hoursLater(0),
 				To:   hoursLater(6),
@@ -46,9 +52,15 @@ func TestComputeTrending(t *testing.T) {
 				"a": video("a", library.PrivacyPublic, 0),
 				"b": video("b", library.PrivacyPublic, 0),
 			},
-			earliest: map[library.VideoID]*library.VideoSnapshot{"a": recorded(0, 0), "b": recorded(0, 0)},
-			latest:   map[library.VideoID]*library.VideoSnapshot{"a": recorded(6, 100), "b": recorded(6, 100)},
-			n:        3,
+			earliest: map[library.VideoID]*library.VideoSnapshot{
+				"a": recorded(0, 0),
+				"b": recorded(0, 0),
+			},
+			latest: map[library.VideoID]*library.VideoSnapshot{
+				"a": recorded(6, 100),
+				"b": recorded(6, 100),
+			},
+			n: 3,
 			want: &library.Trending{
 				From: hoursLater(0),
 				To:   hoursLater(6),
@@ -64,9 +76,15 @@ func TestComputeTrending(t *testing.T) {
 				"a": video("a", library.PrivacyPublic, 0),
 				"b": video("b", library.PrivacyPublic, 0),
 			},
-			earliest: map[library.VideoID]*library.VideoSnapshot{"a": recorded(0, 0), "b": recorded(0, 0)},
-			latest:   map[library.VideoID]*library.VideoSnapshot{"a": recorded(6, 100), "b": recorded(6, 200)},
-			n:        1,
+			earliest: map[library.VideoID]*library.VideoSnapshot{
+				"a": recorded(0, 0),
+				"b": recorded(0, 0),
+			},
+			latest: map[library.VideoID]*library.VideoSnapshot{
+				"a": recorded(6, 100),
+				"b": recorded(6, 200),
+			},
+			n: 1,
 			want: &library.Trending{
 				From: hoursLater(0),
 				To:   hoursLater(6),
@@ -81,7 +99,10 @@ func TestComputeTrending(t *testing.T) {
 			earliest: map[library.VideoID]*library.VideoSnapshot{"a": recorded(0, 0)},
 			latest:   map[library.VideoID]*library.VideoSnapshot{"a": recorded(6, 100)},
 			n:        3,
-			want:     &library.Trending{From: hoursLater(0), To: hoursLater(6)},
+			want: &library.Trending{
+				From: hoursLater(0),
+				To:   hoursLater(6),
+			},
 		},
 		{
 			name:     "プレイリストにない動画は除くが、期間には含める",
@@ -89,7 +110,10 @@ func TestComputeTrending(t *testing.T) {
 			earliest: map[library.VideoID]*library.VideoSnapshot{"a": recorded(0, 0)},
 			latest:   map[library.VideoID]*library.VideoSnapshot{"a": recorded(6, 100)},
 			n:        3,
-			want:     &library.Trending{From: hoursLater(0), To: hoursLater(6)},
+			want: &library.Trending{
+				From: hoursLater(0),
+				To:   hoursLater(6),
+			},
 		},
 		{
 			name:     "1 回しか記録されていない動画は除く",
@@ -97,7 +121,10 @@ func TestComputeTrending(t *testing.T) {
 			earliest: map[library.VideoID]*library.VideoSnapshot{"a": recorded(0, 100)},
 			latest:   map[library.VideoID]*library.VideoSnapshot{"a": recorded(0, 100)},
 			n:        3,
-			want:     &library.Trending{From: hoursLater(0), To: hoursLater(0)},
+			want: &library.Trending{
+				From: hoursLater(0),
+				To:   hoursLater(0),
+			},
 		},
 		{
 			name:     "再生数が減った動画は除く",
@@ -105,7 +132,10 @@ func TestComputeTrending(t *testing.T) {
 			earliest: map[library.VideoID]*library.VideoSnapshot{"a": recorded(0, 100)},
 			latest:   map[library.VideoID]*library.VideoSnapshot{"a": recorded(6, 90)},
 			n:        3,
-			want:     &library.Trending{From: hoursLater(0), To: hoursLater(6)},
+			want: &library.Trending{
+				From: hoursLater(0),
+				To:   hoursLater(6),
+			},
 		},
 	}
 	for _, tt := range tests {

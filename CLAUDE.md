@@ -359,7 +359,15 @@ func TestComputeWrapped(t *testing.T) {
 		contents []*library.PlaylistVideo // 入力。名前は引数と同じにする
 		want     *library.Wrapped         // 期待値。複数なら wantXxx
 	}{
-		{name: "...", contents: ..., want: &library.Wrapped{...}},
+		{
+			name:     "...",
+			contents: ...,
+			want: &library.Wrapped{
+				Year:  2026,
+				Added: 3,
+				...
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -373,6 +381,9 @@ func TestComputeWrapped(t *testing.T) {
 
 - 1 つの関数・メソッドにつき 1 つのテーブル（`[]struct` + `t.Run(tt.name, ...)`）。
   ケースが 1 つでもこの形にします。
+- テストケースは 1 フィールド 1 行で書きます。フィールドの値の構造体（`want` の
+  `&library.Stats{...}` など）も同じです。スライスやマップの要素は 1 要素 1 行にします
+  （`{Month: ..., Count: 0},` のような表の行として読めるように）。
 - ケースは 1 つのことだけを確かめ、入力は最小限にします。`name` で何を確かめるかを書きます。
 - ループの中身は「呼ぶ → 空行 → `assert`」だけで、`if` などの分岐は書きません。
 - 期待値は加工せず、戻り値の型そのものを書きます（ID の一覧などに変換して比べない）。

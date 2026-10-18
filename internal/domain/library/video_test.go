@@ -14,11 +14,34 @@ func TestVideoAvailable(t *testing.T) {
 		video *library.Video
 		want  bool
 	}{
-		{name: "公開", video: video("a", library.PrivacyPublic, 0), want: true},
-		{name: "限定公開", video: video("a", library.PrivacyUnlisted, 0), want: true},
-		{name: "非公開", video: video("a", library.PrivacyPrivate, 0), want: false},
-		{name: "削除", video: video("a", library.PrivacyDeleted, 0), want: false},
-		{name: "詳細をまだ取得していない", video: &library.Video{YoutubeID: "a", PrivacyStatus: library.PrivacyPublic}, want: false},
+		{
+			name:  "公開",
+			video: video("a", library.PrivacyPublic, 0),
+			want:  true,
+		},
+		{
+			name:  "限定公開",
+			video: video("a", library.PrivacyUnlisted, 0),
+			want:  true,
+		},
+		{
+			name:  "非公開",
+			video: video("a", library.PrivacyPrivate, 0),
+			want:  false,
+		},
+		{
+			name:  "削除",
+			video: video("a", library.PrivacyDeleted, 0),
+			want:  false,
+		},
+		{
+			name: "詳細をまだ取得していない",
+			video: &library.Video{
+				YoutubeID:     "a",
+				PrivacyStatus: library.PrivacyPublic,
+			},
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -79,10 +102,13 @@ func TestVideoChangePrivacy(t *testing.T) {
 			wantHidden:  false,
 		},
 		{
-			name:        "初めて見る動画が非公開",
-			video:       &library.Video{YoutubeID: "a"},
-			status:      library.PrivacyPrivate,
-			want:        &library.Video{YoutubeID: "a", PrivacyStatus: library.PrivacyPrivate},
+			name:   "初めて見る動画が非公開",
+			video:  &library.Video{YoutubeID: "a"},
+			status: library.PrivacyPrivate,
+			want: &library.Video{
+				YoutubeID:     "a",
+				PrivacyStatus: library.PrivacyPrivate,
+			},
 			wantChanged: true,
 			wantHidden:  false,
 		},
@@ -106,15 +132,32 @@ func TestVideoApplyDetails(t *testing.T) {
 		want    *library.Video
 	}{
 		{
-			name:  "公開状態と ID 以外をコピーする",
-			video: &library.Video{YoutubeID: "a", PrivacyStatus: library.PrivacyUnlisted},
+			name: "公開状態と ID 以外をコピーする",
+			video: &library.Video{
+				YoutubeID:     "a",
+				PrivacyStatus: library.PrivacyUnlisted,
+			},
 			details: &library.Video{
-				YoutubeID: "b", Title: "曲", Views: 100, Likes: 10, Comments: 1, PrivacyStatus: library.PrivacyPublic,
-				ChannelYoutubeID: "UC", Tags: []string{"tag"}, CategoryID: "10",
+				YoutubeID:        "b",
+				Title:            "曲",
+				Views:            100,
+				Likes:            10,
+				Comments:         1,
+				PrivacyStatus:    library.PrivacyPublic,
+				ChannelYoutubeID: "UC",
+				Tags:             []string{"tag"},
+				CategoryID:       "10",
 			},
 			want: &library.Video{
-				YoutubeID: "a", Title: "曲", Views: 100, Likes: 10, Comments: 1, PrivacyStatus: library.PrivacyUnlisted,
-				ChannelYoutubeID: "UC", Tags: []string{"tag"}, CategoryID: "10",
+				YoutubeID:        "a",
+				Title:            "曲",
+				Views:            100,
+				Likes:            10,
+				Comments:         1,
+				PrivacyStatus:    library.PrivacyUnlisted,
+				ChannelYoutubeID: "UC",
+				Tags:             []string{"tag"},
+				CategoryID:       "10",
 			},
 		},
 	}
@@ -136,12 +179,21 @@ func TestVideoInitMilestone(t *testing.T) {
 		{
 			name:  "今の再生数の節目を記録する",
 			video: &library.Video{Views: 2_500_000},
-			want:  &library.Video{Views: 2_500_000, ViewMilestone: viewCount(1_000_000)},
+			want: &library.Video{
+				Views:         2_500_000,
+				ViewMilestone: viewCount(1_000_000),
+			},
 		},
 		{
-			name:  "記録済みの節目は変えない",
-			video: &library.Video{Views: 2_500_000, ViewMilestone: viewCount(100_000)},
-			want:  &library.Video{Views: 2_500_000, ViewMilestone: viewCount(100_000)},
+			name: "記録済みの節目は変えない",
+			video: &library.Video{
+				Views:         2_500_000,
+				ViewMilestone: viewCount(100_000),
+			},
+			want: &library.Video{
+				Views:         2_500_000,
+				ViewMilestone: viewCount(100_000),
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -161,27 +213,48 @@ func TestVideoUpdateMilestone(t *testing.T) {
 		wantReached bool
 	}{
 		{
-			name:        "初めて再生数がわかったときは通知しない",
-			video:       &library.Video{Views: 2_500_000},
-			want:        &library.Video{Views: 2_500_000, ViewMilestone: viewCount(1_000_000)},
+			name:  "初めて再生数がわかったときは通知しない",
+			video: &library.Video{Views: 2_500_000},
+			want: &library.Video{
+				Views:         2_500_000,
+				ViewMilestone: viewCount(1_000_000),
+			},
 			wantReached: false,
 		},
 		{
-			name:        "新しい節目に達した",
-			video:       &library.Video{Views: 1_000_000, ViewMilestone: viewCount(100_000)},
-			want:        &library.Video{Views: 1_000_000, ViewMilestone: viewCount(1_000_000)},
+			name: "新しい節目に達した",
+			video: &library.Video{
+				Views:         1_000_000,
+				ViewMilestone: viewCount(100_000),
+			},
+			want: &library.Video{
+				Views:         1_000_000,
+				ViewMilestone: viewCount(1_000_000),
+			},
 			wantReached: true,
 		},
 		{
-			name:        "同じ節目のまま",
-			video:       &library.Video{Views: 9_999_999, ViewMilestone: viewCount(1_000_000)},
-			want:        &library.Video{Views: 9_999_999, ViewMilestone: viewCount(1_000_000)},
+			name: "同じ節目のまま",
+			video: &library.Video{
+				Views:         9_999_999,
+				ViewMilestone: viewCount(1_000_000),
+			},
+			want: &library.Video{
+				Views:         9_999_999,
+				ViewMilestone: viewCount(1_000_000),
+			},
 			wantReached: false,
 		},
 		{
-			name:        "再生数が減っても節目は下げない",
-			video:       &library.Video{Views: 999_999, ViewMilestone: viewCount(1_000_000)},
-			want:        &library.Video{Views: 999_999, ViewMilestone: viewCount(1_000_000)},
+			name: "再生数が減っても節目は下げない",
+			video: &library.Video{
+				Views:         999_999,
+				ViewMilestone: viewCount(1_000_000),
+			},
+			want: &library.Video{
+				Views:         999_999,
+				ViewMilestone: viewCount(1_000_000),
+			},
 			wantReached: false,
 		},
 	}

@@ -19,7 +19,10 @@ func TestComputeWrapped(t *testing.T) {
 		{
 			name:     "その年に何も追加されていない",
 			contents: []*library.PlaylistVideo{added(video("a", library.PrivacyPublic, 0), date(2025, time.June, 1, 0))},
-			want:     &library.Wrapped{Year: 2026, PreviousYearAdded: 1},
+			want: &library.Wrapped{
+				Year:              2026,
+				PreviousYearAdded: 1,
+			},
 		},
 		{
 			name: "その年に追加されたものを集計する",
@@ -29,8 +32,12 @@ func TestComputeWrapped(t *testing.T) {
 				added(video("c", library.PrivacyPublic, 200), date(2026, time.July, 1, 0)),
 			},
 			want: &library.Wrapped{
-				Year: 2026, Added: 3,
-				BusiestMonth: library.MonthCount{Month: date(2026, time.March, 1, 0), Count: 2},
+				Year:  2026,
+				Added: 3,
+				BusiestMonth: library.MonthCount{
+					Month: date(2026, time.March, 1, 0),
+					Count: 2,
+				},
 				TopViewed: []*library.Video{
 					video("b", library.PrivacyPublic, 300),
 					video("c", library.PrivacyPublic, 200),
@@ -48,11 +55,15 @@ func TestComputeWrapped(t *testing.T) {
 				added(video("c", library.PrivacyDeleted, 0), date(2026, time.March, 3, 0)),
 			},
 			want: &library.Wrapped{
-				Year: 2026, Added: 3,
-				BusiestMonth: library.MonthCount{Month: date(2026, time.March, 1, 0), Count: 3},
-				TopViewed:    []*library.Video{video("b", library.PrivacyPublic, 0)},
-				First:        added(video("b", library.PrivacyPublic, 0), date(2026, time.March, 2, 0)),
-				Last:         added(video("b", library.PrivacyPublic, 0), date(2026, time.March, 2, 0)),
+				Year:  2026,
+				Added: 3,
+				BusiestMonth: library.MonthCount{
+					Month: date(2026, time.March, 1, 0),
+					Count: 3,
+				},
+				TopViewed: []*library.Video{video("b", library.PrivacyPublic, 0)},
+				First:     added(video("b", library.PrivacyPublic, 0), date(2026, time.March, 2, 0)),
+				Last:      added(video("b", library.PrivacyPublic, 0), date(2026, time.March, 2, 0)),
 			},
 		},
 		{
@@ -62,8 +73,12 @@ func TestComputeWrapped(t *testing.T) {
 				added(video("b", library.PrivacyPublic, 0), date(2026, time.May, 1, 0)),
 			},
 			want: &library.Wrapped{
-				Year: 2026, Added: 2,
-				BusiestMonth: library.MonthCount{Month: date(2026, time.February, 1, 0), Count: 1},
+				Year:  2026,
+				Added: 2,
+				BusiestMonth: library.MonthCount{
+					Month: date(2026, time.February, 1, 0),
+					Count: 1,
+				},
 				TopViewed: []*library.Video{
 					video("a", library.PrivacyPublic, 0),
 					video("b", library.PrivacyPublic, 0),
@@ -83,8 +98,12 @@ func TestComputeWrapped(t *testing.T) {
 				added(video("c", library.PrivacyPublic, 0), time.Date(2026, time.December, 31, 15, 0, 0, 0, time.UTC)),
 			},
 			want: &library.Wrapped{
-				Year: 2026, Added: 2,
-				BusiestMonth: library.MonthCount{Month: date(2026, time.January, 1, 0), Count: 1},
+				Year:  2026,
+				Added: 2,
+				BusiestMonth: library.MonthCount{
+					Month: date(2026, time.January, 1, 0),
+					Count: 1,
+				},
 				TopViewed: []*library.Video{
 					video("a", library.PrivacyPublic, 0),
 					video("b", library.PrivacyPublic, 0),
@@ -100,7 +119,10 @@ func TestComputeWrapped(t *testing.T) {
 				added(video("b", library.PrivacyPublic, 0), date(2025, time.June, 1, 0)),
 				added(video("c", library.PrivacyPublic, 0), date(2025, time.July, 1, 0)),
 			},
-			want: &library.Wrapped{Year: 2026, PreviousYearAdded: 2},
+			want: &library.Wrapped{
+				Year:              2026,
+				PreviousYearAdded: 2,
+			},
 		},
 	}
 	for _, tt := range tests {

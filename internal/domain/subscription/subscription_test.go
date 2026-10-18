@@ -18,9 +18,21 @@ func TestIsNew(t *testing.T) {
 		addedAt time.Time
 		want    bool
 	}{
-		{name: "前回の通知より前に追加された", addedAt: notifiedAt.Add(-time.Nanosecond), want: false},
-		{name: "前回の通知とちょうど同時刻に追加された", addedAt: notifiedAt, want: true},
-		{name: "前回の通知より後に追加された", addedAt: notifiedAt.Add(time.Nanosecond), want: true},
+		{
+			name:    "前回の通知より前に追加された",
+			addedAt: notifiedAt.Add(-time.Nanosecond),
+			want:    false,
+		},
+		{
+			name:    "前回の通知とちょうど同時刻に追加された",
+			addedAt: notifiedAt,
+			want:    true,
+		},
+		{
+			name:    "前回の通知より後に追加された",
+			addedAt: notifiedAt.Add(time.Nanosecond),
+			want:    true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -45,12 +57,42 @@ func TestPickIntervalDueOn(t *testing.T) {
 		date     time.Time
 		want     bool
 	}{
-		{name: "毎日なら投稿する", interval: subscription.PickDaily, date: sunday, want: true},
-		{name: "毎週なら月曜日に投稿する", interval: subscription.PickWeekly, date: monday, want: true},
-		{name: "毎週なら月曜日以外は投稿しない", interval: subscription.PickWeekly, date: sunday, want: false},
-		{name: "毎月なら 1 日に投稿する", interval: subscription.PickMonthly, date: firstDay, want: true},
-		{name: "毎月なら 1 日以外は投稿しない", interval: subscription.PickMonthly, date: monday, want: false},
-		{name: "設定がなければ投稿しない", interval: subscription.PickNone, date: firstDay, want: false},
+		{
+			name:     "毎日なら投稿する",
+			interval: subscription.PickDaily,
+			date:     sunday,
+			want:     true,
+		},
+		{
+			name:     "毎週なら月曜日に投稿する",
+			interval: subscription.PickWeekly,
+			date:     monday,
+			want:     true,
+		},
+		{
+			name:     "毎週なら月曜日以外は投稿しない",
+			interval: subscription.PickWeekly,
+			date:     sunday,
+			want:     false,
+		},
+		{
+			name:     "毎月なら 1 日に投稿する",
+			interval: subscription.PickMonthly,
+			date:     firstDay,
+			want:     true,
+		},
+		{
+			name:     "毎月なら 1 日以外は投稿しない",
+			interval: subscription.PickMonthly,
+			date:     monday,
+			want:     false,
+		},
+		{
+			name:     "設定がなければ投稿しない",
+			interval: subscription.PickNone,
+			date:     firstDay,
+			want:     false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
