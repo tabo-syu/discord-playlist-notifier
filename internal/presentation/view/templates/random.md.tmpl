@@ -1,0 +1,9 @@
+{{define "random" -}}
+{{if not . -}}
+選べる曲がまだありません。少し待ってからもう一度試してください。
+{{- else -}}
+🎲 ランダムに選びました！
+{{range .}}
+**{{.Video.Title}}**
+https://www.youtube.com/watch?v={{.Video.YoutubeID}}&list={{.PlaylistID}}
+{{end}}{{end}}{{end}}

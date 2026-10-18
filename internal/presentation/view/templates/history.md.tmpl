@@ -1,0 +1,12 @@
+{{define "history" -}}
+📈 **{{.Video.Title}}** の推移（直近 {{.Days}} 日）
+{{if lt (len .Snapshots) 2 -}}
+まだ記録が足りません。再生数などは 6 時間ごとに記録しています。
+{{else -}}
+{{$first := first .Snapshots}}{{$last := last .Snapshots -}}
+再生数: {{change $first.Views $last.Views}}
+高評価: {{change $first.Likes $last.Likes}}
+コメント: {{change $first.Comments $last.Comments}}
+{{end -}}
+https://www.youtube.com/watch?v={{.Video.YoutubeID}}
+{{- end}}

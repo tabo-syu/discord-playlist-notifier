@@ -149,6 +149,14 @@ go-chart の `LegendThin` は枠の色の指定を無視し、値札は点の右
 ハンドラはアプリケーションサービスだけを呼び、文字列の引数を値オブジェクトに
 変換して渡します。
 
+`summary`・`trending`・`history`・`random`・`wrapped` の本文は `text/template` で書いた
+`view/templates/*.md.tmpl`（`go:embed`）が整形します。`view/text.go` はテンプレートに
+渡すデータの用意（棒グラフの長さなどの計算）とテンプレート関数（`number`、`date`、
+`link`、`rank`、`first`、`last`、`change`）だけを持ち、文言はテンプレート側に書きます。
+`date` のタイムゾーンと `link` の書き方（`InMessage` / `InEmbed`）は整形のたびに
+差し替えます。改行は `{{-` / `-}}` で制御するので、変更したらゴールデンテスト
+（「テスト」の節）で出力を確かめてください。
+
 ### MCP サーバー（`presentation/mcpserver` と `application.QueryService`）
 
 `MCP_ADDR` が設定されているときだけ、Streamable HTTP の MCP サーバーを
