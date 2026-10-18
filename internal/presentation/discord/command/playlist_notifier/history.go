@@ -82,7 +82,7 @@ func (c *PlaylistNotifier) history(guildId string, video string, days int) *comm
 		return command.Text(message)
 	}
 
-	png, err := view.HistoryChart(history.Snapshots, c.location)
+	png, err := view.HistoryChart(history.Video.Title, history.Snapshots, c.location)
 	if err != nil {
 		log.Println("Could not draw history chart:", videoID, "cause:", err)
 		return command.Text(message)

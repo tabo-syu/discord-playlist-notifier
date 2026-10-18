@@ -69,7 +69,7 @@ func (c *PlaylistNotifier) trending(guildId string, playlistId string, days int)
 
 		heading := fmt.Sprintf("🔥 **%s** の急上昇", sub.Title)
 		if len(trending.Videos) > 0 && len(files) < MAX_ATTACHMENTS {
-			png, err := view.TrendingChart(trending.Videos, c.location)
+			png, err := view.TrendingChart(sub.Title+" の急上昇", trending.Videos, c.location)
 			if err != nil {
 				log.Println("Could not draw trending chart:", sub.YoutubeID, "cause:", err)
 			} else {
@@ -105,7 +105,8 @@ func formatTrending(t *library.Trending, loc *time.Location) string {
 		return sb.String()
 	}
 	for i, v := range t.Videos {
-		fmt.Fprintf(&sb, "#%d %s（+%s 回）\n", i+1, view.VideoLink(v.Video, view.InMessage), view.Number(v.Increase))
+		total := v.Snapshots[len(v.Snapshots)-1].Views
+		fmt.Fprintf(&sb, "#%d %s（+%s 回 ・ 計 %s 回）\n", i+1, view.VideoLink(v.Video, view.InMessage), view.Number(v.Increase), view.Number(total))
 	}
 
 	return sb.String()
