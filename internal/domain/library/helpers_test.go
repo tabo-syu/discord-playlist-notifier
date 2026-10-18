@@ -1,0 +1,66 @@
+package library_test
+
+import (
+	"time"
+
+	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
+)
+
+var jst = time.FixedZone("Asia/Tokyo", 9*60*60)
+
+// date は JST の日時を返す。
+func date(year int, month time.Month, day, hour int) time.Time {
+	return time.Date(year, month, day, hour, 0, 0, 0, jst)
+}
+
+// video は詳細を取得済みの動画を返す。タイトルは ID と同じにする。
+func video(id string, status library.PrivacyStatus, views library.ViewCount) *library.Video {
+	return &library.Video{YoutubeID: library.VideoID(id), Title: id, PrivacyStatus: status, Views: views}
+}
+
+// added はプレイリストに addedAt に追加された動画を返す。
+func added(v *library.Video, addedAt time.Time) *library.PlaylistVideo {
+	return &library.PlaylistVideo{
+		PlaylistID: "PL",
+		Item:       &library.PlaylistItem{VideoYoutubeID: v.YoutubeID, AddedAt: addedAt},
+		Video:      v,
+	}
+}
+
+// viewCount は節目の記録に使うポインタを返す。
+func viewCount(c library.ViewCount) *library.ViewCount {
+	return &c
+}
+
+// syncedAt は同期したアイテムが追加された時刻。
+var syncedAt = time.Date(2026, time.October, 18, 12, 0, 0, 0, time.UTC)
+
+// stored はプレイリスト PL の保存済みのアイテムを返す。
+func stored(itemID, videoID string) *library.PlaylistItem {
+	return &library.PlaylistItem{
+		PlaylistYoutubeID: "PL",
+		ItemID:            library.ItemID(itemID),
+		VideoYoutubeID:    library.VideoID(videoID),
+		AddedAt:           syncedAt,
+	}
+}
+
+// fetched は YouTube から取得したアイテムを返す。
+func fetched(itemID, videoID string, status library.PrivacyStatus) *library.FetchedItem {
+	return &library.FetchedItem{
+		ItemID:        library.ItemID(itemID),
+		VideoID:       library.VideoID(videoID),
+		AddedAt:       syncedAt,
+		PrivacyStatus: status,
+	}
+}
+
+// recorded は 2026-10-01 0 時 (UTC) から hours 時間後に記録された状態を返す。
+func recorded(hours int, views library.ViewCount) *library.VideoSnapshot {
+	return &library.VideoSnapshot{RecordedAt: hoursLater(hours), Views: views}
+}
+
+// hoursLater は 2026-10-01 0 時 (UTC) から hours 時間後の時刻を返す。
+func hoursLater(hours int) time.Time {
+	return time.Date(2026, time.October, 1, 0, 0, 0, 0, time.UTC).Add(time.Duration(hours) * time.Hour)
+}

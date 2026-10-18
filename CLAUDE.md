@@ -14,7 +14,7 @@ Discord のテキストチャンネルに Embed を投稿する Discord ボッ�
 ## コマンド
 
 ```bash
-# ビルド / 静的チェック / テスト（テストは view の整形だけ。「テスト」の節を参照）
+# ビルド / 静的チェック / テスト（「テスト」の節を参照）
 go build ./...
 go vet ./...
 gofmt -l .          # 何も出力されないこと
@@ -336,12 +336,69 @@ YouTube から直接データを取る前に、DB に保存した中身（`libra
 
 ## テスト
 
-テストコードは原則として書かない方針です。例外は `internal/presentation/view` の
-テキストの整形で、`text_test.go` が固定のデータで整形した結果を `view/testdata/*.golden`
-と比べます（ゴールデンテスト）。文言を変えたら `go test ./internal/presentation/view/ -update`
-で期待値を書き直し、golden の差分で見た目を確認してください。
+テストは層ごとに少しずつ増やしています。カバレッジ 100% は目指さず、壊れると
+通知の二重送信・取りこぼしや集計の誤りにつながるロジックを優先します。
+今あるのは次の 2 つです。
 
-変更の検証は最低でも `go build ./... && go vet ./...` で行ってください。
+- **ドメイン**（`internal/domain/library`、`notification`、`subscription`）— 純粋な
+  関数とメソッドのテスト。境界の値（基準時刻ちょうど、タイムゾーンをまたぐ
+  月・年の区切り、節目ちょうどの再生数）とチャンネルごとの重複の排除を固定しています。
+- **view のテキスト** — `text_test.go` が固定のデータで整形した結果を
+  `view/testdata/*.golden` と比べます（ゴールデンテスト）。文言を変えたら
+  `go test ./internal/presentation/view/ -update` で期待値を書き直し、golden の差分で
+  見た目を確認してください。
+
+### テストの書き方
+
+読むときに頭を使わずに済むよう、全てのテストを同じ形で書きます。
+
+```go
+func TestComputeWrapped(t *testing.T) {
+	tests := []struct {
+		name     string                   // 何を確かめるか（日本語の文）
+		contents []*library.PlaylistVideo // 入力。名前は引数と同じにする
+		want     *library.Wrapped         // 期待値。複数なら wantXxx
+	}{
+		{
+			name:     "...",
+			contents: ...,
+			want: &library.Wrapped{
+				Year:  2026,
+				Added: 3,
+				...
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := library.ComputeWrapped(tt.contents, 2026, jst)
+
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+```
+
+- 1 つの関数・メソッドにつき 1 つのテーブル（`[]struct` + `t.Run(tt.name, ...)`）。
+  ケースが 1 つでもこの形にします。
+- テストケースは 1 フィールド 1 行で書きます。フィールドの値の構造体（`want` の
+  `&library.Stats{...}` など）も同じです。スライスやマップの要素は 1 要素 1 行にします
+  （`{Month: ..., Count: 0},` のような表の行として読めるように）。
+- ケースは 1 つのことだけを確かめ、入力は最小限にします。`name` で何を確かめるかを書きます。
+- ループの中身は「呼ぶ → 空行 → `assert`」だけで、`if` などの分岐は書きません。
+- 期待値は加工せず、戻り値の型そのものを書きます（ID の一覧などに変換して比べない）。
+  状態を変えるメソッドは、呼んだ後のレシーバーを `want` に書きます。
+- 比べ方は `assert.Equal(t, tt.want, got)` が基本です。順序が決まらない結果
+  （マップの順に依存するもの）だけ `assert.ElementsMatch`、ランダムな結果は
+  `assert.Len` / `assert.Subset` を使います。続けられないエラーは `require` にします。
+- テストデータを作る関数（`video`、`added`、`sub` など）はパッケージごとに
+  `helpers_test.go` に置き、何を返すかをコメントに書きます。
+- 外部のテストパッケージ（`package library_test` など）から、公開された API だけを使います。
+- 「既知の挙動」の節にある挙動は、直さずに今の挙動のまま固定します。
+- view のゴールデンテストだけは例外で、ケース名から golden のファイル名を決めるため
+  `map[string]string`（ケース名 → 整形した結果）のテーブルにしています。
+
+変更の検証は最低でも `go build ./... && go vet ./... && go test ./...` で行ってください。
 Discord や YouTube の挙動に関わる変更は実際の認証情報とテスト用サーバーが
 必要です。検証できていない場合は、検証したと述べずにその旨を明示してください。
 
