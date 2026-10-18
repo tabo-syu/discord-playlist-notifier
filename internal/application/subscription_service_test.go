@@ -11,23 +11,24 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/fake"
 )
 
 func TestSubscriptionServiceSubscribe(t *testing.T) {
 	tests := []struct {
 		name              string
 		subscriptions     []*subscription.Subscription
-		playlists         []*youtubePlaylist
+		playlists         []*fake.Playlist
 		playlistID        library.PlaylistID
 		wantErr           error
 		wantSubscriptions []*subscription.Subscription
 	}{
 		{
 			name: "YouTube のタイトルで登録する",
-			playlists: []*youtubePlaylist{
+			playlists: []*fake.Playlist{
 				{
-					id:    "PL",
-					title: "タイトル",
+					ID:    "PL",
+					Title: "タイトル",
 				},
 			},
 			playlistID: "PL",
@@ -41,10 +42,10 @@ func TestSubscriptionServiceSubscribe(t *testing.T) {
 			subscriptions: []*subscription.Subscription{
 				sub(1, "PL", "other", "タイトル", lastNotified),
 			},
-			playlists: []*youtubePlaylist{
+			playlists: []*fake.Playlist{
 				{
-					id:    "PL",
-					title: "タイトル",
+					ID:    "PL",
+					Title: "タイトル",
 				},
 			},
 			playlistID: "PL",
@@ -61,14 +62,14 @@ func TestSubscriptionServiceSubscribe(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			guilds := &guildRepository{guilds: []*guild.Guild{guildOf(1, "guild")}}
-			subscriptions := &subscriptionRepository{guilds: guilds, subscriptions: tt.subscriptions}
-			s := application.NewSubscriptionService(&youtube{playlists: tt.playlists}, subscriptions, guilds)
+			guilds := &fake.GuildRepository{Guilds: []*guild.Guild{guildOf(1, "guild")}}
+			subscriptions := &fake.SubscriptionRepository{Guilds: guilds, Subscriptions: tt.subscriptions}
+			s := application.NewSubscriptionService(&fake.YouTube{Playlists: tt.playlists}, subscriptions, guilds)
 
 			err := s.Subscribe("guild", "ch", tt.playlistID)
 
 			assert.ErrorIs(t, err, tt.wantErr)
-			assert.Equal(t, tt.wantSubscriptions, subscriptions.subscriptions)
+			assert.Equal(t, tt.wantSubscriptions, subscriptions.Subscriptions)
 		})
 	}
 }
@@ -107,14 +108,14 @@ func TestSubscriptionServiceUnsubscribe(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			guilds := &guildRepository{guilds: []*guild.Guild{guildOf(1, "guild")}}
-			subscriptions := &subscriptionRepository{guilds: guilds, subscriptions: tt.subscriptions}
-			s := application.NewSubscriptionService(&youtube{}, subscriptions, guilds)
+			guilds := &fake.GuildRepository{Guilds: []*guild.Guild{guildOf(1, "guild")}}
+			subscriptions := &fake.SubscriptionRepository{Guilds: guilds, Subscriptions: tt.subscriptions}
+			s := application.NewSubscriptionService(&fake.YouTube{}, subscriptions, guilds)
 
 			err := s.Unsubscribe("guild", tt.playlistID)
 
 			assert.ErrorIs(t, err, tt.wantErr)
-			assert.Equal(t, tt.wantSubscriptions, subscriptions.subscriptions)
+			assert.Equal(t, tt.wantSubscriptions, subscriptions.Subscriptions)
 		})
 	}
 }
@@ -158,14 +159,14 @@ func TestSubscriptionServiceSetPickInterval(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			guilds := &guildRepository{guilds: []*guild.Guild{guildOf(1, "guild")}}
-			subscriptions := &subscriptionRepository{guilds: guilds, subscriptions: tt.subscriptions}
-			s := application.NewSubscriptionService(&youtube{}, subscriptions, guilds)
+			guilds := &fake.GuildRepository{Guilds: []*guild.Guild{guildOf(1, "guild")}}
+			subscriptions := &fake.SubscriptionRepository{Guilds: guilds, Subscriptions: tt.subscriptions}
+			s := application.NewSubscriptionService(&fake.YouTube{}, subscriptions, guilds)
 
 			err := s.SetPickInterval("guild", tt.playlistID, tt.interval)
 
 			assert.ErrorIs(t, err, tt.wantErr)
-			assert.Equal(t, tt.wantSubscriptions, subscriptions.subscriptions)
+			assert.Equal(t, tt.wantSubscriptions, subscriptions.Subscriptions)
 		})
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/notification"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/fake"
 )
 
 func TestNotificationServiceNotifyUpdates(t *testing.T) {
@@ -17,7 +18,7 @@ func TestNotificationServiceNotifyUpdates(t *testing.T) {
 		subscriptions     []*subscription.Subscription
 		storedItems       []*library.PlaylistItem
 		storedVideos      []*library.Video
-		playlists         []*youtubePlaylist
+		playlists         []*fake.Playlist
 		updateFails       []library.PlaylistID
 		sendFails         bool
 		wantSubscriptions []*subscription.Subscription
@@ -29,11 +30,11 @@ func TestNotificationServiceNotifyUpdates(t *testing.T) {
 			subscriptions: []*subscription.Subscription{
 				sub(1, "PL", "ch", "古いタイトル", lastNotified),
 			},
-			playlists: []*youtubePlaylist{
+			playlists: []*fake.Playlist{
 				{
-					id:    "PL",
-					title: "新しいタイトル",
-					items: []*library.FetchedItem{
+					ID:    "PL",
+					Title: "新しいタイトル",
+					Items: []*library.FetchedItem{
 						fetched("1", "old", hoursAgo(7), library.PrivacyPublic),
 						fetched("2", "new", hoursAgo(1), library.PrivacyPublic),
 					},
@@ -57,11 +58,11 @@ func TestNotificationServiceNotifyUpdates(t *testing.T) {
 			subscriptions: []*subscription.Subscription{
 				sub(1, "PL", "ch", "古いタイトル", lastNotified),
 			},
-			playlists: []*youtubePlaylist{
+			playlists: []*fake.Playlist{
 				{
-					id:    "PL",
-					title: "新しいタイトル",
-					items: []*library.FetchedItem{
+					ID:    "PL",
+					Title: "新しいタイトル",
+					Items: []*library.FetchedItem{
 						fetched("1", "old", hoursAgo(7), library.PrivacyPublic),
 					},
 				},
@@ -76,18 +77,18 @@ func TestNotificationServiceNotifyUpdates(t *testing.T) {
 				sub(1, "PL1", "ch", "PL1", lastNotified),
 				sub(2, "PL2", "ch", "PL2", lastNotified),
 			},
-			playlists: []*youtubePlaylist{
+			playlists: []*fake.Playlist{
 				{
-					id:    "PL1",
-					title: "PL1",
-					items: []*library.FetchedItem{
+					ID:    "PL1",
+					Title: "PL1",
+					Items: []*library.FetchedItem{
 						fetched("1", "a", hoursAgo(1), library.PrivacyPublic),
 					},
 				},
 				{
-					id:    "PL2",
-					title: "PL2",
-					items: []*library.FetchedItem{
+					ID:    "PL2",
+					Title: "PL2",
+					Items: []*library.FetchedItem{
 						fetched("2", "b", hoursAgo(1), library.PrivacyPublic),
 					},
 				},
@@ -112,11 +113,11 @@ func TestNotificationServiceNotifyUpdates(t *testing.T) {
 			subscriptions: []*subscription.Subscription{
 				sub(1, "PL", "ch", "PL", lastNotified),
 			},
-			playlists: []*youtubePlaylist{
+			playlists: []*fake.Playlist{
 				{
-					id:    "PL",
-					title: "PL",
-					items: []*library.FetchedItem{
+					ID:    "PL",
+					Title: "PL",
+					Items: []*library.FetchedItem{
 						fetched("1", "a", hoursAgo(1), library.PrivacyPublic),
 					},
 				},
@@ -137,11 +138,11 @@ func TestNotificationServiceNotifyUpdates(t *testing.T) {
 			storedVideos: []*library.Video{
 				video("a", library.PrivacyPublic, 0, 0),
 			},
-			playlists: []*youtubePlaylist{
+			playlists: []*fake.Playlist{
 				{
-					id:    "PL",
-					title: "PL",
-					items: []*library.FetchedItem{
+					ID:    "PL",
+					Title: "PL",
+					Items: []*library.FetchedItem{
 						fetched("1", "a", hoursAgo(10), library.PrivacyPrivate),
 					},
 				},
@@ -168,17 +169,17 @@ func TestNotificationServiceNotifyUpdates(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			subscriptions := &subscriptionRepository{subscriptions: tt.subscriptions, updateFails: tt.updateFails}
-			lib := &libraryRepository{items: tt.storedItems, videos: tt.storedVideos}
-			yt := &youtube{playlists: tt.playlists}
-			n := &notifier{fails: tt.sendFails}
+			subscriptions := &fake.SubscriptionRepository{Subscriptions: tt.subscriptions, UpdateFails: tt.updateFails, SavedAt: now}
+			lib := &fake.LibraryRepository{Items: tt.storedItems, Videos: tt.storedVideos}
+			yt := &fake.YouTube{Playlists: tt.playlists}
+			n := &fake.Notifier{Fails: tt.sendFails}
 			s := application.NewNotificationService(subscriptions, application.NewLibraryService(yt, lib, jst, clock), n, jst, clock)
 
 			s.NotifyUpdates()
 
-			assert.Equal(t, tt.wantSubscriptions, subscriptions.subscriptions)
-			assert.Equal(t, tt.wantNewVideos, n.newVideos)
-			assert.Equal(t, tt.wantHidden, n.hidden)
+			assert.Equal(t, tt.wantSubscriptions, subscriptions.Subscriptions)
+			assert.Equal(t, tt.wantNewVideos, n.NewVideos)
+			assert.Equal(t, tt.wantHidden, n.Hidden)
 		})
 	}
 }
@@ -229,15 +230,15 @@ func TestNotificationServiceRefreshVideos(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			subscriptions := &subscriptionRepository{subscriptions: tt.subscriptions}
-			lib := &libraryRepository{items: tt.storedItems, videos: tt.storedVideos}
-			yt := &youtube{views: tt.views}
-			n := &notifier{}
+			subscriptions := &fake.SubscriptionRepository{Subscriptions: tt.subscriptions, SavedAt: now}
+			lib := &fake.LibraryRepository{Items: tt.storedItems, Videos: tt.storedVideos}
+			yt := &fake.YouTube{Views: tt.views}
+			n := &fake.Notifier{}
 			s := application.NewNotificationService(subscriptions, application.NewLibraryService(yt, lib, jst, clock), n, jst, clock)
 
 			s.RefreshVideos()
 
-			assert.Equal(t, tt.wantMilestones, n.milestones)
+			assert.Equal(t, tt.wantMilestones, n.Milestones)
 		})
 	}
 }

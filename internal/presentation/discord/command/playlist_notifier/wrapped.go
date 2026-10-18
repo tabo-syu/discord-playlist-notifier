@@ -3,7 +3,6 @@ package playlist_notifier
 import (
 	"errors"
 	"strings"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
@@ -41,7 +40,7 @@ func (c *PlaylistNotifier) wrapped(guildId string, year int) string {
 		return "エラー！システムに問題があります！"
 	}
 	if year == 0 {
-		year = time.Now().In(c.location).Year()
+		year = c.now().In(c.location).Year()
 	}
 
 	var sections []string

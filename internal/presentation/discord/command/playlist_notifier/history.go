@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"errors"
 	"log"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
@@ -66,7 +65,7 @@ func (c *PlaylistNotifier) history(guildId string, video string, days int) *comm
 	for _, sub := range subscriptions {
 		ids = append(ids, sub.YoutubeID)
 	}
-	since := time.Now().AddDate(0, 0, -days)
+	since := c.now().AddDate(0, 0, -days)
 	history, err := c.library.History(ids, videoID, since)
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
 		return command.Text("通知登録されているプレイリストに、その動画は見つかりませんでした。")

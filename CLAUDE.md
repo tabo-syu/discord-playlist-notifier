@@ -64,7 +64,9 @@ cmd/server/main.go                   コンポジションルート — 全て�
         │       ├── notification/            どのチャンネルに何を通知するかを決めるドメインサービス
         │       └── errors.go                センチネルエラー（package domain）
         │
-        └── internal/env/                    プロセスの環境変数
+        ├── internal/env/                    プロセスの環境変数
+        │
+        └── internal/fake/                   テスト用の、リポジトリと外部サービスの偽物（本番のコードからは import しない）
 ```
 
 アプリを駆動する経路は独立して 3 つあります。
@@ -105,7 +107,8 @@ cmd/server/main.go                   コンポジションルート — 全て�
 `yt` YouTube サービス）を構築し、`persistence.Migrate` でスキーマを更新します。
 失敗時は全て `log.Fatalf` で落とします。その後 `main()` が infrastructure →
 application → presentation の順に組み立て、`SIGINT` を待ってブロックします。
-`LibraryService` と `NotificationService` には現在時刻の関数（`time.Now`）を渡します。
+`LibraryService`、`NotificationService`、`PlaylistNotifier` には現在時刻の関数
+（`time.Now`）を渡します。
 テストで時刻を固定するためで、サービスの中では `time.Now()` を直接呼びません。
 新しい依存を追加する場合はここに書きます。DI コンテナや設定フレームワークの
 類はありません。スケジューラの `*time.Location`（`DB_TIMEZONE`）を、日付の
@@ -340,19 +343,27 @@ YouTube から直接データを取る前に、DB に保存した中身（`libra
 
 テストは層ごとに少しずつ増やしています。カバレッジ 100% は目指さず、壊れると
 通知の二重送信・取りこぼしや集計の誤りにつながるロジックを優先します。
-今あるのは次の 3 つです。
+今あるのは次の 4 つです。
 
 - **ドメイン**（`internal/domain/library`、`notification`、`subscription`）— 純粋な
   関数とメソッドのテスト。境界の値（基準時刻ちょうど、タイムゾーンをまたぐ
   月・年の区切り、節目ちょうどの再生数）とチャンネルごとの重複の排除を固定しています。
 - **アプリケーション**（`internal/application`）— リポジトリ・YouTube・`Notifier` を
-  `fakes_test.go` のメモリ上の偽物に差し替えて、ユースケースの流れを確かめます。
+  `internal/fake` のメモリ上の偽物に差し替えて、ユースケースの流れを確かめます。
   基準時刻を送信の前に保存すること、保存に失敗した通知設定には送らないこと、
   `FULL_SYNC_INTERVAL` 以内は全件取得しないこと、詳細を持っていない動画だけ
   `videos.list` を呼ぶこと などを固定しています。偽物は本物の DB と同じく読み書きの
   たびに値をコピーし、空の結果で `domain.ErrDBRecordNotFound` を返すこと、`Update` が
-  `UpdatedAt` を上書きすることなど、本物の挙動に合わせます。サービスのログは
-  `TestMain` で捨てています。
+  `UpdatedAt` を上書きすることなど、本物の挙動に合わせます。偽物は
+  `var _ library.Repository = (*LibraryRepository)(nil)` などでインターフェースを
+  満たすことを確かめています。ログは各パッケージの `TestMain` で捨てています。
+- **コマンドハンドラ**（`command/playlist_notifier`）— 本物のアプリケーションサービスを
+  `internal/fake` の偽物で組み立て、`Handle` に Discord の入力を渡して、返した
+  `*command.Response` を比べます。テストのファイルはサブコマンドのファイルと
+  1 対 1 にしています（`add.go` と `add_test.go`）。オプションの検証、エラーの文言、
+  どのプレイリストを表示するかを確かめ、本文の整形は view のゴールデンテストに任せて
+  中身のないプレイリストで確かめます。グラフの PNG は比べられないので、グラフを
+  添付しない場合だけを確かめています。
 - **view のテキスト** — `text_test.go` が固定のデータで整形した結果を
   `view/testdata/*.golden` と比べます（ゴールデンテスト）。文言を変えたら
   `go test ./internal/presentation/view/ -update` で期待値を書き直し、golden の差分で
