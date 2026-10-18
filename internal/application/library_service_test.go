@@ -8,6 +8,7 @@ import (
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/fake"
 )
 
 func TestLibraryServiceSync(t *testing.T) {
@@ -15,7 +16,7 @@ func TestLibraryServiceSync(t *testing.T) {
 		name              string
 		storedItems       []*library.PlaylistItem
 		storedVideos      []*library.Video
-		playlists         []*youtubePlaylist
+		playlists         []*fake.Playlist
 		itemFails         []library.PlaylistID
 		playlistIDs       []library.PlaylistID
 		want              map[library.PlaylistID]*library.Snapshot
@@ -30,11 +31,11 @@ func TestLibraryServiceSync(t *testing.T) {
 			storedVideos: []*library.Video{
 				video("a", library.PrivacyPublic, 0, 0),
 			},
-			playlists: []*youtubePlaylist{
+			playlists: []*fake.Playlist{
 				{
-					id:    "PL",
-					title: "タイトル",
-					items: []*library.FetchedItem{
+					ID:    "PL",
+					Title: "タイトル",
+					Items: []*library.FetchedItem{
 						fetched("1", "a", hoursAgo(2), library.PrivacyPublic),
 						fetched("2", "b", hoursAgo(1), library.PrivacyPublic),
 					},
@@ -71,11 +72,11 @@ func TestLibraryServiceSync(t *testing.T) {
 			storedVideos: []*library.Video{
 				video("a", library.PrivacyPublic, 0, 0),
 			},
-			playlists: []*youtubePlaylist{
+			playlists: []*fake.Playlist{
 				{
-					id:    "PL",
-					title: "タイトル",
-					items: []*library.FetchedItem{
+					ID:    "PL",
+					Title: "タイトル",
+					Items: []*library.FetchedItem{
 						fetched("1", "a", hoursAgo(1), library.PrivacyPublic),
 					},
 				},
@@ -108,11 +109,11 @@ func TestLibraryServiceSync(t *testing.T) {
 				video("a", library.PrivacyPublic, 0, 0),
 				video("b", library.PrivacyPublic, 0, 0),
 			},
-			playlists: []*youtubePlaylist{
+			playlists: []*fake.Playlist{
 				{
-					id:    "PL",
-					title: "タイトル",
-					items: []*library.FetchedItem{
+					ID:    "PL",
+					Title: "タイトル",
+					Items: []*library.FetchedItem{
 						fetched("1", "a", hoursAgo(2), library.PrivacyPublic),
 					},
 				},
@@ -148,10 +149,10 @@ func TestLibraryServiceSync(t *testing.T) {
 		},
 		{
 			name: "アイテムの取得に失敗したプレイリストは結果から除く",
-			playlists: []*youtubePlaylist{
+			playlists: []*fake.Playlist{
 				{
-					id:    "PL",
-					title: "タイトル",
+					ID:    "PL",
+					Title: "タイトル",
 				},
 			},
 			itemFails:   []library.PlaylistID{"PL"},
@@ -161,16 +162,16 @@ func TestLibraryServiceSync(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lib := &libraryRepository{items: tt.storedItems, videos: tt.storedVideos}
-			yt := &youtube{playlists: tt.playlists, itemFails: tt.itemFails}
+			lib := &fake.LibraryRepository{Items: tt.storedItems, Videos: tt.storedVideos}
+			yt := &fake.YouTube{Playlists: tt.playlists, ItemFails: tt.itemFails}
 			s := application.NewLibraryService(yt, lib, jst, clock)
 
 			got, err := s.Sync(tt.playlistIDs)
 
 			assert.NoError(t, err)
 			assert.Equal(t, tt.want, got)
-			assert.Equal(t, tt.wantItems, lib.items)
-			assert.Equal(t, tt.wantVideoRequests, yt.videoRequests)
+			assert.Equal(t, tt.wantItems, lib.Items)
+			assert.Equal(t, tt.wantVideoRequests, yt.VideoRequests)
 		})
 	}
 }
@@ -213,19 +214,19 @@ func TestLibraryServiceSyncSkipsFetching(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			current := now
-			playlist := &youtubePlaylist{id: "PL", title: "タイトル", items: synced}
-			yt := &youtube{playlists: []*youtubePlaylist{playlist}}
-			s := application.NewLibraryService(yt, &libraryRepository{}, jst, func() time.Time { return current })
+			playlist := &fake.Playlist{ID: "PL", Title: "タイトル", Items: synced}
+			yt := &fake.YouTube{Playlists: []*fake.Playlist{playlist}}
+			s := application.NewLibraryService(yt, &fake.LibraryRepository{}, jst, func() time.Time { return current })
 			// 前回の同期
 			_, _ = s.Sync([]library.PlaylistID{"PL"})
 			current = now.Add(tt.elapsed)
-			playlist.items = tt.items
-			yt.itemFetches = 0
+			playlist.Items = tt.items
+			yt.ItemFetches = 0
 
 			_, err := s.Sync([]library.PlaylistID{"PL"})
 
 			assert.NoError(t, err)
-			assert.Equal(t, tt.wantItemFetches, yt.itemFetches)
+			assert.Equal(t, tt.wantItemFetches, yt.ItemFetches)
 		})
 	}
 }
@@ -317,17 +318,17 @@ func TestLibraryServiceRefreshVideos(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			lib := &libraryRepository{items: tt.storedItems, videos: tt.storedVideos}
-			yt := &youtube{views: tt.views}
+			lib := &fake.LibraryRepository{Items: tt.storedItems, Videos: tt.storedVideos}
+			yt := &fake.YouTube{Views: tt.views}
 			s := application.NewLibraryService(yt, lib, jst, clock)
 
 			got, err := s.RefreshVideos()
 
 			assert.NoError(t, err)
 			assert.Equal(t, tt.want, got)
-			assert.Equal(t, tt.wantVideos, lib.videos)
-			assert.Equal(t, tt.wantSnapshots, lib.snapshots)
-			assert.Equal(t, tt.wantVideoRequests, yt.videoRequests)
+			assert.Equal(t, tt.wantVideos, lib.Videos)
+			assert.Equal(t, tt.wantSnapshots, lib.Snapshots)
+			assert.Equal(t, tt.wantVideoRequests, yt.VideoRequests)
 		})
 	}
 }

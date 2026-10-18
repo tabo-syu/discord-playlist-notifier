@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log"
 	"strings"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
@@ -54,7 +53,7 @@ func (c *PlaylistNotifier) trending(guildId string, playlistId string, days int)
 		return command.Text("エラー！システムに問題があります！")
 	}
 
-	since := time.Now().AddDate(0, 0, -days)
+	since := c.now().AddDate(0, 0, -days)
 	var sections []string
 	var files []*discordgo.File
 	for _, sub := range subscriptions {

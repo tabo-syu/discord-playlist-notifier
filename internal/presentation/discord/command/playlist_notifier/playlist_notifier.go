@@ -15,6 +15,8 @@ type PlaylistNotifier struct {
 	library       *application.LibraryService
 	// 日付の表示と、月や年での区切りに使うタイムゾーン
 	location *time.Location
+	// 現在時刻。テストで固定できるように外から渡す
+	now func() time.Time
 }
 
 var (
@@ -32,7 +34,7 @@ var (
 	}
 )
 
-func NewPlaylistNotifier(s *application.SubscriptionService, l *application.LibraryService, loc *time.Location) *PlaylistNotifier {
+func NewPlaylistNotifier(s *application.SubscriptionService, l *application.LibraryService, loc *time.Location, now func() time.Time) *PlaylistNotifier {
 	return &PlaylistNotifier{
 		&discordgo.ApplicationCommand{
 			Name:        "playlist-notifier",
@@ -53,6 +55,7 @@ func NewPlaylistNotifier(s *application.SubscriptionService, l *application.Libr
 		s,
 		l,
 		loc,
+		now,
 	}
 }
 

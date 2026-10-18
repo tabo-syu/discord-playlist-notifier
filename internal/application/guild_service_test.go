@@ -9,6 +9,7 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/fake"
 )
 
 func TestGuildServiceRegister(t *testing.T) {
@@ -38,13 +39,13 @@ func TestGuildServiceRegister(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			guilds := &guildRepository{guilds: tt.guilds}
-			s := application.NewGuildService(guilds, &subscriptionRepository{guilds: guilds})
+			guilds := &fake.GuildRepository{Guilds: tt.guilds}
+			s := application.NewGuildService(guilds, &fake.SubscriptionRepository{Guilds: guilds})
 
 			err := s.Register("guild")
 
 			assert.ErrorIs(t, err, tt.wantErr)
-			assert.Equal(t, tt.wantGuilds, guilds.guilds)
+			assert.Equal(t, tt.wantGuilds, guilds.Guilds)
 		})
 	}
 }
@@ -88,15 +89,15 @@ func TestGuildServiceUnregister(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			guilds := &guildRepository{guilds: tt.guilds}
-			subscriptions := &subscriptionRepository{guilds: guilds, subscriptions: tt.subscriptions}
+			guilds := &fake.GuildRepository{Guilds: tt.guilds}
+			subscriptions := &fake.SubscriptionRepository{Guilds: guilds, Subscriptions: tt.subscriptions}
 			s := application.NewGuildService(guilds, subscriptions)
 
 			err := s.Unregister("guild")
 
 			assert.ErrorIs(t, err, tt.wantErr)
-			assert.Equal(t, tt.wantGuilds, guilds.guilds)
-			assert.Equal(t, tt.wantSubscriptions, subscriptions.subscriptions)
+			assert.Equal(t, tt.wantGuilds, guilds.Guilds)
+			assert.Equal(t, tt.wantSubscriptions, subscriptions.Subscriptions)
 		})
 	}
 }
