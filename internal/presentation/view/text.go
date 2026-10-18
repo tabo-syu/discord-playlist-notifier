@@ -12,7 +12,8 @@ import (
 )
 
 // メッセージの文言は templates/ のテンプレートに書き、ここでは
-// テンプレートに渡すデータを用意するだけにする。
+// テンプレートに渡すデータを用意するだけにする。中身がないときなど、
+// メッセージの形ごと変わる場合分けはここで行い、別のテンプレートを使う。
 //
 //go:embed templates/*.md.tmpl
 var templateFS embed.FS
@@ -68,6 +69,10 @@ func render(name string, data any, loc *time.Location, target Target) string {
 
 // Summary はプレイリストの曲数、追加ペース、再生数ランキングを整形する。
 func Summary(title string, s *library.Stats, loc *time.Location) string {
+	if s.Total == 0 {
+		return render("summary_empty", title, loc, InMessage)
+	}
+
 	type bar struct {
 		Month time.Time
 		Bar   string
@@ -98,19 +103,35 @@ func Summary(title string, s *library.Stats, loc *time.Location) string {
 
 // Trending は再生数が伸びている曲の一覧を整形する（見出しを除く）。
 func Trending(t *library.Trending, loc *time.Location) string {
+	switch {
+	case !t.To.After(t.From):
+		return render("trending_not_enough", t, loc, InMessage)
+	case len(t.Videos) == 0:
+		return render("trending_no_videos", t, loc, InMessage)
+	}
+
 	return render("trending", t, loc, InMessage)
 }
 
 // History は動画の再生数、高評価数、コメント数の推移を整形する。
 func History(h *library.VideoHistory, days int) string {
-	return render("history", struct {
+	data := struct {
 		*library.VideoHistory
 		Days int
-	}{h, days}, time.UTC, InMessage)
+	}{h, days}
+	if len(h.Snapshots) < 2 {
+		return render("history_not_enough", data, time.UTC, InMessage)
+	}
+
+	return render("history", data, time.UTC, InMessage)
 }
 
 // Random はランダムに選んだ曲の一覧を整形する。
 func Random(picked []*library.PlaylistVideo) string {
+	if len(picked) == 0 {
+		return render("random_empty", picked, time.UTC, InMessage)
+	}
+
 	return render("random", picked, time.UTC, InMessage)
 }
 
@@ -121,6 +142,10 @@ func WrappedTitle(playlistTitle string, year int) string {
 
 // Wrapped は年間のまとめの本文（見出しを除く）を整形する。
 func Wrapped(w *library.Wrapped, loc *time.Location, target Target) string {
+	if w.Added == 0 {
+		return render("wrapped_empty", w, loc, target)
+	}
+
 	return render("wrapped", w, loc, target)
 }
 

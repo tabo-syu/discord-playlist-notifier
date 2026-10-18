@@ -1,8 +1,5 @@
 {{define "summary" -}}
 📊 **{{.Title}}**
-{{if eq .Stats.Total 0 -}}
-まだ曲の情報がありません。少し待ってからもう一度試してください。
-{{else -}}
 曲数: {{number .Stats.Total}} 曲（観られる {{number .Stats.Available}} / 非公開 {{number .Stats.Private}} / 削除 {{number .Stats.Deleted}}）
 追加ペース: 今月 {{.Stats.AddedThisMonth}} 曲 / 過去 30 日 {{.Stats.AddedLast30Days}} 曲
 最初の追加: {{date "2006/01/02" .Stats.FirstAddedAt}}
@@ -14,4 +11,4 @@
 ```
 {{range .Bars}}{{.Month.Format "2006/01"}} {{printf "%-20s" .Bar}} {{.Count}}
 {{end}}```
-{{end}}{{end}}
+{{end}}

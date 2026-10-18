@@ -1,10 +1,5 @@
 {{define "trending" -}}
-{{if not (.To.After .From) -}}
-まだ記録が足りません。再生数は 6 時間ごとに記録しています。
-{{else -}}
 {{date "01/02" .From}}〜{{date "01/02" .To}} の伸び
 {{range $i, $v := .Videos -}}
 #{{rank $i}} {{link $v.Video}}（+{{number $v.Increase}} 回 ・ 計 {{number (last $v.Snapshots).Views}} 回）
-{{else -}}
-この期間に再生数が伸びた曲はありません。
-{{end}}{{end}}{{end}}
+{{end}}{{end}}

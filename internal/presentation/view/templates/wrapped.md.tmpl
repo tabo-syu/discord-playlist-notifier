@@ -1,7 +1,4 @@
 {{define "wrapped" -}}
-{{if eq .Added 0 -}}
-{{.Year}} 年に追加された曲はありません。
-{{else -}}
 追加した曲: {{number .Added}} 曲（前の年 {{number .PreviousYearAdded}} 曲）
 一番追加した月: {{printf "%d" .BusiestMonth.Month.Month}} 月（{{number .BusiestMonth.Count}} 曲）
 {{if .First -}}
@@ -11,4 +8,4 @@
 {{with .TopViewed}}
 **この年に追加した曲の再生数ランキング**
 {{range $i, $v := .}}{{rank $i}}. {{link $v}}（{{number $v.Views}} 回）
-{{end}}{{end}}{{end}}{{end}}
+{{end}}{{end}}{{end}}
