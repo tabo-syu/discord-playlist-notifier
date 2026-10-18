@@ -81,8 +81,8 @@ func main() {
 
 	ss := application.NewSubscriptionService(yc, sbr, gr)
 	gs := application.NewGuildService(gr, sbr)
-	ls := application.NewLibraryService(yc, lr, location)
-	ns := application.NewNotificationService(sbr, ls, notifier.New(dc, location), location)
+	ls := application.NewLibraryService(yc, lr, location, time.Now)
+	ns := application.NewNotificationService(sbr, ls, notifier.New(dc, location), location, time.Now)
 
 	commands := []command.Command{playlist_notifier.NewPlaylistNotifier(ss, ls, location)}
 	server := discord.NewServer(
