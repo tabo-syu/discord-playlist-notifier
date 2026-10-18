@@ -19,10 +19,12 @@ type NotificationService struct {
 	notifier      Notifier
 	// 投稿の基準にする日付や年のタイムゾーン
 	location *time.Location
+	// 現在時刻。テストで固定できるように外から渡す
+	now func() time.Time
 }
 
-func NewNotificationService(s subscription.Repository, l *LibraryService, n Notifier, loc *time.Location) *NotificationService {
-	return &NotificationService{s, l, n, loc}
+func NewNotificationService(s subscription.Repository, l *LibraryService, n Notifier, loc *time.Location, now func() time.Time) *NotificationService {
+	return &NotificationService{s, l, n, loc, now}
 }
 
 // NotifyUpdates は通知登録された全てのプレイリストを同期し、非公開・削除に
@@ -60,7 +62,7 @@ func (s *NotificationService) NotifyUpdates() {
 		return
 	}
 
-	now := time.Now()
+	now := s.now()
 	var saved []*notification.NewVideos
 	for _, update := range updates {
 		sub := update.Subscription
@@ -157,7 +159,7 @@ func (s *NotificationService) PostWrapped() {
 		return
 	}
 
-	year := time.Now().In(s.location).Year()
+	year := s.now().In(s.location).Year()
 	for _, sub := range subscriptions {
 		w, err := s.library.Wrapped(sub.YoutubeID, year)
 		if err != nil {
@@ -188,7 +190,7 @@ func (s *NotificationService) PostPicks() {
 		return
 	}
 
-	now := time.Now().In(s.location)
+	now := s.now().In(s.location)
 	for _, sub := range subscriptions {
 		if !sub.PickInterval.DueOn(now) {
 			continue

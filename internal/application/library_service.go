@@ -29,11 +29,12 @@ type LibraryService struct {
 	// 重なって実行されたときに同じ動画を書き込まないようにする
 	mu    sync.Mutex
 	state map[library.PlaylistID]syncState
-	now   func() time.Time
+	// 現在時刻。テストで固定できるように外から渡す
+	now func() time.Time
 }
 
-func NewLibraryService(y library.YouTube, l library.Repository, loc *time.Location) *LibraryService {
-	return &LibraryService{youtube: y, library: l, location: loc, state: map[library.PlaylistID]syncState{}, now: time.Now}
+func NewLibraryService(y library.YouTube, l library.Repository, loc *time.Location, now func() time.Time) *LibraryService {
+	return &LibraryService{youtube: y, library: l, location: loc, state: map[library.PlaylistID]syncState{}, now: now}
 }
 
 // Sync は指定したプレイリストの保存済みの中身を最新にして返す。

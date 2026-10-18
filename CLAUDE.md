@@ -105,6 +105,8 @@ cmd/server/main.go                   コンポジションルート — 全て�
 `yt` YouTube サービス）を構築し、`persistence.Migrate` でスキーマを更新します。
 失敗時は全て `log.Fatalf` で落とします。その後 `main()` が infrastructure →
 application → presentation の順に組み立て、`SIGINT` を待ってブロックします。
+`LibraryService` と `NotificationService` には現在時刻の関数（`time.Now`）を渡します。
+テストで時刻を固定するためで、サービスの中では `time.Now()` を直接呼びません。
 新しい依存を追加する場合はここに書きます。DI コンテナや設定フレームワークの
 類はありません。スケジューラの `*time.Location`（`DB_TIMEZONE`）を、日付の
 表示や月・年の区切りに使う全ての箇所へコンストラクタで渡します。
@@ -338,11 +340,19 @@ YouTube から直接データを取る前に、DB に保存した中身（`libra
 
 テストは層ごとに少しずつ増やしています。カバレッジ 100% は目指さず、壊れると
 通知の二重送信・取りこぼしや集計の誤りにつながるロジックを優先します。
-今あるのは次の 2 つです。
+今あるのは次の 3 つです。
 
 - **ドメイン**（`internal/domain/library`、`notification`、`subscription`）— 純粋な
   関数とメソッドのテスト。境界の値（基準時刻ちょうど、タイムゾーンをまたぐ
   月・年の区切り、節目ちょうどの再生数）とチャンネルごとの重複の排除を固定しています。
+- **アプリケーション**（`internal/application`）— リポジトリ・YouTube・`Notifier` を
+  `fakes_test.go` のメモリ上の偽物に差し替えて、ユースケースの流れを確かめます。
+  基準時刻を送信の前に保存すること、保存に失敗した通知設定には送らないこと、
+  `FULL_SYNC_INTERVAL` 以内は全件取得しないこと、詳細を持っていない動画だけ
+  `videos.list` を呼ぶこと などを固定しています。偽物は本物の DB と同じく読み書きの
+  たびに値をコピーし、空の結果で `domain.ErrDBRecordNotFound` を返すこと、`Update` が
+  `UpdatedAt` を上書きすることなど、本物の挙動に合わせます。サービスのログは
+  `TestMain` で捨てています。
 - **view のテキスト** — `text_test.go` が固定のデータで整形した結果を
   `view/testdata/*.golden` と比べます（ゴールデンテスト）。文言を変えたら
   `go test ./internal/presentation/view/ -update` で期待値を書き直し、golden の差分で
@@ -386,11 +396,15 @@ func TestComputeWrapped(t *testing.T) {
   （`{Month: ..., Count: 0},` のような表の行として読めるように）。
 - ケースは 1 つのことだけを確かめ、入力は最小限にします。`name` で何を確かめるかを書きます。
 - ループの中身は「呼ぶ → 空行 → `assert`」だけで、`if` などの分岐は書きません。
+  偽物を使うテストは、その前に「テーブルのフィールドから偽物とサービスを組み立てる
+  → 空行」を置きます。偽物の状態（保存された値、送った通知、YouTube を呼んだ回数）は
+  呼んだ後に `want` と比べます。
 - 期待値は加工せず、戻り値の型そのものを書きます（ID の一覧などに変換して比べない）。
   状態を変えるメソッドは、呼んだ後のレシーバーを `want` に書きます。
 - 比べ方は `assert.Equal(t, tt.want, got)` が基本です。順序が決まらない結果
   （マップの順に依存するもの）だけ `assert.ElementsMatch`、ランダムな結果は
-  `assert.Len` / `assert.Subset` を使います。続けられないエラーは `require` にします。
+  `assert.Len` / `assert.Subset` を使います。エラーは `assert.ErrorIs(t, err, tt.wantErr)`（成功なら `wantErr: nil`）、
+  続けられないエラーは `require` にします。
 - テストデータを作る関数（`video`、`added`、`sub` など）はパッケージごとに
   `helpers_test.go` に置き、何を返すかをコメントに書きます。
 - 外部のテストパッケージ（`package library_test` など）から、公開された API だけを使います。
