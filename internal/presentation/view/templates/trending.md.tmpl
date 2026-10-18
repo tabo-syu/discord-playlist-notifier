@@ -1,0 +1,5 @@
+{{define "trending" -}}
+{{date "01/02" .From}}〜{{date "01/02" .To}} の伸び
+{{range $i, $v := .Videos -}}
+#{{rank $i}} {{link $v.Video}}（+{{number $v.Increase}} 回 ・ 計 {{number (last $v.Snapshots).Views}} 回）
+{{end}}{{end}}

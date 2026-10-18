@@ -1,0 +1,8 @@
+{{define "history" -}}
+{{$first := first .Snapshots}}{{$last := last .Snapshots -}}
+📈 **{{.Video.Title}}** の推移（直近 {{.Days}} 日）
+再生数: {{change $first.Views $last.Views}}
+高評価: {{change $first.Likes $last.Likes}}
+コメント: {{change $first.Comments $last.Comments}}
+https://www.youtube.com/watch?v={{.Video.YoutubeID}}
+{{- end}}

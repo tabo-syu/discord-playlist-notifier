@@ -1,0 +1,6 @@
+{{define "random" -}}
+🎲 ランダムに選びました！
+{{range .}}
+**{{.Video.Title}}**
+https://www.youtube.com/watch?v={{.Video.YoutubeID}}&list={{.PlaylistID}}
+{{end}}{{end}}
