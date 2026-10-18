@@ -143,7 +143,8 @@ Discord のセッションには一切触れません。** 文字列だけなら
 `github.com/wcharczuk/go-chart/v2`）。見た目（夜空の色、丸ゴシックの日本語フォント、
 光る線、凡例、目盛り）は `view/chart.go` にまとめています。フォントは
 `view/fonts/` の M PLUS Rounded 1c（OFL、`OFL.txt`）を `go:embed` で埋め込んでいます。
-go-chart の `LegendThin` は枠の色の指定を無視するので、凡例は自前で描きます。
+go-chart の `LegendThin` は枠の色の指定を無視し、値札は点の右にしか置けないので、
+凡例（`history`）と、`trending` の線の端の値札・グラフの下の表は自前で描きます。
 ハンドラはアプリケーションサービスだけを呼び、文字列の引数を値オブジェクトに
 変換して渡します。
 

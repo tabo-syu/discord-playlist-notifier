@@ -91,15 +91,9 @@ func starLine(name string, color drawing.Color, times []time.Time, values []floa
 	return []chart.Series{halo, line}
 }
 
-// endLabel は線の最後の点に付ける値札を返す。
-func endLabel(color drawing.Color, at time.Time, value float64, label string) chart.Value2 {
-	return chart.Value2{XValue: chart.TimeToFloat64(at), YValue: value, Label: label,
-		Style: chart.Style{FillColor: color, StrokeColor: color, FontColor: chartBackground, Font: chartFont, FontSize: 11}}
-}
-
 // legend は名前のある系列を「線の色 名前」の形で、タイトルの下に枠なしで
-// 横一列に並べる。値札の分だけ描画域が狭くなるので、画像の幅で中央に寄せる。
-// go-chart の LegendThin は枠の色の指定を無視するので使わない。
+// 横一列に並べ、画像の幅で中央に寄せる。go-chart の LegendThin は枠の色の
+// 指定を無視するので使わない。
 func legend(series []chart.Series) chart.Renderable {
 	return func(r chart.Renderer, canvas chart.Box, _ chart.Style) {
 		r.SetFont(chartFont)
