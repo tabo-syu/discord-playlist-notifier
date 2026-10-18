@@ -11,6 +11,8 @@ import (
 )
 
 func TestIsNew(t *testing.T) {
+	t.Parallel()
+
 	notifiedAt := time.Date(2026, time.October, 18, 12, 0, 0, 0, time.UTC)
 
 	tests := []struct {
@@ -36,6 +38,8 @@ func TestIsNew(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			s := &subscription.Subscription{}
 			s.MarkNotified(notifiedAt)
 
@@ -47,6 +51,8 @@ func TestIsNew(t *testing.T) {
 }
 
 func TestPickIntervalDueOn(t *testing.T) {
+	t.Parallel()
+
 	sunday := time.Date(2026, time.October, 18, 0, 0, 0, 0, time.UTC)
 	monday := time.Date(2026, time.October, 19, 0, 0, 0, 0, time.UTC)
 	firstDay := time.Date(2026, time.November, 1, 0, 0, 0, 0, time.UTC)
@@ -96,6 +102,8 @@ func TestPickIntervalDueOn(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := tt.interval.DueOn(tt.date)
 
 			assert.Equal(t, tt.want, got)

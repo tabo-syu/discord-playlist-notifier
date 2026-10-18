@@ -104,16 +104,6 @@ func (s *NotificationService) NotifyUpdates() {
 	}
 }
 
-func (s *NotificationService) notifyHiddenVideos(subscriptions []*subscription.Subscription, snapshots map[library.PlaylistID]*library.Snapshot) {
-	for _, notice := range notification.FindHiddenVideos(subscriptions, snapshots) {
-		if err := s.notifier.NotifyHiddenVideo(notice); err != nil {
-			log.Println("Hidden video notice could not send to", notice.ChannelID, "video:", notice.Video.YoutubeID, "cause:", err)
-		} else {
-			log.Println("Sent hidden video notice to", notice.ChannelID, "video:", notice.Video.YoutubeID, "status:", notice.Video.PrivacyStatus)
-		}
-	}
-}
-
 // RefreshVideos は保存済みの全動画の詳細を更新し、再生数の新しい節目に
 // 達した動画を通知する。
 func (s *NotificationService) RefreshVideos() {
@@ -240,6 +230,16 @@ func (s *NotificationService) PostPicks() {
 			log.Println("Pick could not send to", sub.SendChannelID, "for playlist:", sub.YoutubeID, "cause:", err)
 		} else {
 			log.Println("Sent pick to", sub.SendChannelID, "for playlist:", sub.YoutubeID, "interval:", sub.PickInterval, "video:", picked[0].Video.YoutubeID)
+		}
+	}
+}
+
+func (s *NotificationService) notifyHiddenVideos(subscriptions []*subscription.Subscription, snapshots map[library.PlaylistID]*library.Snapshot) {
+	for _, notice := range notification.FindHiddenVideos(subscriptions, snapshots) {
+		if err := s.notifier.NotifyHiddenVideo(notice); err != nil {
+			log.Println("Hidden video notice could not send to", notice.ChannelID, "video:", notice.Video.YoutubeID, "cause:", err)
+		} else {
+			log.Println("Sent hidden video notice to", notice.ChannelID, "video:", notice.Video.YoutubeID, "status:", notice.Video.PrivacyStatus)
 		}
 	}
 }

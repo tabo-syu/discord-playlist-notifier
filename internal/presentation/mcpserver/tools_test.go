@@ -12,6 +12,8 @@ import (
 )
 
 func TestListPlaylists(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		subscriptions []*subscription.Subscription
@@ -45,6 +47,8 @@ func TestListPlaylists(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			session := connect(t, &fake.SubscriptionRepository{Subscriptions: tt.subscriptions}, &fake.LibraryRepository{Items: tt.storedItems, Videos: tt.storedVideos})
 
 			got, gotError := call(t, session, "list_playlists", nil)
@@ -56,6 +60,8 @@ func TestListPlaylists(t *testing.T) {
 }
 
 func TestFindVideos(t *testing.T) {
+	t.Parallel()
+
 	subscriptions := []*subscription.Subscription{
 		sub(1, "PL", "お気に入り"),
 	}
@@ -222,6 +228,8 @@ func TestFindVideos(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			session := connect(t, &fake.SubscriptionRepository{Subscriptions: subscriptions}, newLibrary())
 
 			got, gotError := call(t, session, "find_videos", tt.arguments)
@@ -233,6 +241,8 @@ func TestFindVideos(t *testing.T) {
 }
 
 func TestPlaylistStats(t *testing.T) {
+	t.Parallel()
+
 	subscriptions := []*subscription.Subscription{
 		sub(1, "PL", "お気に入り"),
 	}
@@ -275,6 +285,8 @@ func TestPlaylistStats(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			lib := &fake.LibraryRepository{
 				Items:  []*library.PlaylistItem{item("PL", "1", "a", date(2026, time.October, 1, 0))},
 				Videos: []*library.Video{video("a", 100)},
@@ -290,6 +302,8 @@ func TestPlaylistStats(t *testing.T) {
 }
 
 func TestPlaylistWrapped(t *testing.T) {
+	t.Parallel()
+
 	subscriptions := []*subscription.Subscription{
 		sub(1, "PL", "お気に入り"),
 	}
@@ -345,6 +359,8 @@ func TestPlaylistWrapped(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			lib := &fake.LibraryRepository{
 				Items:  []*library.PlaylistItem{item("PL", "1", "a", date(2026, time.March, 1, 0))},
 				Videos: []*library.Video{video("a", 100)},
@@ -360,6 +376,8 @@ func TestPlaylistWrapped(t *testing.T) {
 }
 
 func TestRandomVideos(t *testing.T) {
+	t.Parallel()
+
 	subscriptions := []*subscription.Subscription{
 		sub(1, "PL", "お気に入り"),
 	}
@@ -399,6 +417,8 @@ func TestRandomVideos(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			lib := &fake.LibraryRepository{
 				Items:  []*library.PlaylistItem{item("PL", "1", "a", date(2026, time.March, 1, 0))},
 				Videos: []*library.Video{video("a", 100)},
@@ -414,6 +434,8 @@ func TestRandomVideos(t *testing.T) {
 }
 
 func TestVideoHistory(t *testing.T) {
+	t.Parallel()
+
 	subscriptions := []*subscription.Subscription{
 		sub(1, "PL", "お気に入り"),
 	}
@@ -470,6 +492,8 @@ func TestVideoHistory(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			lib := &fake.LibraryRepository{
 				Items:  []*library.PlaylistItem{item("PL", "1", "a", date(2026, time.March, 1, 0))},
 				Videos: []*library.Video{video("a", 200)},

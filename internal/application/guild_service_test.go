@@ -13,6 +13,8 @@ import (
 )
 
 func TestGuildServiceRegister(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		guilds     []*guild.Guild
@@ -39,6 +41,8 @@ func TestGuildServiceRegister(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			guilds := &fake.GuildRepository{Guilds: tt.guilds}
 			s := application.NewGuildService(guilds, &fake.SubscriptionRepository{Guilds: guilds})
 
@@ -51,6 +55,8 @@ func TestGuildServiceRegister(t *testing.T) {
 }
 
 func TestGuildServiceUnregister(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name              string
 		guilds            []*guild.Guild
@@ -89,6 +95,8 @@ func TestGuildServiceUnregister(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			guilds := &fake.GuildRepository{Guilds: tt.guilds}
 			subscriptions := &fake.SubscriptionRepository{Guilds: guilds, Subscriptions: tt.subscriptions}
 			s := application.NewGuildService(guilds, subscriptions)

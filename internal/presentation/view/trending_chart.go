@@ -113,7 +113,7 @@ func trendingTags(lines []*trendingLine, from, to time.Time, top float64) chart.
 
 		span := to.Sub(from).Seconds()
 
-		var tags []tag
+		tags := make([]tag, 0, len(lines))
 
 		for _, l := range lines {
 			at, gained := l.times[len(l.times)-1], l.gained[len(l.gained)-1]

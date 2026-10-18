@@ -10,6 +10,8 @@ import (
 )
 
 func TestSnapshotContains(t *testing.T) {
+	t.Parallel()
+
 	snapshot := &library.Snapshot{Items: []*library.PlaylistItem{{VideoYoutubeID: "a"}}}
 
 	tests := []struct {
@@ -30,6 +32,8 @@ func TestSnapshotContains(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := snapshot.Contains(tt.videoID)
 
 			assert.Equal(t, tt.want, got)
@@ -38,6 +42,8 @@ func TestSnapshotContains(t *testing.T) {
 }
 
 func TestPickRandom(t *testing.T) {
+	t.Parallel()
+
 	a := added(video("a", library.PrivacyPublic, 0), date(2026, time.October, 1, 0))
 	b := added(video("b", library.PrivacyPublic, 0), date(2026, time.October, 2, 0))
 	aAgain := added(video("a", library.PrivacyPublic, 0), date(2026, time.October, 3, 0))
@@ -77,6 +83,8 @@ func TestPickRandom(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := library.PickRandom(tt.contents, tt.n)
 
 			assert.ElementsMatch(t, tt.want, got)
@@ -85,6 +93,8 @@ func TestPickRandom(t *testing.T) {
 }
 
 func TestPickRandomLimit(t *testing.T) {
+	t.Parallel()
+
 	a := added(video("a", library.PrivacyPublic, 0), date(2026, time.October, 1, 0))
 	b := added(video("b", library.PrivacyPublic, 0), date(2026, time.October, 2, 0))
 	c := added(video("c", library.PrivacyPublic, 0), date(2026, time.October, 3, 0))
@@ -110,6 +120,8 @@ func TestPickRandomLimit(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := library.PickRandom(tt.contents, tt.n)
 
 			assert.Len(t, got, tt.wantLen)

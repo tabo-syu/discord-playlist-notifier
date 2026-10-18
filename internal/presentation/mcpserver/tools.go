@@ -233,7 +233,7 @@ func (t *tools) toVideos(contents []*library.PlaylistVideo) ([]videoOut, error) 
 }
 
 func toRanked(videos []*library.Video, playlistID library.PlaylistID) []rankedVideoOut {
-	ranked := []rankedVideoOut{}
+	ranked := make([]rankedVideoOut, 0, len(videos))
 	for _, v := range videos {
 		ranked = append(ranked, rankedVideoOut{
 			VideoID: string(v.YoutubeID),
@@ -266,6 +266,7 @@ type listPlaylistsIn struct{}
 
 type playlistOverviewOut struct {
 	playlistOut
+
 	Items        int    `json:"items" jsonschema:"曲数（同じ曲の重複も数える）"`
 	Available    int    `json:"available" jsonschema:"観られる曲の数"`
 	Private      int    `json:"private"`

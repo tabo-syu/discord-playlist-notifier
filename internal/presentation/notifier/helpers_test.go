@@ -3,8 +3,6 @@ package notifier_test
 import (
 	"time"
 
-	"gorm.io/gorm"
-
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 )
@@ -13,7 +11,7 @@ var jst = time.FixedZone("Asia/Tokyo", 9*60*60)
 
 // sub はチャンネル ch にプレイリスト PL を通知する設定を返す。
 func sub(title string, interval subscription.PickInterval) *subscription.Subscription {
-	return &subscription.Subscription{Model: gorm.Model{ID: 1}, YoutubeID: "PL", SendChannelID: "ch", Title: title, PickInterval: interval, GuildID: 1}
+	return &subscription.Subscription{ID: 1, YoutubeID: "PL", SendChannelID: "ch", Title: title, PickInterval: interval, GuildID: 1}
 }
 
 // video は公開の動画を返す。タイトルは ID と同じにする。

@@ -123,6 +123,7 @@ func Trending(t *library.Trending, loc *time.Location) string {
 func History(h *library.VideoHistory, days int) string {
 	data := struct {
 		*library.VideoHistory
+
 		Days int
 	}{h, days}
 	if len(h.Snapshots) < 2 {

@@ -13,6 +13,8 @@ import (
 )
 
 func TestNotifyMilestone(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name   string
 		notice *notification.Milestone
@@ -57,6 +59,8 @@ func TestNotifyMilestone(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			discord := &fake.Discord{}
 			n := notifier.New(discord, jst)
 

@@ -12,7 +12,6 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
@@ -79,7 +78,7 @@ func call(t *testing.T, session *mcp.ClientSession, name string, arguments map[s
 
 // sub はギルド 1 の通知設定を返す。
 func sub(id uint, playlistID library.PlaylistID, title string) *subscription.Subscription {
-	return &subscription.Subscription{Model: gorm.Model{ID: id}, YoutubeID: playlistID, SendChannelID: "ch", Title: title, GuildID: 1}
+	return &subscription.Subscription{ID: id, YoutubeID: playlistID, SendChannelID: "ch", Title: title, GuildID: 1}
 }
 
 // item は保存したプレイリストのアイテムを返す。

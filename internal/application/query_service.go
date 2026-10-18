@@ -34,6 +34,7 @@ type WatchedPlaylist struct {
 // PlaylistOverview は通知対象のプレイリストとその統計。
 type PlaylistOverview struct {
 	WatchedPlaylist
+
 	Stats *library.Stats
 }
 
@@ -145,29 +146,6 @@ func (s *QueryService) Playlist(id library.PlaylistID) (*WatchedPlaylist, error)
 	}
 
 	return nil, domain.ErrDBRecordNotFound
-}
-
-// scope は指定したプレイリストを返す。id が空なら通知対象の全プレイリストを返す。
-func (s *QueryService) scope(id library.PlaylistID) ([]library.PlaylistID, error) {
-	if id != "" {
-		if _, err := s.Playlist(id); err != nil {
-			return nil, err
-		}
-
-		return []library.PlaylistID{id}, nil
-	}
-
-	playlists, err := s.Playlists()
-	if err != nil {
-		return nil, err
-	}
-
-	var ids []library.PlaylistID
-	for _, p := range playlists {
-		ids = append(ids, p.ID)
-	}
-
-	return ids, nil
 }
 
 // FindVideos は通知対象のプレイリストのアイテムのうち、条件に一致するものを返す。
@@ -283,6 +261,44 @@ func (s *QueryService) Channels(ids []library.ChannelID) (map[library.ChannelID]
 	return s.contents.FindChannels(ids)
 }
 
+// RandomVideos は通知対象のプレイリスト（id が空なら全て）から、
+// 重複のない視聴可能な動画を最大 n 件選ぶ。
+func (s *QueryService) RandomVideos(id library.PlaylistID, n int) ([]*library.PlaylistVideo, error) {
+	ids, err := s.scope(id)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(ids) == 0 {
+		return []*library.PlaylistVideo{}, nil
+	}
+
+	return s.library.RandomVideos(ids, n)
+}
+
+// scope は指定したプレイリストを返す。id が空なら通知対象の全プレイリストを返す。
+func (s *QueryService) scope(id library.PlaylistID) ([]library.PlaylistID, error) {
+	if id != "" {
+		if _, err := s.Playlist(id); err != nil {
+			return nil, err
+		}
+
+		return []library.PlaylistID{id}, nil
+	}
+
+	playlists, err := s.Playlists()
+	if err != nil {
+		return nil, err
+	}
+
+	var ids []library.PlaylistID
+	for _, p := range playlists {
+		ids = append(ids, p.ID)
+	}
+
+	return ids, nil
+}
+
 // channelsNamed は中身の動画のチャンネルのうち、名前に name を含むものを
 // 返す。大文字・小文字は区別しない。
 func (s *QueryService) channelsNamed(contents []*library.PlaylistVideo, name string) (map[library.ChannelID]bool, error) {
@@ -309,19 +325,4 @@ func (s *QueryService) channelsNamed(contents []*library.PlaylistVideo, name str
 	}
 
 	return matched, nil
-}
-
-// RandomVideos は通知対象のプレイリスト（id が空なら全て）から、
-// 重複のない視聴可能な動画を最大 n 件選ぶ。
-func (s *QueryService) RandomVideos(id library.PlaylistID, n int) ([]*library.PlaylistVideo, error) {
-	ids, err := s.scope(id)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(ids) == 0 {
-		return []*library.PlaylistVideo{}, nil
-	}
-
-	return s.library.RandomVideos(ids, n)
 }

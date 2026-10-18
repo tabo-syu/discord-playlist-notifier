@@ -17,15 +17,6 @@ func NewSubscriptionRepository(db *gorm.DB) *subscriptionRepository {
 	return &subscriptionRepository{db}
 }
 
-// ofGuild はクエリをギルドの通知設定に絞り込む。ギルドが見つからないときは
-// ID が 0 になり、何にも一致しない。
-func (r *subscriptionRepository) ofGuild(guildID guild.DiscordID) *gorm.DB {
-	var g guild.Guild
-	r.db.Where(guild.Guild{DiscordID: guildID}).Find(&g)
-
-	return r.db.Where("guild_id = ?", g.ID)
-}
-
 func (r *subscriptionRepository) Exists(guildID guild.DiscordID, playlistID library.PlaylistID) (bool, error) {
 	var subscriptions []*subscription.Subscription
 
@@ -115,4 +106,13 @@ func (r *subscriptionRepository) DeleteAll(subscriptions []*subscription.Subscri
 	}
 
 	return nil
+}
+
+// ofGuild はクエリをギルドの通知設定に絞り込む。ギルドが見つからないときは
+// ID が 0 になり、何にも一致しない。
+func (r *subscriptionRepository) ofGuild(guildID guild.DiscordID) *gorm.DB {
+	var g guild.Guild
+	r.db.Where(guild.Guild{DiscordID: guildID}).Find(&g)
+
+	return r.db.Where("guild_id = ?", g.ID)
 }

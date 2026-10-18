@@ -14,6 +14,8 @@ import (
 // 集計した中身の整形は view のゴールデンテストで確かめるので、ここでは中身のない
 // プレイリストで、どのプレイリストを表示するかだけを確かめる。
 func TestSummary(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		subscriptions []*subscription.Subscription
@@ -54,6 +56,8 @@ func TestSummary(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			c := newCommand(&fake.SubscriptionRepository{Subscriptions: tt.subscriptions}, &fake.LibraryRepository{}, &fake.YouTube{})
 
 			got := c.Handle(tt.data, "guild", "ch")

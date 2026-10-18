@@ -27,11 +27,6 @@ func added(v *library.Video, addedAt time.Time) *library.PlaylistVideo {
 	}
 }
 
-// viewCount は節目の記録に使うポインタを返す。
-func viewCount(c library.ViewCount) *library.ViewCount {
-	return &c
-}
-
 // syncedAt は同期したアイテムが追加された時刻。
 var syncedAt = time.Date(2026, time.October, 18, 12, 0, 0, 0, time.UTC)
 

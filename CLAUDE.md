@@ -41,6 +41,16 @@ golangci-lint は `Taskfile.yml` の中で `go run ...@v2.15.0` としてバー�
 外しています。`add.go` と `delete.go` の `switch err` は「既知の挙動」なので
 `//nolint:errorlint` を付けて残しています。
 
+ほかに、次のルールを入れています。
+
+- depguard — 「アーキテクチャ」の依存の向きを強制します（domain は他のレイヤを、
+  application は infrastructure と presentation を import しない。`internal/fake` は
+  テストからだけ import する）
+- exhaustive — 値オブジェクトの `switch` の `case` の漏れ。`default` があれば対象外
+- funcorder — コンストラクタは型の直後、公開メソッドの後に非公開メソッドを置く
+- recvcheck — 値とポインタのレシーバを混ぜない（GORM の `TableName` は除く）
+- modernize、prealloc、embeddedstructfieldcheck、unparam（テストは除く）、paralleltest
+
 ## アーキテクチャ
 
 DDD でよく用いられるレイヤードアーキテクチャです。依存は外側から内側への
@@ -399,6 +409,8 @@ YouTube から直接データを取る前に、DB に保存した中身（`libra
 
 ```go
 func TestComputeWrapped(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string                   // 何を確かめるか（日本語の文）
 		contents []*library.PlaylistVideo // 入力。名前は引数と同じにする
@@ -416,6 +428,8 @@ func TestComputeWrapped(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := library.ComputeWrapped(tt.contents, 2026, jst)
 
 			assert.Equal(t, tt.want, got)
@@ -430,6 +444,8 @@ func TestComputeWrapped(t *testing.T) {
   `&library.Stats{...}` など）も同じです。スライスやマップの要素は 1 要素 1 行にします
   （`{Month: ..., Count: 0},` のような表の行として読めるように）。
 - ケースは 1 つのことだけを確かめ、入力は最小限にします。`name` で何を確かめるかを書きます。
+- テスト関数と `t.Run` の中の先頭で `t.Parallel()` を呼びます（paralleltest）。
+  ケース同士で状態を共有しないこと（偽物はケースごとに組み立てる）。
 - ループの中身は「呼ぶ → 空行 → `assert`」だけで、`if` などの分岐は書きません。
   偽物を使うテストは、その前に「テーブルのフィールドから偽物とサービスを組み立てる
   → 空行」を置きます。偽物の状態（保存された値、送った通知、YouTube を呼んだ回数）は

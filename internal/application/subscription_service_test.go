@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"gorm.io/gorm"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
@@ -15,6 +14,8 @@ import (
 )
 
 func TestSubscriptionServiceSubscribe(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name              string
 		subscriptions     []*subscription.Subscription
@@ -34,7 +35,7 @@ func TestSubscriptionServiceSubscribe(t *testing.T) {
 			playlistID: "PL",
 			wantErr:    nil,
 			wantSubscriptions: []*subscription.Subscription{
-				{Model: gorm.Model{ID: 1}, YoutubeID: "PL", SendChannelID: "ch", Title: "タイトル", GuildID: 1},
+				{ID: 1, YoutubeID: "PL", SendChannelID: "ch", Title: "タイトル", GuildID: 1},
 			},
 		},
 		{
@@ -62,6 +63,8 @@ func TestSubscriptionServiceSubscribe(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			guilds := &fake.GuildRepository{Guilds: []*guild.Guild{guildOf(1, "guild")}}
 			subscriptions := &fake.SubscriptionRepository{Guilds: guilds, Subscriptions: tt.subscriptions}
 			s := application.NewSubscriptionService(&fake.YouTube{Playlists: tt.playlists}, subscriptions, guilds)
@@ -75,6 +78,8 @@ func TestSubscriptionServiceSubscribe(t *testing.T) {
 }
 
 func TestSubscriptionServiceUnsubscribe(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name              string
 		subscriptions     []*subscription.Subscription
@@ -108,6 +113,8 @@ func TestSubscriptionServiceUnsubscribe(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			guilds := &fake.GuildRepository{Guilds: []*guild.Guild{guildOf(1, "guild")}}
 			subscriptions := &fake.SubscriptionRepository{Guilds: guilds, Subscriptions: tt.subscriptions}
 			s := application.NewSubscriptionService(&fake.YouTube{}, subscriptions, guilds)
@@ -121,6 +128,8 @@ func TestSubscriptionServiceUnsubscribe(t *testing.T) {
 }
 
 func TestSubscriptionServiceSetPickInterval(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name              string
 		subscriptions     []*subscription.Subscription
@@ -138,10 +147,10 @@ func TestSubscriptionServiceSetPickInterval(t *testing.T) {
 			interval:   subscription.PickWeekly,
 			wantErr:    nil,
 			wantSubscriptions: []*subscription.Subscription{
-				{Model: gorm.Model{
+				{
 					ID:        1,
-					UpdatedAt: lastNotified,
-				}, YoutubeID: "PL", SendChannelID: "ch", Title: "PL", PickInterval: subscription.PickWeekly, GuildID: 1},
+					UpdatedAt: lastNotified, YoutubeID: "PL", SendChannelID: "ch", Title: "PL", PickInterval: subscription.PickWeekly, GuildID: 1,
+				},
 			},
 		},
 		{
@@ -159,6 +168,8 @@ func TestSubscriptionServiceSetPickInterval(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			guilds := &fake.GuildRepository{Guilds: []*guild.Guild{guildOf(1, "guild")}}
 			subscriptions := &fake.SubscriptionRepository{Guilds: guilds, Subscriptions: tt.subscriptions}
 			s := application.NewSubscriptionService(&fake.YouTube{}, subscriptions, guilds)

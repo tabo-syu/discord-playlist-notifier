@@ -14,6 +14,8 @@ import (
 // まとめの本文の整形は view のゴールデンテストで確かめるので、ここでは曲のないまとめで
 // Embed の形だけを確かめる。
 func TestPostWrapped(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		wrapped *library.Wrapped
@@ -39,6 +41,8 @@ func TestPostWrapped(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			discord := &fake.Discord{}
 			n := notifier.New(discord, jst)
 

@@ -5,7 +5,6 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
-	"gorm.io/gorm"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/fake"
@@ -13,6 +12,8 @@ import (
 )
 
 func TestAdd(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name              string
 		subscriptions     []*subscription.Subscription
@@ -31,7 +32,7 @@ func TestAdd(t *testing.T) {
 			data: subcommand("add", stringOption("playlist-id", "PL")),
 			want: command.Text("通知登録しました！\nhttps://www.youtube.com/playlist?list=PL"),
 			wantSubscriptions: []*subscription.Subscription{
-				{Model: gorm.Model{ID: 1}, YoutubeID: "PL", SendChannelID: "ch", Title: "タイトル", GuildID: 1},
+				{ID: 1, YoutubeID: "PL", SendChannelID: "ch", Title: "タイトル", GuildID: 1},
 			},
 		},
 		{
@@ -79,6 +80,8 @@ func TestAdd(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			subscriptions := &fake.SubscriptionRepository{Subscriptions: tt.subscriptions}
 			c := newCommand(subscriptions, &fake.LibraryRepository{}, tt.youtube)
 

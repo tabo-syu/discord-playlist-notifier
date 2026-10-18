@@ -14,6 +14,8 @@ import (
 )
 
 func TestQueryServicePlaylists(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		subscriptions []*subscription.Subscription
@@ -39,6 +41,8 @@ func TestQueryServicePlaylists(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			s := application.NewQueryService(&fake.SubscriptionRepository{Subscriptions: tt.subscriptions}, application.NewLibraryService(&fake.YouTube{}, &fake.LibraryRepository{}, jst, clock), &fake.LibraryRepository{})
 
 			got, err := s.Playlists()
@@ -50,6 +54,8 @@ func TestQueryServicePlaylists(t *testing.T) {
 }
 
 func TestQueryServiceFindVideos(t *testing.T) {
+	t.Parallel()
+
 	// 通知登録されているのは PL1 と PL2 だけで、UNWATCHED はどこも登録していない
 	subscriptions := []*subscription.Subscription{
 		sub(1, "PL1", "ch", "PL1", lastNotified),
@@ -306,6 +312,8 @@ func TestQueryServiceFindVideos(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			lib := newLibrary()
 			s := application.NewQueryService(&fake.SubscriptionRepository{Subscriptions: subscriptions}, application.NewLibraryService(&fake.YouTube{}, lib, jst, clock), lib)
 
@@ -318,6 +326,8 @@ func TestQueryServiceFindVideos(t *testing.T) {
 }
 
 func TestQueryServiceFindVideosWithoutSubscriptions(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		query application.VideoQuery
@@ -334,6 +344,8 @@ func TestQueryServiceFindVideosWithoutSubscriptions(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			lib := &fake.LibraryRepository{}
 			s := application.NewQueryService(&fake.SubscriptionRepository{}, application.NewLibraryService(&fake.YouTube{}, lib, jst, clock), lib)
 
@@ -346,6 +358,8 @@ func TestQueryServiceFindVideosWithoutSubscriptions(t *testing.T) {
 }
 
 func TestQueryServiceWrapped(t *testing.T) {
+	t.Parallel()
+
 	subscriptions := []*subscription.Subscription{
 		sub(1, "PL", "ch", "PL", lastNotified),
 	}
@@ -398,6 +412,8 @@ func TestQueryServiceWrapped(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			lib := &fake.LibraryRepository{Items: tt.storedItems, Videos: []*library.Video{a}}
 			s := application.NewQueryService(&fake.SubscriptionRepository{Subscriptions: subscriptions}, application.NewLibraryService(&fake.YouTube{}, lib, jst, clock), lib)
 
@@ -410,6 +426,8 @@ func TestQueryServiceWrapped(t *testing.T) {
 }
 
 func TestQueryServiceStats(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		playlistID library.PlaylistID
@@ -428,6 +446,8 @@ func TestQueryServiceStats(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			lib := &fake.LibraryRepository{}
 			subscriptions := &fake.SubscriptionRepository{Subscriptions: []*subscription.Subscription{sub(1, "PL", "ch", "PL", lastNotified)}}
 			s := application.NewQueryService(subscriptions, application.NewLibraryService(&fake.YouTube{}, lib, jst, clock), lib)
@@ -440,6 +460,8 @@ func TestQueryServiceStats(t *testing.T) {
 }
 
 func TestQueryServiceRandomVideos(t *testing.T) {
+	t.Parallel()
+
 	subscriptions := []*subscription.Subscription{
 		sub(1, "PL", "ch", "PL", lastNotified),
 	}
@@ -469,6 +491,8 @@ func TestQueryServiceRandomVideos(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			lib := &fake.LibraryRepository{Items: []*library.PlaylistItem{a.Item, b.Item}, Videos: []*library.Video{a.Video, b.Video}}
 			s := application.NewQueryService(&fake.SubscriptionRepository{Subscriptions: subscriptions}, application.NewLibraryService(&fake.YouTube{}, lib, jst, clock), lib)
 
@@ -481,6 +505,8 @@ func TestQueryServiceRandomVideos(t *testing.T) {
 }
 
 func TestQueryServiceHistory(t *testing.T) {
+	t.Parallel()
+
 	subscriptions := []*subscription.Subscription{
 		sub(1, "PL", "ch", "PL", lastNotified),
 	}
@@ -517,6 +543,8 @@ func TestQueryServiceHistory(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			lib := &fake.LibraryRepository{
 				Items:     tt.storedItems,
 				Videos:    []*library.Video{video("a", library.PrivacyPublic, 0, 0)},

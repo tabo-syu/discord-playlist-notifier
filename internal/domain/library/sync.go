@@ -1,6 +1,10 @@
 package library
 
-import "time"
+import (
+	"maps"
+	"slices"
+	"time"
+)
 
 // PlaylistMeta はプレイリストのアイテムを取得し直す必要があるかの判断に使う、
 // プレイリスト単位の情報。
@@ -105,10 +109,5 @@ func (s *Sync) ApplyDetails(details []*Video) {
 
 // ChangedVideos は保存が必要な動画を返す。
 func (s *Sync) ChangedVideos() []*Video {
-	var videos []*Video
-	for _, v := range s.changed {
-		videos = append(videos, v)
-	}
-
-	return videos
+	return slices.Collect(maps.Values(s.changed))
 }

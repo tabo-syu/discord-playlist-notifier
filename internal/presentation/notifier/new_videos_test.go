@@ -14,6 +14,8 @@ import (
 )
 
 func TestNotifyNewVideos(t *testing.T) {
+	t.Parallel()
+
 	published := &library.Video{YoutubeID: "a", Title: "a", PrivacyStatus: library.PrivacyPublic, Views: 1000, PublishedAt: time.Date(2019, time.December, 15, 0, 0, 0, 0, time.UTC)}
 
 	tests := []struct {
@@ -119,6 +121,8 @@ func TestNotifyNewVideos(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			discord := &fake.Discord{FailTitles: tt.failTitles}
 			n := notifier.New(discord, jst)
 

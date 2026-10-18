@@ -14,6 +14,8 @@ import (
 )
 
 func TestNotificationServiceNotifyUpdates(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name              string
 		subscriptions     []*subscription.Subscription
@@ -170,6 +172,8 @@ func TestNotificationServiceNotifyUpdates(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			subscriptions := &fake.SubscriptionRepository{Subscriptions: tt.subscriptions, UpdateFails: tt.updateFails, SavedAt: now}
 			lib := &fake.LibraryRepository{Items: tt.storedItems, Videos: tt.storedVideos}
 			yt := &fake.YouTube{Playlists: tt.playlists}
@@ -186,6 +190,8 @@ func TestNotificationServiceNotifyUpdates(t *testing.T) {
 }
 
 func TestNotificationServiceRefreshVideos(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name           string
 		subscriptions  []*subscription.Subscription
@@ -231,6 +237,8 @@ func TestNotificationServiceRefreshVideos(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			subscriptions := &fake.SubscriptionRepository{Subscriptions: tt.subscriptions, SavedAt: now}
 			lib := &fake.LibraryRepository{Items: tt.storedItems, Videos: tt.storedVideos}
 			yt := &fake.YouTube{Views: tt.views}
@@ -245,6 +253,8 @@ func TestNotificationServiceRefreshVideos(t *testing.T) {
 }
 
 func TestNotificationServicePostPicks(t *testing.T) {
+	t.Parallel()
+
 	// 選ぶ順はランダムなので、各プレイリストの候補は 1 曲だけにする
 	tests := []struct {
 		name          string
@@ -413,6 +423,8 @@ func TestNotificationServicePostPicks(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			clock := func() time.Time { return tt.now }
 			lib := &fake.LibraryRepository{Items: tt.storedItems, Videos: tt.storedVideos}
 			n := &fake.Notifier{}
@@ -426,6 +438,8 @@ func TestNotificationServicePostPicks(t *testing.T) {
 }
 
 func TestNotificationServicePostWrapped(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		now           time.Time
@@ -510,6 +524,8 @@ func TestNotificationServicePostWrapped(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			clock := func() time.Time { return tt.now }
 			lib := &fake.LibraryRepository{Items: tt.storedItems, Videos: tt.storedVideos}
 			n := &fake.Notifier{}

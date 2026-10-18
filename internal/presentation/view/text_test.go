@@ -46,6 +46,8 @@ var (
 )
 
 func TestText(t *testing.T) {
+	t.Parallel()
+
 	tests := map[string]string{
 		"summary_empty": Summary("お気に入り", &library.Stats{}, jst),
 		"summary_no_ranking": Summary("お気に入り", &library.Stats{
@@ -102,6 +104,8 @@ func TestText(t *testing.T) {
 
 	for name, got := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			path := filepath.Join("testdata", name+".golden")
 			if *update {
 				require.NoError(t, os.WriteFile(path, []byte(got), 0o644))

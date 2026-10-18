@@ -28,16 +28,6 @@ type Playlist struct {
 	Items []*library.FetchedItem
 }
 
-func (y *YouTube) find(id library.PlaylistID) *Playlist {
-	for _, p := range y.Playlists {
-		if p.ID == id {
-			return p
-		}
-	}
-
-	return nil
-}
-
 func (y *YouTube) FindPlaylist(id library.PlaylistID) (*library.PlaylistMeta, error) {
 	if y.FindFails {
 		return nil, Err
@@ -81,7 +71,7 @@ func (y *YouTube) FetchPlaylistItems(id library.PlaylistID) ([]*library.FetchedI
 func (y *YouTube) FetchVideos(ids []library.VideoID) ([]*library.Video, []*library.Channel, error) {
 	y.VideoRequests = append(y.VideoRequests, ids)
 
-	var videos []*library.Video
+	videos := make([]*library.Video, 0, len(ids))
 	for _, id := range ids {
 		videos = append(videos, &library.Video{YoutubeID: id, Title: string(id), Views: y.Views[id]})
 	}
@@ -95,4 +85,14 @@ func (y *YouTube) FetchCategories() ([]*library.Category, error) {
 
 func (y *YouTube) FetchLiveVideos([]library.VideoID) (map[library.VideoID]*library.LiveVideo, error) {
 	return map[library.VideoID]*library.LiveVideo{}, nil
+}
+
+func (y *YouTube) find(id library.PlaylistID) *Playlist {
+	for _, p := range y.Playlists {
+		if p.ID == id {
+			return p
+		}
+	}
+
+	return nil
 }

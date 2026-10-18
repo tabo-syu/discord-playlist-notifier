@@ -14,6 +14,8 @@ import (
 
 // グラフの画像は比べられないので、グラフを添付しない場合だけを確かめる。
 func TestHistory(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name           string
 		subscriptions  []*subscription.Subscription
@@ -80,6 +82,8 @@ func TestHistory(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			lib := &fake.LibraryRepository{Items: tt.storedItems, Videos: tt.storedVideos, Snapshots: tt.storedSnapshot}
 			c := newCommand(&fake.SubscriptionRepository{Subscriptions: tt.subscriptions}, lib, &fake.YouTube{})
 

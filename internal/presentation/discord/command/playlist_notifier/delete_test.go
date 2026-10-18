@@ -12,6 +12,8 @@ import (
 )
 
 func TestDelete(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name              string
 		subscriptions     []*subscription.Subscription
@@ -56,6 +58,8 @@ func TestDelete(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			subscriptions := &fake.SubscriptionRepository{Subscriptions: tt.subscriptions}
 			c := newCommand(subscriptions, &fake.LibraryRepository{}, &fake.YouTube{})
 

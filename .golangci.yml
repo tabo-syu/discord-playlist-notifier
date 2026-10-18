@@ -4,18 +4,62 @@ linters:
   default: standard
   enable:
     - copyloopvar
+    - depguard
+    - embeddedstructfieldcheck
     - errorlint
+    - exhaustive
+    - funcorder
     - gocritic
     - intrange
     - misspell
+    - modernize
     - nlreturn
     - nolintlint
+    - paralleltest
+    - prealloc
+    - recvcheck
     - testifylint
     - thelper
     - unconvert
+    - unparam
     - usestdlibvars
     - wsl_v5
   settings:
+    depguard:
+      rules:
+        # 依存は外側から内側への一方向（CLAUDE.md の「アーキテクチャ」）
+        domain:
+          files:
+            - "**/internal/domain/**"
+          deny:
+            - pkg: github.com/tabo-syu/discord-playlist-notifier/internal/application
+              desc: domain は他のレイヤを import しない
+            - pkg: github.com/tabo-syu/discord-playlist-notifier/internal/infrastructure
+              desc: domain は他のレイヤを import しない
+            - pkg: github.com/tabo-syu/discord-playlist-notifier/internal/presentation
+              desc: domain は他のレイヤを import しない
+        application:
+          files:
+            - "**/internal/application/**"
+          deny:
+            - pkg: github.com/tabo-syu/discord-playlist-notifier/internal/infrastructure
+              desc: application は infrastructure を import しない
+            - pkg: github.com/tabo-syu/discord-playlist-notifier/internal/presentation
+              desc: application は presentation を import しない
+        fake:
+          files:
+            - "!$test"
+            - "!**/internal/fake/**"
+          deny:
+            - pkg: github.com/tabo-syu/discord-playlist-notifier/internal/fake
+              desc: fake はテストからだけ使う
+    exhaustive:
+      # default があれば残りの値はまとめて扱っているとみなす
+      default-signifies-exhaustive: true
+    recvcheck:
+      exclusions:
+        # GORM のテーブル名は値のレシーバで定義する
+        - "*.TableName"
     testifylint:
       disable:
         # テストの書き方ではエラーを assert.ErrorIs で比べる
@@ -23,6 +67,11 @@ linters:
   exclusions:
     presets:
       - std-error-handling
+    rules:
+      # テストデータを作る関数は、読みやすさのために同じ値で呼ぶことが多い
+      - path: _test\.go
+        linters:
+          - unparam
 
 formatters:
   enable:

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"gorm.io/gorm"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
@@ -40,7 +39,7 @@ func hoursAgo(hours int) time.Time {
 
 // newCommand は、ギルド「guild」（ID 1）だけがある状態のコマンドを、偽物のリポジトリと YouTube で組み立てる。
 func newCommand(subscriptions *fake.SubscriptionRepository, lib *fake.LibraryRepository, yt *fake.YouTube) *playlist_notifier.PlaylistNotifier {
-	guilds := &fake.GuildRepository{Guilds: []*guild.Guild{{Model: gorm.Model{ID: 1}, DiscordID: "guild"}}}
+	guilds := &fake.GuildRepository{Guilds: []*guild.Guild{{ID: 1, DiscordID: "guild"}}}
 	subscriptions.Guilds = guilds
 
 	return playlist_notifier.NewPlaylistNotifier(
@@ -74,7 +73,7 @@ func intOption(name string, value int) *discordgo.ApplicationCommandInteractionD
 // sub はギルド 1 の通知設定を返す。
 func sub(id uint, playlistID library.PlaylistID, title string) *subscription.Subscription {
 	return &subscription.Subscription{
-		Model:         gorm.Model{ID: id, UpdatedAt: hoursAgo(6)},
+		ID: id, UpdatedAt: hoursAgo(6),
 		YoutubeID:     playlistID,
 		SendChannelID: "ch",
 		Title:         title,
@@ -95,7 +94,7 @@ func video(id library.VideoID) *library.Video {
 // picking は sub(1, "PL", "PL") のピックの間隔を interval にしたものを返す。
 func picking(interval subscription.PickInterval) *subscription.Subscription {
 	return &subscription.Subscription{
-		Model:         gorm.Model{ID: 1, UpdatedAt: hoursAgo(6)},
+		ID: 1, UpdatedAt: hoursAgo(6),
 		YoutubeID:     "PL",
 		SendChannelID: "ch",
 		Title:         "PL",

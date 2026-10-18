@@ -13,6 +13,8 @@ import (
 )
 
 func TestLibraryServiceSync(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name              string
 		storedItems       []*library.PlaylistItem
@@ -163,6 +165,8 @@ func TestLibraryServiceSync(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			lib := &fake.LibraryRepository{Items: tt.storedItems, Videos: tt.storedVideos}
 			yt := &fake.YouTube{Playlists: tt.playlists, ItemFails: tt.itemFails}
 			s := application.NewLibraryService(yt, lib, jst, clock)
@@ -180,6 +184,8 @@ func TestLibraryServiceSync(t *testing.T) {
 // クォータを節約するため、前回の同期からアイテム数が変わっておらず、
 // FULL_SYNC_INTERVAL が経っていなければアイテムを取得し直さない。
 func TestLibraryServiceSyncSkipsFetching(t *testing.T) {
+	t.Parallel()
+
 	synced := []*library.FetchedItem{
 		fetched("1", "a", hoursAgo(1), library.PrivacyPublic),
 	}
@@ -214,6 +220,8 @@ func TestLibraryServiceSyncSkipsFetching(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			current := now
 			playlist := &fake.Playlist{ID: "PL", Title: "タイトル", Items: synced}
 			yt := &fake.YouTube{Playlists: []*fake.Playlist{playlist}}
@@ -233,6 +241,8 @@ func TestLibraryServiceSyncSkipsFetching(t *testing.T) {
 }
 
 func TestLibraryServiceRefreshVideos(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name              string
 		storedItems       []*library.PlaylistItem
@@ -319,6 +329,8 @@ func TestLibraryServiceRefreshVideos(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			lib := &fake.LibraryRepository{Items: tt.storedItems, Videos: tt.storedVideos}
 			yt := &fake.YouTube{Views: tt.views}
 			s := application.NewLibraryService(yt, lib, jst, clock)
@@ -335,6 +347,8 @@ func TestLibraryServiceRefreshVideos(t *testing.T) {
 }
 
 func TestLibraryServiceContents(t *testing.T) {
+	t.Parallel()
+
 	a := video("a", library.PrivacyPublic, 0, 0)
 	b := video("b", library.PrivacyPrivate, 0, 0)
 
@@ -379,6 +393,8 @@ func TestLibraryServiceContents(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			lib := &fake.LibraryRepository{Items: tt.storedItems, Videos: tt.storedVideos}
 			s := application.NewLibraryService(&fake.YouTube{}, lib, jst, clock)
 
@@ -391,6 +407,8 @@ func TestLibraryServiceContents(t *testing.T) {
 }
 
 func TestLibraryServicePlaylistsContaining(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		storedItems []*library.PlaylistItem
@@ -419,6 +437,8 @@ func TestLibraryServicePlaylistsContaining(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			s := application.NewLibraryService(&fake.YouTube{}, &fake.LibraryRepository{Items: tt.storedItems}, jst, clock)
 
 			got, err := s.PlaylistsContaining(tt.videoIDs)
@@ -430,6 +450,8 @@ func TestLibraryServicePlaylistsContaining(t *testing.T) {
 }
 
 func TestLibraryServiceHistory(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name            string
 		storedItems     []*library.PlaylistItem
@@ -489,6 +511,8 @@ func TestLibraryServiceHistory(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			lib := &fake.LibraryRepository{Items: tt.storedItems, Videos: tt.storedVideos, Snapshots: tt.storedSnapshots}
 			s := application.NewLibraryService(&fake.YouTube{}, lib, jst, clock)
 
@@ -501,6 +525,8 @@ func TestLibraryServiceHistory(t *testing.T) {
 }
 
 func TestLibraryServiceTrending(t *testing.T) {
+	t.Parallel()
+
 	a := video("a", library.PrivacyPublic, 0, 0)
 	b := video("b", library.PrivacyPublic, 0, 0)
 
@@ -563,6 +589,8 @@ func TestLibraryServiceTrending(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			lib := &fake.LibraryRepository{Items: tt.storedItems, Videos: []*library.Video{a, b}, Snapshots: tt.storedSnapshots}
 			s := application.NewLibraryService(&fake.YouTube{}, lib, jst, clock)
 

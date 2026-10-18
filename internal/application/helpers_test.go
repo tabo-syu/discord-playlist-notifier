@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"gorm.io/gorm"
-
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
@@ -39,13 +37,13 @@ var lastNotified = hoursAgo(6)
 
 // guildOf は ID が id のギルドを返す。
 func guildOf(id uint, discordID guild.DiscordID) *guild.Guild {
-	return &guild.Guild{Model: gorm.Model{ID: id}, DiscordID: discordID}
+	return &guild.Guild{ID: id, DiscordID: discordID}
 }
 
 // sub はギルド 1 の通知設定を返す。notifiedAt は新着動画の通知の基準時刻。
 func sub(id uint, playlistID library.PlaylistID, channelID subscription.ChannelID, title string, notifiedAt time.Time) *subscription.Subscription {
 	return &subscription.Subscription{
-		Model:         gorm.Model{ID: id, UpdatedAt: notifiedAt},
+		ID: id, UpdatedAt: notifiedAt,
 		YoutubeID:     playlistID,
 		SendChannelID: channelID,
 		Title:         title,

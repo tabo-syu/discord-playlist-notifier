@@ -13,6 +13,8 @@ import (
 )
 
 func TestRandom(t *testing.T) {
+	t.Parallel()
+
 	// 選ぶ順はランダムなので、候補が 1 曲だけの中身を使う
 	tests := []struct {
 		name          string
@@ -62,6 +64,8 @@ func TestRandom(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			lib := &fake.LibraryRepository{Items: tt.storedItems, Videos: tt.storedVideos}
 			c := newCommand(&fake.SubscriptionRepository{Subscriptions: tt.subscriptions}, lib, &fake.YouTube{})
 

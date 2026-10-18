@@ -114,6 +114,14 @@ func (r *SubscriptionRepository) FindByGuild(guildID guild.DiscordID) ([]*subscr
 	return r.find(func(s *subscription.Subscription) bool { return s.GuildID == g.ID })
 }
 
+func (r *SubscriptionRepository) DeleteAll(subscriptions []*subscription.Subscription) error {
+	for _, s := range subscriptions {
+		r.Subscriptions = slices.DeleteFunc(r.Subscriptions, func(stored *subscription.Subscription) bool { return stored.ID == s.ID })
+	}
+
+	return nil
+}
+
 func (r *SubscriptionRepository) find(match func(*subscription.Subscription) bool) ([]*subscription.Subscription, error) {
 	var found []*subscription.Subscription
 
@@ -128,14 +136,6 @@ func (r *SubscriptionRepository) find(match func(*subscription.Subscription) boo
 	}
 
 	return found, nil
-}
-
-func (r *SubscriptionRepository) DeleteAll(subscriptions []*subscription.Subscription) error {
-	for _, s := range subscriptions {
-		r.Subscriptions = slices.DeleteFunc(r.Subscriptions, func(stored *subscription.Subscription) bool { return stored.ID == s.ID })
-	}
-
-	return nil
 }
 
 // LibraryRepository は library.Repository の偽物。
@@ -176,7 +176,7 @@ func (r *LibraryRepository) FindVideos(ids []library.VideoID) (map[library.Video
 func (r *LibraryRepository) FindVideosInPlaylists(playlistIDs ...library.PlaylistID) (map[library.VideoID]*library.Video, error) {
 	items, _ := r.FindItems(playlistIDs...)
 
-	var ids []library.VideoID
+	ids := make([]library.VideoID, 0, len(items))
 	for _, item := range items {
 		ids = append(ids, item.VideoYoutubeID)
 	}
@@ -185,7 +185,7 @@ func (r *LibraryRepository) FindVideosInPlaylists(playlistIDs ...library.Playlis
 }
 
 func (r *LibraryRepository) FindListedVideos() (map[library.VideoID]*library.Video, error) {
-	var ids []library.VideoID
+	ids := make([]library.VideoID, 0, len(r.Items))
 	for _, item := range r.Items {
 		ids = append(ids, item.VideoYoutubeID)
 	}

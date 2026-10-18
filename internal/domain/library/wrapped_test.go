@@ -10,6 +10,8 @@ import (
 )
 
 func TestComputeWrapped(t *testing.T) {
+	t.Parallel()
+
 	// contents は Contents が返すとおり、追加された順に並べる
 	tests := []struct {
 		name     string
@@ -127,6 +129,8 @@ func TestComputeWrapped(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := library.ComputeWrapped(tt.contents, 2026, jst)
 
 			assert.Equal(t, tt.want, got)

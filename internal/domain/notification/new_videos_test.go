@@ -11,6 +11,8 @@ import (
 )
 
 func TestFindNewVideos(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		subscriptions []*subscription.Subscription
@@ -100,6 +102,8 @@ func TestFindNewVideos(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := notification.FindNewVideos(tt.subscriptions, tt.snapshots)
 
 			assert.Equal(t, tt.want, got)

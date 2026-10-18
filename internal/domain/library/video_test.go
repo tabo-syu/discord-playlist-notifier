@@ -9,6 +9,8 @@ import (
 )
 
 func TestVideoAvailable(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		video *library.Video
@@ -45,6 +47,8 @@ func TestVideoAvailable(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := tt.video.Available()
 
 			assert.Equal(t, tt.want, got)
@@ -53,6 +57,8 @@ func TestVideoAvailable(t *testing.T) {
 }
 
 func TestVideoChangePrivacy(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		video       *library.Video
@@ -115,6 +121,8 @@ func TestVideoChangePrivacy(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			changed, hidden := tt.video.ChangePrivacy(tt.status)
 
 			assert.Equal(t, tt.want, tt.video)
@@ -125,6 +133,8 @@ func TestVideoChangePrivacy(t *testing.T) {
 }
 
 func TestVideoApplyDetails(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		video   *library.Video
@@ -163,6 +173,8 @@ func TestVideoApplyDetails(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			tt.video.ApplyDetails(tt.details)
 
 			assert.Equal(t, tt.want, tt.video)
@@ -171,6 +183,8 @@ func TestVideoApplyDetails(t *testing.T) {
 }
 
 func TestVideoInitMilestone(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		video *library.Video
@@ -181,23 +195,25 @@ func TestVideoInitMilestone(t *testing.T) {
 			video: &library.Video{Views: 2_500_000},
 			want: &library.Video{
 				Views:         2_500_000,
-				ViewMilestone: viewCount(1_000_000),
+				ViewMilestone: new(library.ViewCount(1_000_000)),
 			},
 		},
 		{
 			name: "記録済みの節目は変えない",
 			video: &library.Video{
 				Views:         2_500_000,
-				ViewMilestone: viewCount(100_000),
+				ViewMilestone: new(library.ViewCount(100_000)),
 			},
 			want: &library.Video{
 				Views:         2_500_000,
-				ViewMilestone: viewCount(100_000),
+				ViewMilestone: new(library.ViewCount(100_000)),
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			tt.video.InitMilestone()
 
 			assert.Equal(t, tt.want, tt.video)
@@ -206,6 +222,8 @@ func TestVideoInitMilestone(t *testing.T) {
 }
 
 func TestVideoUpdateMilestone(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		video       *library.Video
@@ -217,7 +235,7 @@ func TestVideoUpdateMilestone(t *testing.T) {
 			video: &library.Video{Views: 2_500_000},
 			want: &library.Video{
 				Views:         2_500_000,
-				ViewMilestone: viewCount(1_000_000),
+				ViewMilestone: new(library.ViewCount(1_000_000)),
 			},
 			wantReached: false,
 		},
@@ -225,11 +243,11 @@ func TestVideoUpdateMilestone(t *testing.T) {
 			name: "新しい節目に達した",
 			video: &library.Video{
 				Views:         1_000_000,
-				ViewMilestone: viewCount(100_000),
+				ViewMilestone: new(library.ViewCount(100_000)),
 			},
 			want: &library.Video{
 				Views:         1_000_000,
-				ViewMilestone: viewCount(1_000_000),
+				ViewMilestone: new(library.ViewCount(1_000_000)),
 			},
 			wantReached: true,
 		},
@@ -237,11 +255,11 @@ func TestVideoUpdateMilestone(t *testing.T) {
 			name: "同じ節目のまま",
 			video: &library.Video{
 				Views:         9_999_999,
-				ViewMilestone: viewCount(1_000_000),
+				ViewMilestone: new(library.ViewCount(1_000_000)),
 			},
 			want: &library.Video{
 				Views:         9_999_999,
-				ViewMilestone: viewCount(1_000_000),
+				ViewMilestone: new(library.ViewCount(1_000_000)),
 			},
 			wantReached: false,
 		},
@@ -249,17 +267,19 @@ func TestVideoUpdateMilestone(t *testing.T) {
 			name: "再生数が減っても節目は下げない",
 			video: &library.Video{
 				Views:         999_999,
-				ViewMilestone: viewCount(1_000_000),
+				ViewMilestone: new(library.ViewCount(1_000_000)),
 			},
 			want: &library.Video{
 				Views:         999_999,
-				ViewMilestone: viewCount(1_000_000),
+				ViewMilestone: new(library.ViewCount(1_000_000)),
 			},
 			wantReached: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			reached := tt.video.UpdateMilestone()
 
 			assert.Equal(t, tt.want, tt.video)
