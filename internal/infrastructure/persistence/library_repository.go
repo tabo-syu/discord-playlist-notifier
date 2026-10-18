@@ -19,6 +19,7 @@ func NewLibraryRepository(db *gorm.DB) *libraryRepository {
 
 func (r *libraryRepository) FindItems(playlistIDs ...library.PlaylistID) ([]*library.PlaylistItem, error) {
 	var items []*library.PlaylistItem
+
 	err := r.db.Where("playlist_youtube_id IN ?", playlistIDs).Order("added_at").Find(&items).Error
 	if err != nil {
 		return nil, err
@@ -37,6 +38,7 @@ func (r *libraryRepository) FindVideos(ids []library.VideoID) (map[library.Video
 	if err := r.db.Where("youtube_id IN ?", ids).Find(&rows).Error; err != nil {
 		return nil, err
 	}
+
 	for _, v := range rows {
 		videos[v.YoutubeID] = v
 	}
@@ -49,6 +51,7 @@ func (r *libraryRepository) FindItemsByVideos(ids []library.VideoID) ([]*library
 	if len(ids) == 0 {
 		return items, nil
 	}
+
 	if err := r.db.Where("video_youtube_id IN ?", ids).Find(&items).Error; err != nil {
 		return nil, err
 	}
@@ -69,20 +72,6 @@ func (r *libraryRepository) FindListedVideos() (map[library.VideoID]*library.Vid
 	return r.findVideosIn(listed)
 }
 
-func (r *libraryRepository) findVideosIn(ids *gorm.DB) (map[library.VideoID]*library.Video, error) {
-	var rows []*library.Video
-	if err := r.db.Where("youtube_id IN (?)", ids).Find(&rows).Error; err != nil {
-		return nil, err
-	}
-
-	videos := map[library.VideoID]*library.Video{}
-	for _, v := range rows {
-		videos[v.YoutubeID] = v
-	}
-
-	return videos, nil
-}
-
 func (r *libraryRepository) ApplyItems(playlistID library.PlaylistID, added []*library.PlaylistItem, removed []*library.PlaylistItem, videos []*library.Video) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		if len(removed) > 0 {
@@ -90,6 +79,7 @@ func (r *libraryRepository) ApplyItems(playlistID library.PlaylistID, added []*l
 				return err
 			}
 		}
+
 		if len(added) > 0 {
 			if err := tx.CreateInBatches(added, 500).Error; err != nil {
 				return err
@@ -114,6 +104,7 @@ func (r *libraryRepository) AddSnapshots(snapshots []*library.VideoSnapshot) err
 
 func (r *libraryRepository) FindSnapshots(id library.VideoID, since time.Time) ([]*library.VideoSnapshot, error) {
 	var snapshots []*library.VideoSnapshot
+
 	err := r.db.Where("video_youtube_id = ? AND recorded_at >= ?", id, since).Order("recorded_at").Find(&snapshots).Error
 	if err != nil {
 		return nil, err
@@ -128,29 +119,6 @@ func (r *libraryRepository) FindEarliestSnapshots(ids []library.VideoID, since t
 
 func (r *libraryRepository) FindLatestSnapshots(ids []library.VideoID, since time.Time) (map[library.VideoID]*library.VideoSnapshot, error) {
 	return r.findBoundarySnapshots(ids, since, "recorded_at DESC")
-}
-
-// findBoundarySnapshots は各動画の、指定した順で最初の状態を返す。
-// (video, recorded_at) のインデックスに対して DISTINCT ON（PostgreSQL）を使う。
-func (r *libraryRepository) findBoundarySnapshots(ids []library.VideoID, since time.Time, order string) (map[library.VideoID]*library.VideoSnapshot, error) {
-	snapshots := map[library.VideoID]*library.VideoSnapshot{}
-	if len(ids) == 0 {
-		return snapshots, nil
-	}
-
-	var rows []*library.VideoSnapshot
-	err := r.db.Select("DISTINCT ON (video_youtube_id) *").
-		Where("video_youtube_id IN ? AND recorded_at >= ?", ids, since).
-		Order("video_youtube_id, " + order).
-		Find(&rows).Error
-	if err != nil {
-		return nil, err
-	}
-	for _, s := range rows {
-		snapshots[s.VideoYoutubeID] = s
-	}
-
-	return snapshots, nil
 }
 
 func (r *libraryRepository) SaveChannels(channels []*library.Channel) error {
@@ -174,6 +142,7 @@ func (r *libraryRepository) FindChannels(ids []library.ChannelID) (map[library.C
 	if err := r.db.Where("youtube_id IN ?", ids).Find(&rows).Error; err != nil {
 		return nil, err
 	}
+
 	for _, c := range rows {
 		channels[c.YoutubeID] = c
 	}
@@ -204,6 +173,45 @@ func (r *libraryRepository) FindCategories() (map[library.CategoryID]*library.Ca
 	}
 
 	return categories, nil
+}
+
+func (r *libraryRepository) findVideosIn(ids *gorm.DB) (map[library.VideoID]*library.Video, error) {
+	var rows []*library.Video
+	if err := r.db.Where("youtube_id IN (?)", ids).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+
+	videos := map[library.VideoID]*library.Video{}
+	for _, v := range rows {
+		videos[v.YoutubeID] = v
+	}
+
+	return videos, nil
+}
+
+// findBoundarySnapshots は各動画の、指定した順で最初の状態を返す。
+// (video, recorded_at) のインデックスに対して DISTINCT ON（PostgreSQL）を使う。
+func (r *libraryRepository) findBoundarySnapshots(ids []library.VideoID, since time.Time, order string) (map[library.VideoID]*library.VideoSnapshot, error) {
+	snapshots := map[library.VideoID]*library.VideoSnapshot{}
+	if len(ids) == 0 {
+		return snapshots, nil
+	}
+
+	var rows []*library.VideoSnapshot
+
+	err := r.db.Select("DISTINCT ON (video_youtube_id) *").
+		Where("video_youtube_id IN ? AND recorded_at >= ?", ids, since).
+		Order("video_youtube_id, " + order).
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	for _, s := range rows {
+		snapshots[s.VideoYoutubeID] = s
+	}
+
+	return snapshots, nil
 }
 
 // 呼び出し側は完全な行（既存の値に新しい値をマージしたもの）を渡すので、

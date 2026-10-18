@@ -9,6 +9,8 @@ import (
 )
 
 func TestComputeTrending(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		videos   map[library.VideoID]*library.Video
@@ -140,6 +142,8 @@ func TestComputeTrending(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := library.ComputeTrending(tt.videos, tt.earliest, tt.latest, tt.n)
 
 			assert.Equal(t, tt.want, got)

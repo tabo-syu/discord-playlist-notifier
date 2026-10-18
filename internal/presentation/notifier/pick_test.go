@@ -13,6 +13,8 @@ import (
 )
 
 func TestPostPick(t *testing.T) {
+	t.Parallel()
+
 	// UTC では 2026/03/31、JST では 2026/04/01
 	picked := added(video("a", 100), time.Date(2026, time.March, 31, 15, 0, 0, 0, time.UTC))
 
@@ -75,6 +77,8 @@ func TestPostPick(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			discord := mocks.NewMockSender(t)
 			tt.setup(discord)
 			n := notifier.New(discord, jst)

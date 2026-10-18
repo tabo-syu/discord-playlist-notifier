@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	"gorm.io/gorm"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
@@ -39,6 +38,8 @@ type deps struct {
 }
 
 func newDeps(t *testing.T) *deps {
+	t.Helper()
+
 	return &deps{
 		guilds:        mocks.NewMockGuildRepository(t),
 		subscriptions: mocks.NewMockSubscriptionRepository(t),
@@ -80,13 +81,13 @@ var lastNotified = hoursAgo(6)
 
 // guildOf は ID が id のギルドを返す。
 func guildOf(id uint, discordID guild.DiscordID) *guild.Guild {
-	return &guild.Guild{Model: gorm.Model{ID: id}, DiscordID: discordID}
+	return &guild.Guild{ID: id, DiscordID: discordID}
 }
 
 // sub はギルド 1 の通知設定を返す。notifiedAt は新着動画の通知の基準時刻。
 func sub(id uint, playlistID library.PlaylistID, channelID subscription.ChannelID, title string, notifiedAt time.Time) *subscription.Subscription {
 	return &subscription.Subscription{
-		Model:         gorm.Model{ID: id, UpdatedAt: notifiedAt},
+		ID: id, UpdatedAt: notifiedAt,
 		YoutubeID:     playlistID,
 		SendChannelID: channelID,
 		Title:         title,
@@ -126,7 +127,7 @@ func date(year int, month time.Month, day, hour int) time.Time {
 // ときの呼び出しを期待する。YouTube は items と同じアイテムを、videos の公開状態で返す。
 // FetchPlaylistMetas は全てのプレイリストをまとめて取得するので、ここでは期待しない。
 func (m *deps) expectUnchangedSync(playlistID library.PlaylistID, items []*library.PlaylistItem, videos map[library.VideoID]*library.Video) {
-	var fetchedItems []*library.FetchedItem
+	fetchedItems := make([]*library.FetchedItem, 0, len(items))
 	for _, item := range items {
 		fetchedItems = append(fetchedItems, fetched(item.ItemID, item.VideoYoutubeID, item.AddedAt, videos[item.VideoYoutubeID].PrivacyStatus))
 	}

@@ -22,11 +22,13 @@ func ComputeWrapped(contents []*PlaylistVideo, year int, loc *time.Location) *Wr
 	w := &Wrapped{Year: year}
 	monthly := map[time.Month]int{}
 	viewed := map[VideoID]*Video{}
+
 	for _, c := range contents {
 		addedAt := c.Item.AddedAt.In(loc)
 		if addedAt.Year() == year-1 {
 			w.PreviousYearAdded++
 		}
+
 		if addedAt.Year() != year {
 			continue
 		}
@@ -38,10 +40,13 @@ func ComputeWrapped(contents []*PlaylistVideo, year int, loc *time.Location) *Wr
 		if !v.Available() {
 			continue
 		}
+
 		viewed[v.YoutubeID] = v
+
 		if w.First == nil {
 			w.First = c
 		}
+
 		w.Last = c
 	}
 
@@ -50,6 +55,7 @@ func ComputeWrapped(contents []*PlaylistVideo, year int, loc *time.Location) *Wr
 			w.BusiestMonth = MonthCount{Month: time.Date(year, m, 1, 0, 0, 0, 0, loc), Count: monthly[m]}
 		}
 	}
+
 	w.TopViewed = rankViewed(viewed, WRAPPED_TOP)
 
 	return w

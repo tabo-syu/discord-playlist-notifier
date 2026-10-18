@@ -11,6 +11,8 @@ import (
 )
 
 func TestFindHiddenVideos(t *testing.T) {
+	t.Parallel()
+
 	a := video("a", library.PrivacyPrivate)
 
 	// 通知の順はプレイリストのマップの順で変わるので、順序は比べない
@@ -85,6 +87,8 @@ func TestFindHiddenVideos(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := notification.FindHiddenVideos(tt.subscriptions, tt.snapshots)
 
 			assert.ElementsMatch(t, tt.want, got)

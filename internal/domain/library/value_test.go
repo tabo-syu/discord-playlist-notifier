@@ -9,6 +9,8 @@ import (
 )
 
 func TestViewCountMilestone(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		views library.ViewCount
@@ -42,6 +44,8 @@ func TestViewCountMilestone(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := tt.views.Milestone()
 
 			assert.Equal(t, tt.want, got)
@@ -50,6 +54,8 @@ func TestViewCountMilestone(t *testing.T) {
 }
 
 func TestPrivacyStatus(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name          string
 		status        library.PrivacyStatus
@@ -89,6 +95,8 @@ func TestPrivacyStatus(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			assert.Equal(t, tt.wantWatchable, tt.status.Watchable())
 			assert.Equal(t, tt.wantHidden, tt.status.Hidden())
 		})
@@ -96,6 +104,8 @@ func TestPrivacyStatus(t *testing.T) {
 }
 
 func TestParseVideoID(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name   string
 		s      string
@@ -177,6 +187,8 @@ func TestParseVideoID(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got, ok := library.ParseVideoID(tt.s)
 
 			assert.Equal(t, tt.want, got)

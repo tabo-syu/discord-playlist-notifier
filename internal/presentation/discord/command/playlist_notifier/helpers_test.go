@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"gorm.io/gorm"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
@@ -53,6 +52,8 @@ type deps struct {
 }
 
 func newDeps(t *testing.T) *deps {
+	t.Helper()
+
 	return &deps{
 		guilds:        mocks.NewMockGuildRepository(t),
 		subscriptions: mocks.NewMockSubscriptionRepository(t),
@@ -75,19 +76,23 @@ func newCommand(m *deps) *playlist_notifier.PlaylistNotifier {
 func (m *deps) guildHas(subscriptions ...*subscription.Subscription) {
 	if len(subscriptions) == 0 {
 		m.subscriptions.EXPECT().FindByGuild(mockGuild).Return(nil, domain.ErrDBRecordNotFound)
+
 		return
 	}
+
 	m.subscriptions.EXPECT().FindByGuild(mockGuild).Return(subscriptions, nil)
 }
 
 // playlistHas は、プレイリストの保存済みの中身が contents であることを期待する。
 func (m *deps) playlistHas(playlistID library.PlaylistID, contents ...*library.PlaylistVideo) {
-	items := []*library.PlaylistItem{}
+	items := make([]*library.PlaylistItem, 0, len(contents))
 	videos := map[library.VideoID]*library.Video{}
+
 	for _, c := range contents {
 		items = append(items, c.Item)
 		videos[c.Video.YoutubeID] = c.Video
 	}
+
 	m.library.EXPECT().FindItems(playlistID).Return(items, nil)
 	m.library.EXPECT().FindVideosInPlaylists(playlistID).Return(videos, nil)
 }
@@ -115,7 +120,7 @@ func intOption(name string, value int) *discordgo.ApplicationCommandInteractionD
 // sub はギルド 1 の通知設定を返す。
 func sub(id uint, playlistID library.PlaylistID, title string) *subscription.Subscription {
 	return &subscription.Subscription{
-		Model:         gorm.Model{ID: id, UpdatedAt: hoursAgo(6)},
+		ID: id, UpdatedAt: hoursAgo(6),
 		YoutubeID:     playlistID,
 		SendChannelID: "ch",
 		Title:         title,
@@ -141,7 +146,7 @@ func video(id library.VideoID) *library.Video {
 // picking は sub(1, "PL", "PL") のピックの間隔を interval にしたものを返す。
 func picking(interval subscription.PickInterval) *subscription.Subscription {
 	return &subscription.Subscription{
-		Model:         gorm.Model{ID: 1, UpdatedAt: hoursAgo(6)},
+		ID: 1, UpdatedAt: hoursAgo(6),
 		YoutubeID:     "PL",
 		SendChannelID: "ch",
 		Title:         "PL",

@@ -11,6 +11,8 @@ import (
 )
 
 func TestFindMilestones(t *testing.T) {
+	t.Parallel()
+
 	a := &library.Video{YoutubeID: "a", Views: 1_234_567}
 
 	tests := []struct {
@@ -51,6 +53,8 @@ func TestFindMilestones(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := notification.FindMilestones(tt.subscriptions, tt.videos, tt.containing)
 
 			assert.Equal(t, tt.want, got)

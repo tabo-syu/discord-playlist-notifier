@@ -9,6 +9,7 @@ type DiscordID string
 // Guild はボットが参加している Discord サーバー。
 type Guild struct {
 	gorm.Model
+
 	DiscordID DiscordID
 }
 

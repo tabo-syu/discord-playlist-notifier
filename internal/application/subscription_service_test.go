@@ -13,6 +13,8 @@ import (
 )
 
 func TestSubscriptionServiceSubscribe(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		setup   func(m *deps)
@@ -58,6 +60,8 @@ func TestSubscriptionServiceSubscribe(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 			s := application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds)
@@ -70,6 +74,8 @@ func TestSubscriptionServiceSubscribe(t *testing.T) {
 }
 
 func TestSubscriptionServiceUnsubscribe(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		playlistID library.PlaylistID
@@ -102,6 +108,8 @@ func TestSubscriptionServiceUnsubscribe(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 			s := application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds)
@@ -114,6 +122,8 @@ func TestSubscriptionServiceUnsubscribe(t *testing.T) {
 }
 
 func TestSubscriptionServiceSetPickInterval(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		playlistID library.PlaylistID
@@ -144,6 +154,8 @@ func TestSubscriptionServiceSetPickInterval(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 			s := application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds)

@@ -21,6 +21,7 @@ type ChannelID string
 // 動画が新着になる（IsNew を参照）。
 type Subscription struct {
 	gorm.Model
+
 	YoutubeID     library.PlaylistID
 	SendChannelID ChannelID
 	Title         string

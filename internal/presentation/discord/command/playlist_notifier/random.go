@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/bwmarrin/discordgo"
+
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
@@ -38,6 +39,7 @@ func (c *PlaylistNotifier) random(guildId string, count int) string {
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
 		return "通知登録されているプレイリストが存在しません。"
 	}
+
 	if err != nil {
 		return "エラー！システムに問題があります！"
 	}
@@ -46,6 +48,7 @@ func (c *PlaylistNotifier) random(guildId string, count int) string {
 	for _, sub := range subscriptions {
 		ids = append(ids, sub.YoutubeID)
 	}
+
 	picked, err := c.library.RandomVideos(ids, count)
 	if err != nil {
 		return "エラー！システムに問題があります！"

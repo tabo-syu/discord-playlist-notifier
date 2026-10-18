@@ -12,6 +12,8 @@ import (
 // まとめの中身の整形は view のゴールデンテストで確かめるので、ここでは中身のない
 // プレイリストで、どの年をまとめるかだけを確かめる。
 func TestWrapped(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		data  *discordgo.ApplicationCommandInteractionData
@@ -48,6 +50,8 @@ func TestWrapped(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 

@@ -33,6 +33,7 @@ func funcs(loc *time.Location, target Target) template.FuncMap {
 			case library.ViewCount:
 				return Number(n), nil
 			}
+
 			return "", fmt.Errorf("number: unsupported type %T", n)
 		},
 		// rank は 0 始まりの添字を順位にする
@@ -46,10 +47,12 @@ func funcs(loc *time.Location, target Target) template.FuncMap {
 			if err != nil {
 				return "", err
 			}
+
 			a, err := count(after)
 			if err != nil {
 				return "", err
 			}
+
 			return change(b, a), nil
 		},
 	}
@@ -61,6 +64,7 @@ func render(name string, data any, loc *time.Location, target Target) string {
 	var sb strings.Builder
 	if err := t.ExecuteTemplate(&sb, name, data); err != nil {
 		log.Println("Could not render text:", name, "cause:", err)
+
 		return "エラー！システムに問題があります！"
 	}
 
@@ -85,12 +89,14 @@ func Summary(title string, s *library.Stats, loc *time.Location) string {
 			max = m.Count
 		}
 	}
+
 	bars := make([]bar, 0, len(s.Monthly))
 	for _, m := range s.Monthly {
 		width := 0
 		if max > 0 {
 			width = (m.Count*20 + max - 1) / max
 		}
+
 		bars = append(bars, bar{m.Month, strings.Repeat("█", width), m.Count})
 	}
 
@@ -117,6 +123,7 @@ func Trending(t *library.Trending, loc *time.Location) string {
 func History(h *library.VideoHistory, days int) string {
 	data := struct {
 		*library.VideoHistory
+
 		Days int
 	}{h, days}
 	if len(h.Snapshots) < 2 {
@@ -152,6 +159,7 @@ func Wrapped(w *library.Wrapped, loc *time.Location, target Target) string {
 // change は before から after への値の変化を整形する。例: 1,000 → 1,200（+200）
 func change(before, after uint64) string {
 	sign := "+"
+
 	diff := after - before
 	if after < before {
 		sign = "-"
@@ -168,5 +176,6 @@ func count(n any) (uint64, error) {
 	case library.ViewCount:
 		return uint64(n), nil
 	}
+
 	return 0, fmt.Errorf("change: unsupported type %T", n)
 }

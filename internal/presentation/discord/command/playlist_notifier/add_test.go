@@ -5,7 +5,6 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
-	"gorm.io/gorm"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
@@ -15,6 +14,8 @@ import (
 )
 
 func TestAdd(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		data  *discordgo.ApplicationCommandInteractionData
@@ -27,7 +28,7 @@ func TestAdd(t *testing.T) {
 			setup: func(m *deps) {
 				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(&library.PlaylistMeta{YoutubeID: "PL", Title: "タイトル"}, nil)
 				m.subscriptions.EXPECT().Exists(mockGuild, library.PlaylistID("PL")).Return(false, nil)
-				m.guilds.EXPECT().FindByDiscordID(mockGuild).Return(&guild.Guild{Model: gorm.Model{ID: 1}, DiscordID: "guild"}, nil)
+				m.guilds.EXPECT().FindByDiscordID(mockGuild).Return(&guild.Guild{ID: 1, DiscordID: "guild"}, nil)
 				m.subscriptions.EXPECT().Add(&subscription.Subscription{
 					YoutubeID:     "PL",
 					SendChannelID: "ch",
@@ -77,6 +78,8 @@ func TestAdd(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 

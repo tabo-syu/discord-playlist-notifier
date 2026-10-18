@@ -20,31 +20,32 @@ func NewServer(s *discordgo.Session, rg *registrar, e *event, rt *router) *Serve
 func (s *Server) Serve() error {
 	// ボットがサーバーに参加したとき
 	s.session.AddHandler(func(d *discordgo.Session, g *discordgo.GuildCreate) {
-		if err := s.registerer.Register(g.Guild.ID); err != nil {
-			log.Println("Commands could not register:", g.Guild.ID, "cause:", err)
+		if err := s.registerer.Register(g.ID); err != nil {
+			log.Println("Commands could not register:", g.ID, "cause:", err)
 		} else {
-			log.Println("Commands registered:", g.Guild.ID)
+			log.Println("Commands registered:", g.ID)
 		}
 
-		if err := s.event.GuildCreate(g.Guild.ID); err != nil {
-			log.Println("Guild record could not create:", g.Guild.ID, "cause:", err)
+		if err := s.event.GuildCreate(g.ID); err != nil {
+			log.Println("Guild record could not create:", g.ID, "cause:", err)
 		} else {
-			log.Println("Guild record created:", g.Guild.ID)
+			log.Println("Guild record created:", g.ID)
 		}
 	})
 
 	// ボットがサーバーから削除されたとき
 	s.session.AddHandler(func(d *discordgo.Session, g *discordgo.GuildDelete) {
-		if err := s.event.GuildDelete(g.Guild.ID); err != nil {
-			log.Println("Guild record could not delete:", g.Guild.ID, "cause:", err)
+		if err := s.event.GuildDelete(g.ID); err != nil {
+			log.Println("Guild record could not delete:", g.ID, "cause:", err)
 		} else {
-			log.Println("Guild record deleted:", g.Guild.ID)
+			log.Println("Guild record deleted:", g.ID)
 		}
 	})
 
 	// コマンドを受け取ったとき
 	s.session.AddHandler(func(d *discordgo.Session, i *discordgo.InteractionCreate) {
 		request := i.ApplicationCommandData()
+
 		command := s.router.Route(request.Name)
 		if command == nil {
 			log.Println("Unknown command received:", request.Name)
@@ -58,6 +59,7 @@ func (s *Server) Serve() error {
 			if err != nil {
 				log.Println("Error responding to interaction:", err)
 			}
+
 			return
 		}
 
@@ -78,6 +80,7 @@ func (s *Server) Serve() error {
 	if err := s.session.Open(); err != nil {
 		return err
 	}
+
 	log.Println("Started server")
 
 	return nil
@@ -90,6 +93,7 @@ func (s *Server) Stop() error {
 	if err := s.session.Close(); err != nil {
 		return err
 	}
+
 	log.Println("Stopped server")
 
 	return nil

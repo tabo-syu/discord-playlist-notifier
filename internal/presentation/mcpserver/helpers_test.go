@@ -12,7 +12,6 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/require"
-	"gorm.io/gorm"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
@@ -49,6 +48,8 @@ type deps struct {
 }
 
 func newDeps(t *testing.T) *deps {
+	t.Helper()
+
 	return &deps{
 		subscriptions: mocks.NewMockSubscriptionRepository(t),
 		library:       mocks.NewMockLibraryRepository(t),
@@ -57,6 +58,8 @@ func newDeps(t *testing.T) *deps {
 
 // connect は mock で組み立てた MCP サーバーを HTTP で立て、クライアントとして接続する。
 func connect(t *testing.T, m *deps) *mcp.ClientSession {
+	t.Helper()
+
 	query := application.NewQueryService(m.subscriptions, application.NewLibraryService(mocks.NewMockYouTube(t), m.library, jst, clock), m.library)
 	ts := httptest.NewServer(mcpserver.NewServer("", query, jst, clock).Handler())
 	t.Cleanup(ts.Close)
@@ -76,12 +79,14 @@ func (m *deps) watched(subscriptions ...*subscription.Subscription) {
 
 // playlistHas は、プレイリストの保存済みの中身が contents であることを期待する。
 func (m *deps) playlistHas(playlistID library.PlaylistID, contents ...*library.PlaylistVideo) {
-	items := []*library.PlaylistItem{}
+	items := make([]*library.PlaylistItem, 0, len(contents))
 	videos := map[library.VideoID]*library.Video{}
+
 	for _, c := range contents {
 		items = append(items, c.Item)
 		videos[c.Video.YoutubeID] = c.Video
 	}
+
 	m.library.EXPECT().FindItems(playlistID).Return(items, nil)
 	m.library.EXPECT().FindVideosInPlaylists(playlistID).Return(videos, nil)
 }
@@ -110,14 +115,18 @@ func added(playlistID library.PlaylistID, v *library.Video, addedAt time.Time) *
 // call はツールを呼び、構造化された出力の JSON と、ツールが返したエラーの文言を返す。
 // エラーのときの出力は null、成功したときのエラーの文言は空になる。
 func call(t *testing.T, session *mcp.ClientSession, name string, arguments map[string]any) (string, string) {
+	t.Helper()
+
 	res, err := session.CallTool(context.Background(), &mcp.CallToolParams{Name: name, Arguments: arguments})
 	require.NoError(t, err)
 
 	output, err := json.Marshal(res.StructuredContent)
 	require.NoError(t, err)
+
 	if !res.IsError {
 		return string(output), ""
 	}
+
 	require.Len(t, res.Content, 1)
 
 	return string(output), res.Content[0].(*mcp.TextContent).Text
@@ -125,7 +134,7 @@ func call(t *testing.T, session *mcp.ClientSession, name string, arguments map[s
 
 // sub はギルド 1 の通知設定を返す。
 func sub(id uint, playlistID library.PlaylistID, title string) *subscription.Subscription {
-	return &subscription.Subscription{Model: gorm.Model{ID: id}, YoutubeID: playlistID, SendChannelID: "ch", Title: title, GuildID: 1}
+	return &subscription.Subscription{ID: id, YoutubeID: playlistID, SendChannelID: "ch", Title: title, GuildID: 1}
 }
 
 // item は保存したプレイリストのアイテムを返す。

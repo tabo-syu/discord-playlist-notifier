@@ -34,6 +34,7 @@ type WatchedPlaylist struct {
 // PlaylistOverview は通知対象のプレイリストとその統計。
 type PlaylistOverview struct {
 	WatchedPlaylist
+
 	Stats *library.Stats
 }
 
@@ -86,19 +87,23 @@ func (s *QueryService) Playlists() ([]*WatchedPlaylist, error) {
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
 		return []*WatchedPlaylist{}, nil
 	}
+
 	if err != nil {
 		return nil, err
 	}
 
 	seen := map[library.PlaylistID]bool{}
 	playlists := []*WatchedPlaylist{}
+
 	for _, sub := range subscriptions {
 		if seen[sub.YoutubeID] {
 			continue
 		}
+
 		seen[sub.YoutubeID] = true
 		playlists = append(playlists, &WatchedPlaylist{ID: sub.YoutubeID, Title: sub.Title})
 	}
+
 	sort.SliceStable(playlists, func(i, j int) bool {
 		return playlists[i].Title < playlists[j].Title
 	})
@@ -114,11 +119,13 @@ func (s *QueryService) Overviews() ([]*PlaylistOverview, error) {
 	}
 
 	overviews := []*PlaylistOverview{}
+
 	for _, p := range playlists {
 		stats, err := s.library.Stats(p.ID)
 		if err != nil {
 			return nil, err
 		}
+
 		overviews = append(overviews, &PlaylistOverview{WatchedPlaylist: *p, Stats: stats})
 	}
 
@@ -131,6 +138,7 @@ func (s *QueryService) Playlist(id library.PlaylistID) (*WatchedPlaylist, error)
 	if err != nil {
 		return nil, err
 	}
+
 	for _, p := range playlists {
 		if p.ID == id {
 			return p, nil
@@ -140,27 +148,6 @@ func (s *QueryService) Playlist(id library.PlaylistID) (*WatchedPlaylist, error)
 	return nil, domain.ErrDBRecordNotFound
 }
 
-// scope は指定したプレイリストを返す。id が空なら通知対象の全プレイリストを返す。
-func (s *QueryService) scope(id library.PlaylistID) ([]library.PlaylistID, error) {
-	if id != "" {
-		if _, err := s.Playlist(id); err != nil {
-			return nil, err
-		}
-		return []library.PlaylistID{id}, nil
-	}
-
-	playlists, err := s.Playlists()
-	if err != nil {
-		return nil, err
-	}
-	var ids []library.PlaylistID
-	for _, p := range playlists {
-		ids = append(ids, p.ID)
-	}
-
-	return ids, nil
-}
-
 // FindVideos は通知対象のプレイリストのアイテムのうち、条件に一致するものを返す。
 // 複数のプレイリストにある動画や 2 回追加された動画は、アイテムごとに現れる。
 func (s *QueryService) FindVideos(q VideoQuery) (*VideoPage, error) {
@@ -168,6 +155,7 @@ func (s *QueryService) FindVideos(q VideoQuery) (*VideoPage, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if len(ids) == 0 {
 		return &VideoPage{Videos: []*library.PlaylistVideo{}}, nil
 	}
@@ -188,6 +176,7 @@ func (s *QueryService) FindVideos(q VideoQuery) (*VideoPage, error) {
 	title, tag := strings.ToLower(q.Title), strings.ToLower(q.Tag)
 	byDuration := q.MinDuration > 0 || q.MaxDuration > 0
 	matched := []*library.PlaylistVideo{}
+
 	for _, c := range contents {
 		v := c.Video
 		switch {
@@ -226,6 +215,7 @@ func (s *QueryService) FindVideos(q VideoQuery) (*VideoPage, error) {
 		if q.Limit > 0 {
 			end = min(q.Offset+q.Limit, len(matched))
 		}
+
 		page.Videos = matched[q.Offset:end]
 	}
 
@@ -271,31 +261,6 @@ func (s *QueryService) Channels(ids []library.ChannelID) (map[library.ChannelID]
 	return s.contents.FindChannels(ids)
 }
 
-// channelsNamed は中身の動画のチャンネルのうち、名前に name を含むものを
-// 返す。大文字・小文字は区別しない。
-func (s *QueryService) channelsNamed(contents []*library.PlaylistVideo, name string) (map[library.ChannelID]bool, error) {
-	var ids []library.ChannelID
-	for _, c := range contents {
-		if c.Video.ChannelYoutubeID != "" {
-			ids = append(ids, c.Video.ChannelYoutubeID)
-		}
-	}
-	stored, err := s.contents.FindChannels(ids)
-	if err != nil {
-		return nil, err
-	}
-
-	name = strings.ToLower(name)
-	matched := map[library.ChannelID]bool{}
-	for id, ch := range stored {
-		if strings.Contains(strings.ToLower(ch.Title), name) {
-			matched[id] = true
-		}
-	}
-
-	return matched, nil
-}
-
 // RandomVideos は通知対象のプレイリスト（id が空なら全て）から、
 // 重複のない視聴可能な動画を最大 n 件選ぶ。
 func (s *QueryService) RandomVideos(id library.PlaylistID, n int) ([]*library.PlaylistVideo, error) {
@@ -303,9 +268,61 @@ func (s *QueryService) RandomVideos(id library.PlaylistID, n int) ([]*library.Pl
 	if err != nil {
 		return nil, err
 	}
+
 	if len(ids) == 0 {
 		return []*library.PlaylistVideo{}, nil
 	}
 
 	return s.library.RandomVideos(ids, n)
+}
+
+// scope は指定したプレイリストを返す。id が空なら通知対象の全プレイリストを返す。
+func (s *QueryService) scope(id library.PlaylistID) ([]library.PlaylistID, error) {
+	if id != "" {
+		if _, err := s.Playlist(id); err != nil {
+			return nil, err
+		}
+
+		return []library.PlaylistID{id}, nil
+	}
+
+	playlists, err := s.Playlists()
+	if err != nil {
+		return nil, err
+	}
+
+	var ids []library.PlaylistID
+	for _, p := range playlists {
+		ids = append(ids, p.ID)
+	}
+
+	return ids, nil
+}
+
+// channelsNamed は中身の動画のチャンネルのうち、名前に name を含むものを
+// 返す。大文字・小文字は区別しない。
+func (s *QueryService) channelsNamed(contents []*library.PlaylistVideo, name string) (map[library.ChannelID]bool, error) {
+	var ids []library.ChannelID
+
+	for _, c := range contents {
+		if c.Video.ChannelYoutubeID != "" {
+			ids = append(ids, c.Video.ChannelYoutubeID)
+		}
+	}
+
+	stored, err := s.contents.FindChannels(ids)
+	if err != nil {
+		return nil, err
+	}
+
+	name = strings.ToLower(name)
+	matched := map[library.ChannelID]bool{}
+
+	for id, ch := range stored {
+		if strings.Contains(strings.ToLower(ch.Title), name) {
+			matched[id] = true
+		}
+	}
+
+	return matched, nil
 }

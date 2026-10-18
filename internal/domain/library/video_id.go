@@ -21,11 +21,13 @@ func ParseVideoID(s string) (VideoID, bool) {
 	if err != nil {
 		return "", false
 	}
+
 	candidate := u.Query().Get("v")
 	if candidate == "" {
 		segments := strings.Split(strings.Trim(u.Path, "/"), "/")
 		candidate = segments[len(segments)-1]
 	}
+
 	if !videoIDPattern.MatchString(candidate) {
 		return "", false
 	}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/bwmarrin/discordgo"
+
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
@@ -54,6 +55,7 @@ func (c *PlaylistNotifier) pick(guildId string, playlistId string, choice string
 	}
 
 	url := fmt.Sprintf("https://www.youtube.com/playlist?list=%s", playlistId)
+
 	switch interval {
 	case subscription.PickDaily:
 		return "毎日 12:00 に「今日の一曲」を投稿します！\n" + url

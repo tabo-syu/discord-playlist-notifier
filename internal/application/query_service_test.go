@@ -13,6 +13,8 @@ import (
 )
 
 func TestQueryServicePlaylists(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		setup func(m *deps)
@@ -43,6 +45,8 @@ func TestQueryServicePlaylists(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 
@@ -55,6 +59,8 @@ func TestQueryServicePlaylists(t *testing.T) {
 }
 
 func TestQueryServiceFindVideos(t *testing.T) {
+	t.Parallel()
+
 	short := func() *library.Video {
 		return &library.Video{YoutubeID: "short", Title: "Short Song", PrivacyStatus: library.PrivacyPublic, Views: 300, Duration: 2 * time.Minute, Tags: []string{"J-Pop"}, CategoryID: "10", ChannelYoutubeID: "UC1"}
 	}
@@ -394,6 +400,8 @@ func TestQueryServiceFindVideos(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 
@@ -406,6 +414,8 @@ func TestQueryServiceFindVideos(t *testing.T) {
 }
 
 func TestQueryServiceWrapped(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		playlistID library.PlaylistID
@@ -455,6 +465,8 @@ func TestQueryServiceWrapped(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 
@@ -467,6 +479,8 @@ func TestQueryServiceWrapped(t *testing.T) {
 }
 
 func TestQueryServiceStats(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		playlistID library.PlaylistID
@@ -498,6 +512,8 @@ func TestQueryServiceStats(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 
@@ -509,6 +525,8 @@ func TestQueryServiceStats(t *testing.T) {
 }
 
 func TestQueryServiceRandomVideos(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name       string
 		playlistID library.PlaylistID
@@ -556,6 +574,8 @@ func TestQueryServiceRandomVideos(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 
@@ -568,6 +588,8 @@ func TestQueryServiceRandomVideos(t *testing.T) {
 }
 
 func TestQueryServiceHistory(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		setup   func(m *deps)
@@ -613,6 +635,8 @@ func TestQueryServiceHistory(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 

@@ -167,7 +167,7 @@ func TestSubscriptionRepositoryAdd(t *testing.T) {
 		},
 		{
 			name:         "ID のある通知設定は保存しない",
-			subscription: &subscription.Subscription{Model: gorm.Model{ID: 5}, YoutubeID: "PL", SendChannelID: "ch", Title: "PL", GuildID: 1},
+			subscription: &subscription.Subscription{ID: 5, YoutubeID: "PL", SendChannelID: "ch", Title: "PL", GuildID: 1},
 			want:         []*subscription.Subscription{},
 			wantErr:      domain.ErrDBRecordAlreadyCreated,
 		},
@@ -196,7 +196,7 @@ func TestSubscriptionRepositoryUpdate(t *testing.T) {
 			// GORM の Save は UpdatedAt を保存した時刻で上書きする
 			name: "全てのフィールドを保存し、UpdatedAt は保存した時刻にする",
 			subscription: &subscription.Subscription{
-				Model:         gorm.Model{ID: 1, CreatedAt: now, UpdatedAt: hoursAgo(1)},
+				ID: 1, CreatedAt: now, UpdatedAt: hoursAgo(1),
 				YoutubeID:     "PL",
 				SendChannelID: "ch",
 				Title:         "新しいタイトル",
@@ -240,7 +240,7 @@ func TestSubscriptionRepositoryUpdatePickInterval(t *testing.T) {
 		{
 			name: "ピックの間隔だけを保存し、新着動画の基準時刻（UpdatedAt）は変えない",
 			subscription: &subscription.Subscription{
-				Model:         gorm.Model{ID: 1},
+				ID:            1,
 				YoutubeID:     "PL",
 				SendChannelID: "ch",
 				Title:         "新しいタイトル",
@@ -248,7 +248,7 @@ func TestSubscriptionRepositoryUpdatePickInterval(t *testing.T) {
 				GuildID:       1,
 			},
 			want: []*subscription.Subscription{
-				{Model: gorm.Model{ID: 1, CreatedAt: now, UpdatedAt: hoursAgo(6)}, YoutubeID: "PL", SendChannelID: "ch", Title: "PL", PickInterval: subscription.PickWeekly, GuildID: 1},
+				{ID: 1, CreatedAt: now, UpdatedAt: hoursAgo(6), YoutubeID: "PL", SendChannelID: "ch", Title: "PL", PickInterval: subscription.PickWeekly, GuildID: 1},
 			},
 		},
 		{
@@ -287,7 +287,7 @@ func TestSubscriptionRepositoryDeleteAll(t *testing.T) {
 				storedSubscription(1, 1, "PL1", "PL1"),
 			},
 			want: []*subscription.Subscription{
-				{Model: gorm.Model{ID: 1, CreatedAt: now, UpdatedAt: hoursAgo(6), DeletedAt: gorm.DeletedAt{Time: now, Valid: true}}, YoutubeID: "PL1", SendChannelID: "ch", Title: "PL1", GuildID: 1},
+				{ID: 1, CreatedAt: now, UpdatedAt: hoursAgo(6), DeletedAt: gorm.DeletedAt{Time: now, Valid: true}, YoutubeID: "PL1", SendChannelID: "ch", Title: "PL1", GuildID: 1},
 				storedSubscription(2, 1, "PL2", "PL2"),
 			},
 		},

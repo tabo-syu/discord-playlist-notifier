@@ -12,6 +12,8 @@ import (
 // 集計した中身の整形は view のゴールデンテストで確かめるので、ここでは中身のない
 // プレイリストで、どのプレイリストを表示するかだけを確かめる。
 func TestSummary(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		data  *discordgo.ApplicationCommandInteractionData
@@ -56,6 +58,8 @@ func TestSummary(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 

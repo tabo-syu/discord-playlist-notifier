@@ -10,6 +10,8 @@ import (
 )
 
 func TestListPlaylists(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		setup func(m *deps)
@@ -40,6 +42,8 @@ func TestListPlaylists(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 			session := connect(t, m)
@@ -47,12 +51,14 @@ func TestListPlaylists(t *testing.T) {
 			got, gotError := call(t, session, "list_playlists", nil)
 
 			assert.JSONEq(t, tt.want, got)
-			assert.Equal(t, "", gotError)
+			assert.Empty(t, gotError)
 		})
 	}
 }
 
 func TestFindVideos(t *testing.T) {
+	t.Parallel()
+
 	// 詳細を全て持つ動画。タグは 12 個あり、返すのは最初の 10 個だけ。
 	// UTC では 10/17 の 15 時、JST では 10/18 の 0 時に追加された。JST で返すことを確かめる
 	song := &library.PlaylistVideo{
@@ -235,6 +241,8 @@ func TestFindVideos(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 			session := connect(t, m)
@@ -248,6 +256,8 @@ func TestFindVideos(t *testing.T) {
 }
 
 func TestPlaylistStats(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name      string
 		arguments map[string]any
@@ -294,6 +304,8 @@ func TestPlaylistStats(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 			session := connect(t, m)
@@ -307,6 +319,8 @@ func TestPlaylistStats(t *testing.T) {
 }
 
 func TestPlaylistWrapped(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name      string
 		arguments map[string]any
@@ -372,6 +386,8 @@ func TestPlaylistWrapped(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 			session := connect(t, m)
@@ -385,6 +401,8 @@ func TestPlaylistWrapped(t *testing.T) {
 }
 
 func TestRandomVideos(t *testing.T) {
+	t.Parallel()
+
 	// 選ぶ順はランダムなので、候補は 1 曲だけにする
 	tests := []struct {
 		name      string
@@ -430,6 +448,8 @@ func TestRandomVideos(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 			session := connect(t, m)
@@ -443,6 +463,8 @@ func TestRandomVideos(t *testing.T) {
 }
 
 func TestVideoHistory(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name      string
 		arguments map[string]any
@@ -522,6 +544,8 @@ func TestVideoHistory(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 			session := connect(t, m)

@@ -15,10 +15,6 @@ type VideoSnapshot struct {
 	Comments       uint64
 }
 
-func (VideoSnapshot) TableName() string {
-	return "video_snapshots"
-}
-
 // NewVideoSnapshot は動画の現在の状態を記録する。
 func NewVideoSnapshot(v *Video, at time.Time) *VideoSnapshot {
 	return &VideoSnapshot{
@@ -30,6 +26,10 @@ func NewVideoSnapshot(v *Video, at time.Time) *VideoSnapshot {
 		Likes:          v.Likes,
 		Comments:       v.Comments,
 	}
+}
+
+func (VideoSnapshot) TableName() string {
+	return "video_snapshots"
 }
 
 // VideoHistory は動画と、記録された状態（古い順）。

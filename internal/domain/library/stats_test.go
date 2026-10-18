@@ -10,6 +10,8 @@ import (
 )
 
 func TestComputeStats(t *testing.T) {
+	t.Parallel()
+
 	now := date(2026, time.October, 18, 12)
 
 	tests := []struct {
@@ -177,6 +179,8 @@ func TestComputeStats(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := library.ComputeStats(tt.contents, now, jst)
 
 			assert.Equal(t, tt.want, got)

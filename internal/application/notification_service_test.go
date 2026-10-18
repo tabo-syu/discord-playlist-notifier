@@ -16,6 +16,8 @@ import (
 // 定期実行のユースケースは何も返さないので、mock に期待した呼び出し（保存と送信）だけを確かめる。
 
 func TestNotificationServiceNotifyUpdates(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		setup func(m *deps)
@@ -169,6 +171,8 @@ func TestNotificationServiceNotifyUpdates(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 			s := application.NewNotificationService(m.subscriptions, application.NewLibraryService(m.youtube, m.library, jst, clock), m.notifier, jst, clock)
@@ -179,6 +183,8 @@ func TestNotificationServiceNotifyUpdates(t *testing.T) {
 }
 
 func TestNotificationServiceRefreshVideos(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		setup func(m *deps)
@@ -228,6 +234,8 @@ func TestNotificationServiceRefreshVideos(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 			s := application.NewNotificationService(m.subscriptions, application.NewLibraryService(m.youtube, m.library, jst, clock), m.notifier, jst, clock)
@@ -238,6 +246,8 @@ func TestNotificationServiceRefreshVideos(t *testing.T) {
 }
 
 func TestNotificationServicePostPicks(t *testing.T) {
+	t.Parallel()
+
 	// 選ぶ順はランダムなので、各プレイリストの候補は 1 曲だけにする
 	tests := []struct {
 		name  string
@@ -328,8 +338,11 @@ func TestNotificationServicePostPicks(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
+
 			clock := func() time.Time { return tt.now }
 			s := application.NewNotificationService(m.subscriptions, application.NewLibraryService(m.youtube, m.library, jst, clock), m.notifier, jst, clock)
 
@@ -339,6 +352,8 @@ func TestNotificationServicePostPicks(t *testing.T) {
 }
 
 func TestNotificationServicePostWrapped(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		now   time.Time
@@ -413,8 +428,11 @@ func TestNotificationServicePostWrapped(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
+
 			clock := func() time.Time { return tt.now }
 			s := application.NewNotificationService(m.subscriptions, application.NewLibraryService(m.youtube, m.library, jst, clock), m.notifier, jst, clock)
 

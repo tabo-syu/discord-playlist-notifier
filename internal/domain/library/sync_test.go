@@ -9,6 +9,8 @@ import (
 )
 
 func TestReconcile(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name            string
 		stored          []*library.PlaylistItem
@@ -66,6 +68,8 @@ func TestReconcile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := library.Reconcile("PL", tt.stored, tt.fetched, tt.videos)
 
 			assert.Equal(t, tt.wantAdded, got.Added)
@@ -78,6 +82,8 @@ func TestReconcile(t *testing.T) {
 }
 
 func TestSyncApplyDetails(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name        string
 		fetched     []*library.FetchedItem
@@ -95,16 +101,18 @@ func TestSyncApplyDetails(t *testing.T) {
 					Title:         "曲",
 					Views:         250_000,
 					PrivacyStatus: library.PrivacyPublic,
-					ViewMilestone: viewCount(100_000),
+					ViewMilestone: new(library.ViewCount(100_000)),
 				},
 			},
 			wantChanged: []*library.Video{
-				{YoutubeID: "a", Title: "曲", Views: 250_000, PrivacyStatus: library.PrivacyPublic, ViewMilestone: viewCount(100_000)},
+				{YoutubeID: "a", Title: "曲", Views: 250_000, PrivacyStatus: library.PrivacyPublic, ViewMilestone: new(library.ViewCount(100_000))},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := library.Reconcile("PL", nil, tt.fetched, map[library.VideoID]*library.Video{})
 
 			got.ApplyDetails(tt.details)

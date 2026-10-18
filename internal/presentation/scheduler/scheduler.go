@@ -2,6 +2,7 @@
 package scheduler
 
 import (
+	"errors"
 	"log"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
@@ -19,16 +20,27 @@ func NewScheduler(sdr *gocron.Scheduler, n *application.NotificationService, l *
 	return &scheduler{sdr, n, l}
 }
 
-func (s *scheduler) Start() {
-	s.scheduler.Every(5).Minutes().Do(guard("Notify", s.notification.NotifyUpdates))
-	s.scheduler.Every(6).Hours().WaitForSchedule().Do(guard("RefreshVideos", s.notification.RefreshVideos))
-	s.scheduler.Cron(WRAPPED_CRON).Do(guard("Wrapped", s.notification.PostWrapped))
-	s.scheduler.Every(1).Day().At(PICK_TIME).Do(guard("Pick", s.notification.PostPicks))
+func (s *scheduler) Start() error {
+	// ジョブの登録に失敗したら（cron の書式の誤りなど）、起動させずにまとめて返す
+	var errs []error
+
+	add := func(_ *gocron.Job, err error) { errs = append(errs, err) }
+	add(s.scheduler.Every(5).Minutes().Do(guard("Notify", s.notification.NotifyUpdates)))
+	add(s.scheduler.Every(6).Hours().WaitForSchedule().Do(guard("RefreshVideos", s.notification.RefreshVideos)))
+	add(s.scheduler.Cron(WRAPPED_CRON).Do(guard("Wrapped", s.notification.PostWrapped)))
+	add(s.scheduler.Every(1).Day().At(PICK_TIME).Do(guard("Pick", s.notification.PostPicks)))
 	// 新しい DB でも名前がそろうように、起動直後にも実行する
-	s.scheduler.Every(1).Day().Do(guard("RefreshCategories", s.library.RefreshCategories))
+	add(s.scheduler.Every(1).Day().Do(guard("RefreshCategories", s.library.RefreshCategories)))
+
+	if err := errors.Join(errs...); err != nil {
+		return err
+	}
+
 	s.scheduler.StartAsync()
 
 	log.Println("Scheduler started")
+
+	return nil
 }
 
 func (s *scheduler) Stop() {

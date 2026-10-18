@@ -35,6 +35,7 @@ func ComputeTrending(videos map[VideoID]*Video, earliest, latest map[VideoID]*Vi
 		if t.From.IsZero() || first.RecordedAt.Before(t.From) {
 			t.From = first.RecordedAt
 		}
+
 		if last, ok := latest[id]; ok && last.RecordedAt.After(t.To) {
 			t.To = last.RecordedAt
 		}
@@ -43,10 +44,12 @@ func ComputeTrending(videos map[VideoID]*Video, earliest, latest map[VideoID]*Vi
 		if !ok || !video.Available() {
 			continue
 		}
+
 		last, ok := latest[id]
 		if !ok || !last.RecordedAt.After(first.RecordedAt) || last.Views <= first.Views {
 			continue
 		}
+
 		t.Videos = append(t.Videos, &TrendingVideo{Video: video, Increase: last.Views - first.Views})
 	}
 
@@ -55,8 +58,10 @@ func ComputeTrending(videos map[VideoID]*Video, earliest, latest map[VideoID]*Vi
 		if a.Increase != b.Increase {
 			return a.Increase > b.Increase
 		}
+
 		return a.Video.YoutubeID < b.Video.YoutubeID
 	})
+
 	if len(t.Videos) > n {
 		t.Videos = t.Videos[:n]
 	}

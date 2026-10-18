@@ -12,6 +12,8 @@ import (
 )
 
 func TestLibraryServiceSync(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		setup func(m *deps)
@@ -212,6 +214,8 @@ func TestLibraryServiceSync(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 			s := application.NewLibraryService(m.youtube, m.library, jst, clock)
@@ -228,6 +232,8 @@ func TestLibraryServiceSync(t *testing.T) {
 // FULL_SYNC_INTERVAL が経っていなければアイテムを取得し直さない。
 // 2 回同期し、2 回目にアイテムを取得したかを、YouTube を呼んだ回数で確かめる。
 func TestLibraryServiceSyncSkipsFetching(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		elapsed time.Duration
@@ -299,13 +305,17 @@ func TestLibraryServiceSyncSkipsFetching(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
+
 			current := now
 			s := application.NewLibraryService(m.youtube, m.library, jst, func() time.Time { return current })
 			// 前回の同期
 			_, err := s.Sync([]library.PlaylistID{"PL"})
 			assert.NoError(t, err)
+
 			current = now.Add(tt.elapsed)
 
 			_, err = s.Sync([]library.PlaylistID{"PL"})
@@ -316,6 +326,8 @@ func TestLibraryServiceSyncSkipsFetching(t *testing.T) {
 }
 
 func TestLibraryServiceRefreshVideos(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		setup func(m *deps)
@@ -405,6 +417,8 @@ func TestLibraryServiceRefreshVideos(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 			s := application.NewLibraryService(m.youtube, m.library, jst, clock)
@@ -418,6 +432,8 @@ func TestLibraryServiceRefreshVideos(t *testing.T) {
 }
 
 func TestLibraryServiceContents(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		setup func(m *deps)
@@ -458,6 +474,8 @@ func TestLibraryServiceContents(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 			s := application.NewLibraryService(m.youtube, m.library, jst, clock)
@@ -472,6 +490,8 @@ func TestLibraryServiceContents(t *testing.T) {
 }
 
 func TestLibraryServicePlaylistsContaining(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		setup func(m *deps)
@@ -501,6 +521,8 @@ func TestLibraryServicePlaylistsContaining(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 			s := application.NewLibraryService(m.youtube, m.library, jst, clock)
@@ -514,6 +536,8 @@ func TestLibraryServicePlaylistsContaining(t *testing.T) {
 }
 
 func TestLibraryServiceHistory(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name    string
 		setup   func(m *deps)
@@ -568,6 +592,8 @@ func TestLibraryServiceHistory(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 			s := application.NewLibraryService(m.youtube, m.library, jst, clock)
@@ -581,6 +607,8 @@ func TestLibraryServiceHistory(t *testing.T) {
 }
 
 func TestLibraryServiceTrending(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name  string
 		setup func(m *deps)
@@ -636,6 +664,8 @@ func TestLibraryServiceTrending(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			m := newDeps(t)
 			tt.setup(m)
 			s := application.NewLibraryService(m.youtube, m.library, jst, clock)

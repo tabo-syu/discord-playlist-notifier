@@ -29,6 +29,7 @@ func (s *SubscriptionService) Subscribe(guildID guild.DiscordID, channelID subsc
 	if errors.Is(err, domain.ErrYouTubePlaylistNotFound) {
 		return err
 	}
+
 	if err != nil {
 		return domain.ErrYouTubeGeneralError
 	}
@@ -37,6 +38,7 @@ func (s *SubscriptionService) Subscribe(guildID guild.DiscordID, channelID subsc
 	if err != nil {
 		return err
 	}
+
 	if exists {
 		return domain.ErrDBRecordAlreadyCreated
 	}
@@ -55,6 +57,7 @@ func (s *SubscriptionService) Unsubscribe(guildID guild.DiscordID, playlistID li
 	if err != nil {
 		return err
 	}
+
 	if !exists {
 		return domain.ErrDBRecordNotFound
 	}
@@ -65,6 +68,7 @@ func (s *SubscriptionService) Unsubscribe(guildID guild.DiscordID, playlistID li
 	}
 
 	var target *subscription.Subscription
+
 	for _, sub := range subscriptions {
 		if sub.YoutubeID == playlistID {
 			target = sub
@@ -83,6 +87,7 @@ func (s *SubscriptionService) SetPickInterval(guildID guild.DiscordID, playlistI
 	for _, sub := range subscriptions {
 		if sub.YoutubeID == playlistID {
 			sub.ChangePickInterval(interval)
+
 			return s.subscriptions.UpdatePickInterval(sub)
 		}
 	}

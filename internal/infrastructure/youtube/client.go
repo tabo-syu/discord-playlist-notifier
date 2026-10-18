@@ -52,6 +52,7 @@ func (c *client) FindPlaylist(id library.PlaylistID) (*library.PlaylistMeta, err
 	}
 
 	playlist := lists.Items[0]
+
 	return &library.PlaylistMeta{
 		YoutubeID: library.PlaylistID(playlist.Id),
 		Title:     playlist.Snippet.Title,
@@ -61,6 +62,7 @@ func (c *client) FindPlaylist(id library.PlaylistID) (*library.PlaylistMeta, err
 // FetchPlaylistMetas は 50 プレイリストごとに 1 ユニットを消費する。
 func (c *client) FetchPlaylistMetas(ids ...library.PlaylistID) (map[library.PlaylistID]*library.PlaylistMeta, error) {
 	metas := map[library.PlaylistID]*library.PlaylistMeta{}
+
 	for _, batch := range batches(ids) {
 		lists, err := c.youtube.Playlists.List([]string{"id", "snippet", "contentDetails"}).
 			MaxResults(int64(len(batch))).
@@ -71,13 +73,16 @@ func (c *client) FetchPlaylistMetas(ids ...library.PlaylistID) (map[library.Play
 
 		for _, p := range lists.Items {
 			id := library.PlaylistID(p.Id)
+
 			meta := &library.PlaylistMeta{YoutubeID: id}
 			if p.Snippet != nil {
 				meta.Title = p.Snippet.Title
 			}
+
 			if p.ContentDetails != nil {
 				meta.ItemCount = p.ContentDetails.ItemCount
 			}
+
 			metas[id] = meta
 		}
 	}
@@ -88,7 +93,9 @@ func (c *client) FetchPlaylistMetas(ids ...library.PlaylistID) (map[library.Play
 // FetchPlaylistItems は 50 アイテムごとに 1 ユニットを消費する。
 func (c *client) FetchPlaylistItems(id library.PlaylistID) ([]*library.FetchedItem, error) {
 	var items []*library.FetchedItem
+
 	nextPageToken := ""
+
 	for {
 		call := c.youtube.PlaylistItems.List([]string{"snippet", "status"}).
 			MaxResults(MAX_RESULTS_PER_PAGE).
@@ -133,7 +140,9 @@ func (c *client) FetchPlaylistItems(id library.PlaylistID) ([]*library.FetchedIt
 // 影響せず、チャンネル名も動画と一緒に取れる。
 func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, []*library.Channel, error) {
 	var videos []*library.Video
+
 	channels := map[library.ChannelID]*library.Channel{}
+
 	for _, batch := range batches(ids) {
 		res, err := c.youtube.Videos.List([]string{"id", "snippet", "contentDetails", "statistics", "status"}).
 			MaxResults(int64(len(batch))).
@@ -171,13 +180,16 @@ func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, []*librar
 			if v.ContentDetails != nil && (v.Snippet.LiveBroadcastContent == "" || v.Snippet.LiveBroadcastContent == "none") {
 				video.Duration = parseDuration(v.ContentDetails.Duration)
 			}
+
 			if v.Statistics != nil {
 				video.Likes = v.Statistics.LikeCount
 				video.Comments = v.Statistics.CommentCount
 			}
+
 			if v.Status != nil && v.Status.PrivacyStatus != "" {
 				video.PrivacyStatus = library.PrivacyStatus(v.Status.PrivacyStatus)
 			}
+
 			videos = append(videos, video)
 		}
 	}
@@ -200,10 +212,12 @@ func (c *client) FetchCategories() ([]*library.Category, error) {
 	}
 
 	var categories []*library.Category
+
 	for _, item := range res.Items {
 		if item.Snippet == nil {
 			continue
 		}
+
 		categories = append(categories, &library.Category{
 			YoutubeID:  library.CategoryID(item.Id),
 			Title:      item.Snippet.Title,
@@ -218,7 +232,9 @@ func (c *client) FetchCategories() ([]*library.Category, error) {
 func (c *client) FetchLiveVideos(ids []library.VideoID) (map[library.VideoID]*library.LiveVideo, error) {
 	live := map[library.VideoID]*library.LiveVideo{}
 	channelOf := map[library.VideoID]string{}
+
 	var channelIds []string
+
 	for _, batch := range batches(ids) {
 		res, err := c.youtube.Videos.List([]string{"id", "snippet", "statistics"}).
 			MaxResults(int64(len(batch))).
@@ -231,6 +247,7 @@ func (c *client) FetchLiveVideos(ids []library.VideoID) (map[library.VideoID]*li
 			if v.Snippet == nil {
 				continue
 			}
+
 			id := library.VideoID(v.Id)
 			live[id] = &library.LiveVideo{ChannelName: v.Snippet.ChannelTitle, Views: videoViews(v)}
 			channelOf[id] = v.Snippet.ChannelId
@@ -239,6 +256,7 @@ func (c *client) FetchLiveVideos(ids []library.VideoID) (map[library.VideoID]*li
 	}
 
 	icons := map[string]string{}
+
 	for _, batch := range batches(unique(channelIds)) {
 		res, err := c.youtube.Channels.List([]string{"id", "snippet"}).
 			MaxResults(int64(len(batch))).
@@ -251,6 +269,7 @@ func (c *client) FetchLiveVideos(ids []library.VideoID) (map[library.VideoID]*li
 			icons[ch.Id] = channelIcon(ch)
 		}
 	}
+
 	for id, v := range live {
 		v.ChannelIcon = icons[channelOf[id]]
 	}
@@ -261,12 +280,15 @@ func (c *client) FetchLiveVideos(ids []library.VideoID) (map[library.VideoID]*li
 // batches は ID を API が一度に受け付ける塊に分ける。
 func batches[T ~string](ids []T) [][]string {
 	var result [][]string
+
 	for i := 0; i < len(ids); i += MAX_BATCH_SIZE {
 		end := min(i+MAX_BATCH_SIZE, len(ids))
+
 		batch := make([]string, 0, end-i)
 		for _, id := range ids[i:end] {
 			batch = append(batch, string(id))
 		}
+
 		result = append(result, batch)
 	}
 
@@ -279,6 +301,7 @@ func itemPrivacy(item *ytapi.PlaylistItem) library.PrivacyStatus {
 	if item.Snippet.Title == DELETED_VIDEO_TITLE {
 		return library.PrivacyDeleted
 	}
+
 	if item.Status == nil {
 		return library.PrivacyPublic
 	}
@@ -290,6 +313,7 @@ func itemPrivacy(item *ytapi.PlaylistItem) library.PrivacyStatus {
 		return library.PrivacyDeleted
 	default:
 		log.Println("Unknown playlist item privacy status:", item.Status.PrivacyStatus, "item:", item.Id)
+
 		return library.PrivacyPublic
 	}
 }
@@ -299,6 +323,7 @@ func videoViews(v *ytapi.Video) library.ViewCount {
 	if v.Statistics == nil {
 		return 0
 	}
+
 	return library.ViewCount(v.Statistics.ViewCount)
 }
 
@@ -306,12 +331,15 @@ func channelIcon(c *ytapi.Channel) string {
 	if c.Snippet == nil || c.Snippet.Thumbnails == nil || c.Snippet.Thumbnails.Default == nil {
 		return ""
 	}
+
 	return c.Snippet.Thumbnails.Default.Url
 }
 
 func unique(ids []string) []string {
 	seen := map[string]bool{}
+
 	var result []string
+
 	for _, id := range ids {
 		if !seen[id] {
 			seen[id] = true
@@ -331,14 +359,17 @@ func parseDuration(s string) time.Duration {
 	}
 
 	var d time.Duration
+
 	for i, unit := range []time.Duration{24 * time.Hour, time.Hour, time.Minute, time.Second} {
 		if m[i+1] == "" {
 			continue
 		}
+
 		n, err := strconv.Atoi(m[i+1])
 		if err != nil {
 			return 0
 		}
+
 		d += time.Duration(n) * unit
 	}
 

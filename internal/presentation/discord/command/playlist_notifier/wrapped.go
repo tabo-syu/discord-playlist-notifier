@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/view"
@@ -36,19 +37,23 @@ func (c *PlaylistNotifier) wrapped(guildId string, year int) string {
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
 		return "通知登録されているプレイリストが存在しません。"
 	}
+
 	if err != nil {
 		return "エラー！システムに問題があります！"
 	}
+
 	if year == 0 {
 		year = c.now().In(c.location).Year()
 	}
 
 	var sections []string
+
 	for _, sub := range subscriptions {
 		w, err := c.library.Wrapped(sub.YoutubeID, year)
 		if err != nil {
 			return "エラー！システムに問題があります！"
 		}
+
 		sections = append(sections, "**"+view.WrappedTitle(sub.Title, year)+"**\n"+view.Wrapped(w, c.location, view.InMessage))
 	}
 

@@ -3,6 +3,7 @@ package playlist_notifier
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
@@ -21,14 +22,17 @@ func (c *PlaylistNotifier) list(guildId string) string {
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
 		return "通知登録されているプレイリストが存在しません。"
 	}
+
 	if err != nil {
 		return "エラー！システムに問題があります！"
 	}
 
-	message := "通知登録されているプレイリスト一覧\n"
+	var message strings.Builder
+	message.WriteString("通知登録されているプレイリスト一覧\n")
+
 	for _, sub := range subscriptions {
-		message += fmt.Sprintf("https://www.youtube.com/playlist?list=%s\n", sub.YoutubeID)
+		fmt.Fprintf(&message, "https://www.youtube.com/playlist?list=%s\n", sub.YoutubeID)
 	}
 
-	return message
+	return message.String()
 }

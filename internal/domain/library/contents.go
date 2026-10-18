@@ -35,6 +35,7 @@ func (s *Snapshot) Contains(videoID VideoID) bool {
 // PickRandom は中身から、重複のない視聴可能な動画を最大 n 件選ぶ。
 func PickRandom(contents []*PlaylistVideo, n int) []*PlaylistVideo {
 	var candidates []*PlaylistVideo
+
 	seen := map[VideoID]bool{}
 	for _, c := range contents {
 		if c.Video.Available() && !seen[c.Video.YoutubeID] {
@@ -46,6 +47,7 @@ func PickRandom(contents []*PlaylistVideo, n int) []*PlaylistVideo {
 	rand.Shuffle(len(candidates), func(i, j int) {
 		candidates[i], candidates[j] = candidates[j], candidates[i]
 	})
+
 	if len(candidates) > n {
 		candidates = candidates[:n]
 	}

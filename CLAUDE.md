@@ -14,15 +14,14 @@ Discord のテキストチャンネルに Embed を投稿する Discord ボッ�
 ## コマンド
 
 ```bash
-# ビルド / 静的チェック / テスト（「テスト」の節を参照）
-go build ./...
-go vet ./...
-gofmt -l .          # 何も出力されないこと
-go test ./...       # リポジトリのテストが Testcontainers で PostgreSQL を立てるので Docker が必要
-go test -short ./...  # Docker なしで、DB のテストだけ飛ばす
-
-# mock を生成し直す（インターフェースを変えたとき）
-go tool mockery
+# 整形 / 静的チェック / テスト（Taskfile.yml、Task v3 が必要）
+task fmt            # gofumpt + goimports で整形する
+task lint           # golangci-lint（.golangci.yml）
+task lint:fix       # 自動で直せる指摘（空行など）を直す
+task test           # go test ./...。リポジトリのテストが Testcontainers で PostgreSQL を立てるので Docker が必要
+task test:short     # go test -short ./...。Docker なしで、DB のテストだけ飛ばす
+task check          # build・lint・test をまとめて実行する。コミット前はこれ
+task mock           # mock を生成し直す（インターフェースを変えたとき。go tool mockery）
 
 # スタック全体（ボット + PostgreSQL）を起動する。通常はこちらを使う
 cp .env.example .env   # コピー後、実際の値を記入する
@@ -34,9 +33,25 @@ docker compose logs -f bot
 go run cmd/server/main.go
 ```
 
-Makefile、CI ワークフロー、golangci-lint の設定ファイルはいずれもリポジトリに
-ありません。devcontainer が VS Code の設定として `go.lintTool: golangci-lint` を
-指定しているだけなので、lint はエディタ側の機能であり、どこでも強制されていません。
+golangci-lint は `Taskfile.yml` の中で `go run ...@v2.15.0` としてバージョンを固定して
+呼ぶので、別にインストールする必要はなく、go.mod にも入りません（手元の Go でビルド
+されるので、go.mod の Go のバージョンより古い Go でビルドしたバイナリが動かない問題も
+避けられます）。上げるときは `Taskfile.yml` のバージョンを書き換えます。CI はありません。
+
+`.golangci.yml` で revive は使いません（ALL_CAPS の定数名と、英語の定型コメントを
+強制するため）。testifylint の `require-error` は「テストの書き方」と衝突するので
+外しています。`add.go` と `delete.go` の `switch err` は「既知の挙動」なので
+`//nolint:errorlint` を付けて残しています。
+
+ほかに、次のルールを入れています。
+
+- depguard — 「アーキテクチャ」の依存の向きを強制します（domain は他のレイヤを、
+  application は infrastructure と presentation を import しない。`internal/mocks` は
+  テストからだけ import する）
+- exhaustive — 値オブジェクトの `switch` の `case` の漏れ。`default` があれば対象外
+- funcorder — コンストラクタは型の直後、公開メソッドの後に非公開メソッドを置く
+- recvcheck — 値とポインタのレシーバを混ぜない（GORM の `TableName` は除く）
+- modernize、prealloc、embeddedstructfieldcheck、unparam（テストは除く）、paralleltest
 
 ## アーキテクチャ
 
@@ -279,6 +294,12 @@ YouTube プレイリストの中身は、サーバーごとの通知設定（`su
 - エラーは `internal/domain/errors.go` に置いた**センチネル値**で、発生源
   （Discord / YouTube / DB）ごとにグループ分けされています。リポジトリと
   アプリケーションサービスがこれを返し、コマンド層がユーザー向けの文言に変換します。
+- 整形は gofumpt + goimports（`task fmt`）です。import は、このモジュール
+  （`github.com/tabo-syu/discord-playlist-notifier/...`）のものを外部のパッケージと
+  空行で分けます（goimports が強制します）。
+- 空行は nlreturn と wsl_v5 が決めます（`return` / `if` / `for` の前、ブロックの後などに
+  空行を入れ、続けて書く `var` は `var (...)` にまとめる）。`task fmt` では直らないので、
+  `task lint:fix` で直します。
 - ログは標準ライブラリの `log` を使い、フィールドをスペース区切りで並べます
   （`log.Println("Guild record created:", guildId)`）。構造化ロガーは使いません。
 
@@ -398,6 +419,8 @@ YouTube から直接データを取る前に、DB に保存した中身（`libra
 
 ```go
 func TestComputeWrapped(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string                   // 何を確かめるか（日本語の文）
 		contents []*library.PlaylistVideo // 入力。名前は引数と同じにする
@@ -415,6 +438,8 @@ func TestComputeWrapped(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := library.ComputeWrapped(tt.contents, 2026, jst)
 
 			assert.Equal(t, tt.want, got)
@@ -429,6 +454,10 @@ func TestComputeWrapped(t *testing.T) {
   `&library.Stats{...}` など）も同じです。スライスやマップの要素は 1 要素 1 行にします
   （`{Month: ..., Count: 0},` のような表の行として読めるように）。
 - ケースは 1 つのことだけを確かめ、入力は最小限にします。`name` で何を確かめるかを書きます。
+- テスト関数と `t.Run` の中の先頭で `t.Parallel()` を呼びます（paralleltest）。
+  ケース同士で状態を共有しないこと（mock はケースごとに作る）。ただしリポジトリの
+  テスト（`infrastructure/persistence`）は 1 つの DB をテストごとに `TRUNCATE` して
+  使うので並列にせず、`.golangci.yml` で paralleltest の対象から外しています。
 - ループの中身は「呼ぶ → 空行 → `assert`」だけで、`if` などの分岐は書きません。
   mock を使うテストは、その前に「mock を作る → `tt.setup(m)` → サービスを組み立てる
   → 空行」を置きます（下の「mock」を参照）。
@@ -470,6 +499,8 @@ tests := []struct {
 }
 for _, tt := range tests {
 	t.Run(tt.name, func(t *testing.T) {
+		t.Parallel()
+
 		m := newDeps(t)
 		tt.setup(m)
 		s := application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds)
@@ -501,8 +532,9 @@ for _, tt := range tests {
 - 定期実行のユースケースのように何も返さないメソッドは、`setup` の期待（保存と送信の
   引数）だけで確かめ、ループの中に `assert` を書きません。
 
-変更の検証は最低でも `go build ./... && go vet ./... && go test ./...` で行ってください
-（Docker が使えないときは `go test -short ./...` で、DB のテストを飛ばしたことを明示します）。
+変更の検証は最低でも `task check`（build・lint・test）で行ってください
+（Docker が使えないときは `go build ./... && task lint && task test:short` で、DB のテストを
+飛ばしたことを明示します）。
 Discord や YouTube の挙動に関わる変更は実際の認証情報とテスト用サーバーが
 必要です。検証できていない場合は、検証したと述べずにその旨を明示してください。
 

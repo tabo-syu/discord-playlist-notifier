@@ -23,6 +23,7 @@ type NewVideos struct {
 // 削除された通知設定は除く。
 func FindNewVideos(subscriptions []*subscription.Subscription, snapshots map[library.PlaylistID]*library.Snapshot) []*NewVideos {
 	var updates []*NewVideos
+
 	for _, sub := range subscriptions {
 		latest, ok := snapshots[sub.YoutubeID]
 		if !ok || latest.Deleted {
@@ -30,16 +31,20 @@ func FindNewVideos(subscriptions []*subscription.Subscription, snapshots map[lib
 		}
 
 		var added []*library.PlaylistVideo
+
 		for _, item := range latest.Items {
 			if !sub.IsNew(item) {
 				continue
 			}
+
 			video, ok := latest.Videos[item.VideoYoutubeID]
 			if !ok || !video.Available() {
 				continue
 			}
+
 			added = append(added, &library.PlaylistVideo{PlaylistID: sub.YoutubeID, Item: item, Video: video})
 		}
+
 		if len(added) != 0 {
 			// プレイリストの順に関係なく、動画が追加された順に通知する
 			sort.SliceStable(added, func(i, j int) bool {

@@ -52,10 +52,12 @@ func run(m *testing.M) int {
 
 	if testing.Short() {
 		fmt.Println("skipping database tests in short mode")
+
 		return 0
 	}
 
 	ctx := context.Background()
+
 	container, err := tcpostgres.Run(ctx, "postgres:14.4-alpine",
 		tcpostgres.WithDatabase("test"),
 		tcpostgres.WithUsername("test"),
@@ -64,22 +66,32 @@ func run(m *testing.M) int {
 	)
 	if err != nil {
 		fmt.Println("could not start PostgreSQL (Docker is required):", err)
+
 		return 1
 	}
-	defer container.Terminate(ctx)
+	defer func() {
+		if err := container.Terminate(ctx); err != nil {
+			fmt.Println("could not terminate PostgreSQL:", err)
+		}
+	}()
 
 	dsn, err = container.ConnectionString(ctx, "sslmode=disable", "TimeZone=UTC")
 	if err != nil {
 		fmt.Println("could not get the connection string:", err)
+
 		return 1
 	}
+
 	db, err := open()
 	if err != nil {
 		fmt.Println("could not connect to PostgreSQL:", err)
+
 		return 1
 	}
+
 	if err := persistence.Migrate(db); err != nil {
 		fmt.Println("could not migrate:", err)
+
 		return 1
 	}
 
@@ -94,6 +106,7 @@ func open() (*gorm.DB, error) {
 	// 読み出した時刻を UTC にし、time.Date(..., time.UTC) で書いた期待値と比べられるようにする
 	conn := stdlib.OpenDB(*config, stdlib.OptionAfterConnect(func(_ context.Context, c *pgx.Conn) error {
 		c.TypeMap().RegisterType(&pgtype.Type{Name: "timestamptz", OID: pgtype.TimestamptzOID, Codec: &pgtype.TimestamptzCodec{ScanLocation: time.UTC}})
+
 		return nil
 	}))
 
@@ -105,6 +118,8 @@ func open() (*gorm.DB, error) {
 
 // newDB は全てのテーブルを空にした DB を返す。ID は 1 から振り直す。
 func newDB(t *testing.T) *gorm.DB {
+	t.Helper()
+
 	db, err := open()
 	require.NoError(t, err)
 	require.NoError(t, db.Exec("TRUNCATE guilds, playlists, playlist_items, videos, channels, categories, video_snapshots RESTART IDENTITY CASCADE").Error)
@@ -114,6 +129,8 @@ func newDB(t *testing.T) *gorm.DB {
 
 // seed はテストの前提となる行を DB に保存する。
 func seed(t *testing.T, db *gorm.DB, rows ...any) {
+	t.Helper()
+
 	for _, row := range rows {
 		require.NoError(t, db.Create(row).Error)
 	}
@@ -121,6 +138,8 @@ func seed(t *testing.T, db *gorm.DB, rows ...any) {
 
 // execute はテストの前提となる SQL を実行する。
 func execute(t *testing.T, db *gorm.DB, sqls ...string) {
+	t.Helper()
+
 	for _, sql := range sqls {
 		require.NoError(t, db.Exec(sql).Error)
 	}
@@ -128,6 +147,8 @@ func execute(t *testing.T, db *gorm.DB, sqls ...string) {
 
 // rows は T のテーブルの全ての行を、論理削除したものも含めて ID の順に返す。
 func rows[T any](t *testing.T, db *gorm.DB) []*T {
+	t.Helper()
+
 	var found []*T
 	require.NoError(t, db.Unscoped().Order("id").Find(&found).Error)
 
@@ -148,7 +169,7 @@ func deleted(id uint) gorm.Model {
 // 通知の基準時刻（UpdatedAt）は 6 時間前にする。
 func newSubscription(guildID uint, playlistID library.PlaylistID, title string) *subscription.Subscription {
 	return &subscription.Subscription{
-		Model:         gorm.Model{UpdatedAt: hoursAgo(6)},
+		UpdatedAt:     hoursAgo(6),
 		YoutubeID:     playlistID,
 		SendChannelID: "ch",
 		Title:         title,
