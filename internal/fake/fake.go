@@ -12,6 +12,7 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/notifier"
 )
 
 // Err は偽物に失敗させたときに返すエラー。
@@ -29,4 +30,5 @@ var (
 	_ library.Repository      = (*LibraryRepository)(nil)
 	_ library.YouTube         = (*YouTube)(nil)
 	_ application.Notifier    = (*Notifier)(nil)
+	_ notifier.Sender         = (*Discord)(nil)
 )
