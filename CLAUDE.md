@@ -18,7 +18,11 @@ Discord のテキストチャンネルに Embed を投稿する Discord ボッ�
 go build ./...
 go vet ./...
 gofmt -l .          # 何も出力されないこと
-go test ./...
+go test ./...       # リポジトリのテストが Testcontainers で PostgreSQL を立てるので Docker が必要
+go test -short ./...  # Docker なしで、DB のテストだけ飛ばす
+
+# mock を生成し直す（インターフェースを変えたとき）
+go tool mockery
 
 # スタック全体（ボット + PostgreSQL）を起動する。通常はこちらを使う
 cp .env.example .env   # コピー後、実際の値を記入する
@@ -343,7 +347,7 @@ YouTube から直接データを取る前に、DB に保存した中身（`libra
 
 テストは層ごとに少しずつ増やしています。カバレッジ 100% は目指さず、壊れると
 通知の二重送信・取りこぼしや集計の誤りにつながるロジックを優先します。
-今あるのは次の 6 つです。
+今あるのは次の 7 つです。
 
 - **ドメイン**（`internal/domain/library`、`notification`、`subscription`）— 純粋な
   関数とメソッドのテスト。境界の値（基準時刻ちょうど、タイムゾーンをまたぐ
@@ -373,6 +377,16 @@ YouTube から直接データを取る前に、DB に保存した中身（`libra
 - **通知の Embed**（`presentation/notifier`）— `notifier.New` は `*discordgo.Session` ではなく
   `ChannelMessageSendEmbed` だけを持つ `notifier.Sender` を受け取ります。テストでは
   `mocks.MockSender` に、送るはずの宛先と `*discordgo.MessageEmbed` を丸ごと期待します。
+- **リポジトリ**（`infrastructure/persistence`）— Testcontainers（`modules/postgres`）で
+  `docker-compose.yml` と同じ `postgres:14.4-alpine` を 1 つ立て、`persistence.Migrate`
+  でスキーマを作ってから、本物の GORM のリポジトリをテストします。コンテナは
+  `TestMain` がパッケージで 1 つだけ立て、各テストは `newDB(t)` で全てのテーブルを
+  `TRUNCATE ... RESTART IDENTITY` してから使うので、ID は 1 から振られます。GORM の
+  `NowFunc` を `now` に固定しているので、`CreatedAt`・`UpdatedAt` も期待値に書けます。
+  読み出した時刻は UTC にそろえています（`time.Date(..., time.UTC)` と比べられるように）。
+  前提の行は `seed(t, db, ...)`（ID なしで作ると、作った順に 1, 2, ... が振られる）、
+  書き込んだ結果は `rows[T](t, db)`（論理削除も含めて ID の順）で読みます。
+  `go test -short` では DB のテストを飛ばします。
 - **view のテキスト** — `text_test.go` が固定のデータで整形した結果を
   `view/testdata/*.golden` と比べます（ゴールデンテスト）。文言を変えたら
   `go test ./internal/presentation/view/ -update` で期待値を書き直し、golden の差分で
@@ -487,7 +501,8 @@ for _, tt := range tests {
 - 定期実行のユースケースのように何も返さないメソッドは、`setup` の期待（保存と送信の
   引数）だけで確かめ、ループの中に `assert` を書きません。
 
-変更の検証は最低でも `go build ./... && go vet ./... && go test ./...` で行ってください。
+変更の検証は最低でも `go build ./... && go vet ./... && go test ./...` で行ってください
+（Docker が使えないときは `go test -short ./...` で、DB のテストを飛ばしたことを明示します）。
 Discord や YouTube の挙動に関わる変更は実際の認証情報とテスト用サーバーが
 必要です。検証できていない場合は、検証したと述べずにその旨を明示してください。
 
