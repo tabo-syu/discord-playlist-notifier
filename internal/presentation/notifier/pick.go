@@ -3,8 +3,7 @@ package notifier
 import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
-
-	"github.com/bwmarrin/discordgo"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/view"
 )
 
 func pickLabel(interval subscription.PickInterval) string {
@@ -19,29 +18,13 @@ func pickLabel(interval subscription.PickInterval) string {
 }
 
 func (n *notifier) PostPick(sub *subscription.Subscription, picked *library.PlaylistVideo, live map[library.VideoID]*library.LiveVideo) error {
-	video := picked.Video
-	embed := &discordgo.MessageEmbed{
-		Color: color("1e90ff"),
-		Author: &discordgo.MessageEmbedAuthor{
-			Name: "🎵 " + pickLabel(sub.PickInterval) + " from " + sub.Title,
+	return n.sendVideo(sub.SendChannelID, picked.Video, sub.YoutubeID, live, videoNotice{
+		Color:  BLUE,
+		Author: "🎵 " + pickLabel(sub.PickInterval) + " from " + sub.Title,
+		Fields: []field{
+			{"追加日時", picked.Item.AddedAt.In(n.location).Format("2006/01/02")},
+			{"再生回数", view.Number(views(picked.Video, live))},
 		},
-		Title: video.Title,
-		URL:   videoURL(video.YoutubeID, sub.YoutubeID),
-		Fields: []*discordgo.MessageEmbedField{
-			{
-				Name:   "追加日時",
-				Value:  picked.Item.AddedAt.In(n.location).Format("2006/01/02"),
-				Inline: true,
-			},
-			{
-				Name:   "再生回数",
-				Value:  separator(views(video, live)),
-				Inline: true,
-			},
-		},
-		Image:  &discordgo.MessageEmbedImage{URL: video.Thumbnail()},
-		Footer: channelFooter(video, live),
-	}
-
-	return n.send(sub.SendChannelID, embed)
+		Image: LARGE,
+	})
 }

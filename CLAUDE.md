@@ -192,7 +192,10 @@ Go 側で別のテンプレート（`summary_empty` など）を選びます。�
   通知設定だけが通知対象になります。通知を取りこぼす可能性と引き換えに、
   二重通知が起きないようにしています。
 - `presentation/notifier` — `discordgo.MessageEmbed`（ラベルは日本語）を組み立て、
-  動画 1 件につき 1 通の `ChannelMessageSendEmbed` を送ります。
+  動画 1 件につき 1 通の `ChannelMessageSendEmbed` を送ります。動画を知らせる通知は
+  通知ごとに違う部分（色・見出し・フィールド・画像の大きさ）だけを `videoNotice` に
+  並べ、タイトル・URL・サムネイル・投稿者は `video.go` の `sendVideo` が組み立てます。
+  1 ファイルに通知 1 種類です。
 
 ### プレイリストの中身の保存（`domain/library` と `LibraryService`）
 
