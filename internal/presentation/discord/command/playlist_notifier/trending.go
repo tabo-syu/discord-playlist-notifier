@@ -81,7 +81,7 @@ func (c *PlaylistNotifier) trending(guildId string, playlistId string, days int)
 				heading += fmt.Sprintf("（グラフ %d）", len(files))
 			}
 		}
-		sections = append(sections, heading+"\n"+formatTrending(trending, c.location))
+		sections = append(sections, heading+"\n"+view.Trending(trending, c.location))
 	}
 	if len(sections) == 0 {
 		return command.Text("通知登録されていないプレイリストです。")
@@ -91,23 +91,4 @@ func (c *PlaylistNotifier) trending(guildId string, playlistId string, days int)
 		Content: view.Truncate(strings.Join(sections, "\n"), view.MAX_MESSAGE_LENGTH),
 		Files:   files,
 	}
-}
-
-func formatTrending(t *library.Trending, loc *time.Location) string {
-	if !t.To.After(t.From) {
-		return "まだ記録が足りません。再生数は 6 時間ごとに記録しています。\n"
-	}
-
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "%s〜%s の伸び\n", t.From.In(loc).Format("01/02"), t.To.In(loc).Format("01/02"))
-	if len(t.Videos) == 0 {
-		sb.WriteString("この期間に再生数が伸びた曲はありません。\n")
-		return sb.String()
-	}
-	for i, v := range t.Videos {
-		total := v.Snapshots[len(v.Snapshots)-1].Views
-		fmt.Fprintf(&sb, "#%d %s（+%s 回 ・ 計 %s 回）\n", i+1, view.VideoLink(v.Video, view.InMessage), view.Number(v.Increase), view.Number(total))
-	}
-
-	return sb.String()
 }

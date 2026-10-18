@@ -14,10 +14,11 @@ Discord のテキストチャンネルに Embed を投稿する Discord ボッ�
 ## コマンド
 
 ```bash
-# ビルド / 静的チェック（テストスイートは存在しない。「テスト」の節を参照）
+# ビルド / 静的チェック / テスト（テストは view の整形だけ。「テスト」の節を参照）
 go build ./...
 go vet ./...
 gofmt -l .          # 何も出力されないこと
+go test ./...
 
 # スタック全体（ボット + PostgreSQL）を起動する。通常はこちらを使う
 cp .env.example .env   # コピー後、実際の値を記入する
@@ -321,8 +322,10 @@ YouTube から直接データを取る前に、DB に保存した中身（`libra
 
 ## テスト
 
-現時点でリポジトリに **`_test.go` ファイルは 1 つもありません**。テストコードは書かない
-方針です。
+テストコードは原則として書かない方針です。例外は `internal/presentation/view` の
+テキストの整形で、`text_test.go` が固定のデータで整形した結果を `view/testdata/*.golden`
+と比べます（ゴールデンテスト）。文言を変えたら `go test ./internal/presentation/view/ -update`
+で期待値を書き直し、golden の差分で見た目を確認してください。
 
 変更の検証は最低でも `go build ./... && go vet ./...` で行ってください。
 Discord や YouTube の挙動に関わる変更は実際の認証情報とテスト用サーバーが

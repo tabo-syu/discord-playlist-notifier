@@ -2,13 +2,12 @@ package playlist_notifier
 
 import (
 	"errors"
-	"fmt"
-	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/view"
 )
 
 const MAX_RANDOM_COUNT = 5
@@ -52,19 +51,5 @@ func (c *PlaylistNotifier) random(guildId string, count int) string {
 		return "エラー！システムに問題があります！"
 	}
 
-	return formatRandom(picked)
-}
-
-func formatRandom(picked []*library.PlaylistVideo) string {
-	if len(picked) == 0 {
-		return "選べる曲がまだありません。少し待ってからもう一度試してください。"
-	}
-
-	var sb strings.Builder
-	sb.WriteString("🎲 ランダムに選びました！\n")
-	for _, p := range picked {
-		fmt.Fprintf(&sb, "\n**%s**\nhttps://www.youtube.com/watch?v=%s&list=%s\n", p.Video.Title, p.Video.YoutubeID, p.PlaylistID)
-	}
-
-	return sb.String()
+	return view.Random(picked)
 }
