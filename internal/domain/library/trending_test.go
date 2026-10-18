@@ -2,75 +2,117 @@ package library_test
 
 import (
 	"testing"
-	"time"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 )
 
 func TestComputeTrending(t *testing.T) {
-	base := time.Date(2026, time.October, 1, 0, 0, 0, 0, time.UTC)
-	at := func(hours int) time.Time { return base.Add(time.Duration(hours) * time.Hour) }
-	snap := func(hours int, views library.ViewCount) *library.VideoSnapshot {
-		return &library.VideoSnapshot{RecordedAt: at(hours), Views: views}
+	tests := []struct {
+		name     string
+		videos   map[library.VideoID]*library.Video
+		earliest map[library.VideoID]*library.VideoSnapshot
+		latest   map[library.VideoID]*library.VideoSnapshot
+		n        int
+		want     *library.Trending
+	}{
+		{
+			name: "記録がない",
+			n:    3,
+			want: &library.Trending{},
+		},
+		{
+			name: "伸びた再生数の多い順に並べる",
+			videos: map[library.VideoID]*library.Video{
+				"a": video("a", library.PrivacyPublic, 0),
+				"b": video("b", library.PrivacyPublic, 0),
+			},
+			earliest: map[library.VideoID]*library.VideoSnapshot{"a": recorded(0, 100), "b": recorded(0, 100)},
+			latest:   map[library.VideoID]*library.VideoSnapshot{"a": recorded(6, 200), "b": recorded(6, 400)},
+			n:        3,
+			want: &library.Trending{
+				From: hoursLater(0),
+				To:   hoursLater(6),
+				Videos: []*library.TrendingVideo{
+					{Video: video("b", library.PrivacyPublic, 0), Increase: 300},
+					{Video: video("a", library.PrivacyPublic, 0), Increase: 100},
+				},
+			},
+		},
+		{
+			name: "伸びが同じなら ID の順に並べる",
+			videos: map[library.VideoID]*library.Video{
+				"a": video("a", library.PrivacyPublic, 0),
+				"b": video("b", library.PrivacyPublic, 0),
+			},
+			earliest: map[library.VideoID]*library.VideoSnapshot{"a": recorded(0, 0), "b": recorded(0, 0)},
+			latest:   map[library.VideoID]*library.VideoSnapshot{"a": recorded(6, 100), "b": recorded(6, 100)},
+			n:        3,
+			want: &library.Trending{
+				From: hoursLater(0),
+				To:   hoursLater(6),
+				Videos: []*library.TrendingVideo{
+					{Video: video("a", library.PrivacyPublic, 0), Increase: 100},
+					{Video: video("b", library.PrivacyPublic, 0), Increase: 100},
+				},
+			},
+		},
+		{
+			name: "上位 n 件に絞る",
+			videos: map[library.VideoID]*library.Video{
+				"a": video("a", library.PrivacyPublic, 0),
+				"b": video("b", library.PrivacyPublic, 0),
+			},
+			earliest: map[library.VideoID]*library.VideoSnapshot{"a": recorded(0, 0), "b": recorded(0, 0)},
+			latest:   map[library.VideoID]*library.VideoSnapshot{"a": recorded(6, 100), "b": recorded(6, 200)},
+			n:        1,
+			want: &library.Trending{
+				From: hoursLater(0),
+				To:   hoursLater(6),
+				Videos: []*library.TrendingVideo{
+					{Video: video("b", library.PrivacyPublic, 0), Increase: 200},
+				},
+			},
+		},
+		{
+			name:     "見られない動画は除くが、期間には含める",
+			videos:   map[library.VideoID]*library.Video{"a": video("a", library.PrivacyPrivate, 0)},
+			earliest: map[library.VideoID]*library.VideoSnapshot{"a": recorded(0, 0)},
+			latest:   map[library.VideoID]*library.VideoSnapshot{"a": recorded(6, 100)},
+			n:        3,
+			want:     &library.Trending{From: hoursLater(0), To: hoursLater(6)},
+		},
+		{
+			name:     "プレイリストにない動画は除くが、期間には含める",
+			videos:   map[library.VideoID]*library.Video{},
+			earliest: map[library.VideoID]*library.VideoSnapshot{"a": recorded(0, 0)},
+			latest:   map[library.VideoID]*library.VideoSnapshot{"a": recorded(6, 100)},
+			n:        3,
+			want:     &library.Trending{From: hoursLater(0), To: hoursLater(6)},
+		},
+		{
+			name:     "1 回しか記録されていない動画は除く",
+			videos:   map[library.VideoID]*library.Video{"a": video("a", library.PrivacyPublic, 0)},
+			earliest: map[library.VideoID]*library.VideoSnapshot{"a": recorded(0, 100)},
+			latest:   map[library.VideoID]*library.VideoSnapshot{"a": recorded(0, 100)},
+			n:        3,
+			want:     &library.Trending{From: hoursLater(0), To: hoursLater(0)},
+		},
+		{
+			name:     "再生数が減った動画は除く",
+			videos:   map[library.VideoID]*library.Video{"a": video("a", library.PrivacyPublic, 0)},
+			earliest: map[library.VideoID]*library.VideoSnapshot{"a": recorded(0, 100)},
+			latest:   map[library.VideoID]*library.VideoSnapshot{"a": recorded(6, 90)},
+			n:        3,
+			want:     &library.Trending{From: hoursLater(0), To: hoursLater(6)},
+		},
 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := library.ComputeTrending(tt.videos, tt.earliest, tt.latest, tt.n)
 
-	videos := map[library.VideoID]*library.Video{
-		"top":       available("top", 0),
-		"tie-a":     available("tie-a", 0),
-		"tie-b":     available("tie-b", 0),
-		"private":   hidden("private", library.PrivacyPrivate),
-		"once":      available("once", 0),
-		"decreased": available("decreased", 0),
-		"flat":      available("flat", 0),
-	}
-	earliest := map[library.VideoID]*library.VideoSnapshot{
-		"top":       snap(6, 100),
-		"tie-a":     snap(6, 0),
-		"tie-b":     snap(6, 500),
-		"private":   snap(0, 0),
-		"once":      snap(6, 10),
-		"decreased": snap(6, 1_000),
-		"flat":      snap(6, 1_000),
-		// プレイリストにもう無い動画
-		"gone": snap(6, 0),
-	}
-	latest := map[library.VideoID]*library.VideoSnapshot{
-		"top":     snap(12, 3_100),
-		"tie-a":   snap(12, 1_000),
-		"tie-b":   snap(18, 1_500),
-		"private": snap(12, 1_000_000),
-		// 1 回しか記録されていない
-		"once":      snap(6, 10),
-		"decreased": snap(12, 900),
-		"flat":      snap(12, 1_000),
-		"gone":      snap(24, 1_000_000),
-	}
-
-	got := library.ComputeTrending(videos, earliest, latest, 3)
-
-	// 期間は順位に入らない動画も含めて決める
-	if !got.From.Equal(at(0)) || !got.To.Equal(at(24)) {
-		t.Errorf("From, To = %v, %v, want %v, %v", got.From, got.To, at(0), at(24))
-	}
-	var ids []library.VideoID
-	for _, v := range got.Videos {
-		ids = append(ids, v.Video.YoutubeID)
-	}
-	// 伸びが同じなら ID の順
-	assertIDs(t, "Videos", ids, []library.VideoID{"top", "tie-a", "tie-b"})
-	if got.Videos[0].Increase != 3_000 {
-		t.Errorf("Increase = %d, want 3000", got.Videos[0].Increase)
-	}
-
-	if got := library.ComputeTrending(videos, earliest, latest, 1); len(got.Videos) != 1 {
-		t.Errorf("ComputeTrending(n=1) returned %d videos, want 1", len(got.Videos))
-	}
-}
-
-func TestComputeTrendingEmpty(t *testing.T) {
-	got := library.ComputeTrending(nil, nil, nil, 3)
-
-	if !got.From.IsZero() || !got.To.IsZero() || len(got.Videos) != 0 {
-		t.Errorf("ComputeTrending() = %+v, want zero values", got)
+			assert.Equal(t, tt.want, got)
+		})
 	}
 }

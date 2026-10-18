@@ -4,50 +4,78 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 )
 
 func TestSnapshotContains(t *testing.T) {
-	s := &library.Snapshot{Items: []*library.PlaylistItem{{VideoYoutubeID: "a"}, {VideoYoutubeID: "b"}}}
-	if !s.Contains("b") {
-		t.Error(`Contains("b") = false, want true`)
+	snapshot := &library.Snapshot{Items: []*library.PlaylistItem{{VideoYoutubeID: "a"}}}
+
+	tests := []struct {
+		name    string
+		videoID library.VideoID
+		want    bool
+	}{
+		{name: "含む", videoID: "a", want: true},
+		{name: "含まない", videoID: "b", want: false},
 	}
-	if s.Contains("c") {
-		t.Error(`Contains("c") = true, want false`)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := snapshot.Contains(tt.videoID)
+
+			assert.Equal(t, tt.want, got)
+		})
 	}
 }
 
 func TestPickRandom(t *testing.T) {
-	now := time.Date(2026, time.October, 18, 0, 0, 0, 0, time.UTC)
-	a, b, c := available("a", 1), available("b", 2), available("c", 3)
-	contents := []*library.PlaylistVideo{
-		added(a, now),
-		added(b, now),
-		// 2 回追加された動画も 1 回しか選ばない
-		added(a, now.Add(time.Hour)),
-		added(c, now),
-		added(hidden("private", library.PrivacyPrivate), now),
-		added(&library.Video{YoutubeID: "no-details", PrivacyStatus: library.PrivacyPublic}, now),
+	a := added(video("a", library.PrivacyPublic, 0), date(2026, time.October, 1, 0))
+	b := added(video("b", library.PrivacyPublic, 0), date(2026, time.October, 2, 0))
+	aAgain := added(video("a", library.PrivacyPublic, 0), date(2026, time.October, 3, 0))
+	private := added(video("private", library.PrivacyPrivate, 0), date(2026, time.October, 4, 0))
+
+	// 選ぶ順はランダムなので、全て選ぶ数を指定して中身だけを比べる
+	tests := []struct {
+		name     string
+		contents []*library.PlaylistVideo
+		n        int
+		want     []*library.PlaylistVideo
+	}{
+		{name: "視聴できる動画を全て選ぶ", contents: []*library.PlaylistVideo{a, b}, n: 10, want: []*library.PlaylistVideo{a, b}},
+		{name: "視聴できない動画は選ばない", contents: []*library.PlaylistVideo{a, private}, n: 10, want: []*library.PlaylistVideo{a}},
+		{name: "2 回追加された動画は 1 回だけ選ぶ", contents: []*library.PlaylistVideo{a, aAgain}, n: 10, want: []*library.PlaylistVideo{a}},
+		{name: "何も選ばない", contents: []*library.PlaylistVideo{a, b}, n: 0, want: []*library.PlaylistVideo{}},
 	}
-	candidates := map[library.VideoID]bool{"a": true, "b": true, "c": true}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := library.PickRandom(tt.contents, tt.n)
 
-	for _, n := range []int{0, 2, 3, 10} {
-		picked := library.PickRandom(contents, n)
+			assert.ElementsMatch(t, tt.want, got)
+		})
+	}
+}
 
-		want := min(n, len(candidates))
-		if len(picked) != want {
-			t.Errorf("PickRandom(n=%d) returned %d videos, want %d", n, len(picked), want)
-		}
-		seen := map[library.VideoID]bool{}
-		for _, p := range picked {
-			id := p.Video.YoutubeID
-			if !candidates[id] {
-				t.Errorf("PickRandom(n=%d) picked %q, which is not available", n, id)
-			}
-			if seen[id] {
-				t.Errorf("PickRandom(n=%d) picked %q twice", n, id)
-			}
-			seen[id] = true
-		}
+func TestPickRandomLimit(t *testing.T) {
+	a := added(video("a", library.PrivacyPublic, 0), date(2026, time.October, 1, 0))
+	b := added(video("b", library.PrivacyPublic, 0), date(2026, time.October, 2, 0))
+	c := added(video("c", library.PrivacyPublic, 0), date(2026, time.October, 3, 0))
+
+	tests := []struct {
+		name     string
+		contents []*library.PlaylistVideo
+		n        int
+		wantLen  int
+	}{
+		{name: "n 件に絞る", contents: []*library.PlaylistVideo{a, b, c}, n: 2, wantLen: 2},
+		{name: "候補が n 件より少なければ全て選ぶ", contents: []*library.PlaylistVideo{a, b, c}, n: 5, wantLen: 3},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := library.PickRandom(tt.contents, tt.n)
+
+			assert.Len(t, got, tt.wantLen)
+			assert.Subset(t, tt.contents, got)
+		})
 	}
 }

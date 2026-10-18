@@ -5,7 +5,9 @@ go 1.27.1
 require (
 	github.com/bwmarrin/discordgo v0.29.0
 	github.com/go-co-op/gocron v1.37.0
+	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
+	github.com/stretchr/testify v1.12.1
 	github.com/wcharczuk/go-chart/v2 v2.1.2
 	google.golang.org/api v0.299.0
 	gorm.io/driver/postgres v1.6.3
@@ -20,7 +22,6 @@ require (
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/google/s2a-go v0.1.10 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -43,6 +44,7 @@ require (
 	go.opentelemetry.io/otel/metric v1.46.0 // indirect
 	go.opentelemetry.io/otel/trace v1.46.0 // indirect
 	go.uber.org/atomic v1.12.0 // indirect
+	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/crypto v0.57.0 // indirect
 	golang.org/x/image v0.18.0 // indirect
 	golang.org/x/net v0.59.0 // indirect

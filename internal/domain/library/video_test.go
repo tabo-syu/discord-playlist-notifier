@@ -3,131 +3,194 @@ package library_test
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 )
 
 func TestVideoAvailable(t *testing.T) {
-	tests := map[string]struct {
+	tests := []struct {
+		name  string
 		video *library.Video
 		want  bool
 	}{
-		"公開":           {&library.Video{Title: "曲", PrivacyStatus: library.PrivacyPublic}, true},
-		"限定公開":         {&library.Video{Title: "曲", PrivacyStatus: library.PrivacyUnlisted}, true},
-		"非公開":          {&library.Video{Title: "曲", PrivacyStatus: library.PrivacyPrivate}, false},
-		"削除":           {&library.Video{Title: "曲", PrivacyStatus: library.PrivacyDeleted}, false},
-		"詳細をまだ取得していない": {&library.Video{PrivacyStatus: library.PrivacyPublic}, false},
+		{name: "公開", video: video("a", library.PrivacyPublic, 0), want: true},
+		{name: "限定公開", video: video("a", library.PrivacyUnlisted, 0), want: true},
+		{name: "非公開", video: video("a", library.PrivacyPrivate, 0), want: false},
+		{name: "削除", video: video("a", library.PrivacyDeleted, 0), want: false},
+		{name: "詳細をまだ取得していない", video: &library.Video{YoutubeID: "a", PrivacyStatus: library.PrivacyPublic}, want: false},
 	}
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			if got := tt.video.Available(); got != tt.want {
-				t.Errorf("Available() = %v, want %v", got, tt.want)
-			}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.video.Available()
+
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
 
 func TestVideoChangePrivacy(t *testing.T) {
-	tests := map[string]struct {
-		title       string
-		from, to    library.PrivacyStatus
+	tests := []struct {
+		name        string
+		video       *library.Video
+		status      library.PrivacyStatus
+		want        *library.Video
 		wantChanged bool
 		wantHidden  bool
 	}{
-		"変わらない":           {"曲", library.PrivacyPublic, library.PrivacyPublic, false, false},
-		"非公開になった":         {"曲", library.PrivacyPublic, library.PrivacyPrivate, true, true},
-		"限定公開から削除になった":    {"曲", library.PrivacyUnlisted, library.PrivacyDeleted, true, true},
-		"限定公開になった":        {"曲", library.PrivacyPublic, library.PrivacyUnlisted, true, false},
-		"非公開から公開に戻った":     {"曲", library.PrivacyPrivate, library.PrivacyPublic, true, false},
-		"非公開から削除になった":     {"曲", library.PrivacyPrivate, library.PrivacyDeleted, true, false},
-		"初めて見る動画":         {"", "", library.PrivacyPublic, true, false},
-		"初めて見る動画が非公開":     {"", "", library.PrivacyPrivate, true, false},
-		"詳細のない動画が非公開になった": {"", library.PrivacyPublic, library.PrivacyPrivate, true, false},
+		{
+			name:        "変わらない",
+			video:       video("a", library.PrivacyPublic, 0),
+			status:      library.PrivacyPublic,
+			want:        video("a", library.PrivacyPublic, 0),
+			wantChanged: false,
+			wantHidden:  false,
+		},
+		{
+			name:        "公開から非公開になった",
+			video:       video("a", library.PrivacyPublic, 0),
+			status:      library.PrivacyPrivate,
+			want:        video("a", library.PrivacyPrivate, 0),
+			wantChanged: true,
+			wantHidden:  true,
+		},
+		{
+			name:        "限定公開から削除になった",
+			video:       video("a", library.PrivacyUnlisted, 0),
+			status:      library.PrivacyDeleted,
+			want:        video("a", library.PrivacyDeleted, 0),
+			wantChanged: true,
+			wantHidden:  true,
+		},
+		{
+			name:        "非公開から公開に戻った",
+			video:       video("a", library.PrivacyPrivate, 0),
+			status:      library.PrivacyPublic,
+			want:        video("a", library.PrivacyPublic, 0),
+			wantChanged: true,
+			wantHidden:  false,
+		},
+		{
+			name:        "非公開から削除になった",
+			video:       video("a", library.PrivacyPrivate, 0),
+			status:      library.PrivacyDeleted,
+			want:        video("a", library.PrivacyDeleted, 0),
+			wantChanged: true,
+			wantHidden:  false,
+		},
+		{
+			name:        "初めて見る動画が非公開",
+			video:       &library.Video{YoutubeID: "a"},
+			status:      library.PrivacyPrivate,
+			want:        &library.Video{YoutubeID: "a", PrivacyStatus: library.PrivacyPrivate},
+			wantChanged: true,
+			wantHidden:  false,
+		},
 	}
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			v := &library.Video{Title: tt.title, PrivacyStatus: tt.from}
-			changed, hidden := v.ChangePrivacy(tt.to)
-			if changed != tt.wantChanged || hidden != tt.wantHidden {
-				t.Errorf("ChangePrivacy(%q) = (%v, %v), want (%v, %v)", tt.to, changed, hidden, tt.wantChanged, tt.wantHidden)
-			}
-			if v.PrivacyStatus != tt.to {
-				t.Errorf("PrivacyStatus = %q, want %q", v.PrivacyStatus, tt.to)
-			}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			changed, hidden := tt.video.ChangePrivacy(tt.status)
+
+			assert.Equal(t, tt.want, tt.video)
+			assert.Equal(t, tt.wantChanged, changed)
+			assert.Equal(t, tt.wantHidden, hidden)
 		})
 	}
 }
 
 func TestVideoApplyDetails(t *testing.T) {
-	v := &library.Video{YoutubeID: "aaaaaaaaaaa", PrivacyStatus: library.PrivacyUnlisted}
-	v.ApplyDetails(&library.Video{
-		YoutubeID:        "bbbbbbbbbbb",
-		Title:            "曲",
-		Views:            123,
-		Likes:            4,
-		Comments:         5,
-		PrivacyStatus:    library.PrivacyPublic,
-		ChannelYoutubeID: "UCxxxx",
-		Tags:             []string{"tag"},
-		CategoryID:       "10",
-	})
+	tests := []struct {
+		name    string
+		video   *library.Video
+		details *library.Video
+		want    *library.Video
+	}{
+		{
+			name:  "公開状態と ID 以外をコピーする",
+			video: &library.Video{YoutubeID: "a", PrivacyStatus: library.PrivacyUnlisted},
+			details: &library.Video{
+				YoutubeID: "b", Title: "曲", Views: 100, Likes: 10, Comments: 1, PrivacyStatus: library.PrivacyPublic,
+				ChannelYoutubeID: "UC", Tags: []string{"tag"}, CategoryID: "10",
+			},
+			want: &library.Video{
+				YoutubeID: "a", Title: "曲", Views: 100, Likes: 10, Comments: 1, PrivacyStatus: library.PrivacyUnlisted,
+				ChannelYoutubeID: "UC", Tags: []string{"tag"}, CategoryID: "10",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.video.ApplyDetails(tt.details)
 
-	if v.Title != "曲" || v.Views != 123 || v.Likes != 4 || v.Comments != 5 || v.ChannelYoutubeID != "UCxxxx" || len(v.Tags) != 1 || v.CategoryID != "10" {
-		t.Errorf("details were not copied: %+v", v)
+			assert.Equal(t, tt.want, tt.video)
+		})
 	}
-	// 公開状態と ID はプレイリストのアイテムが持つものなので変えない
-	if v.PrivacyStatus != library.PrivacyUnlisted {
-		t.Errorf("PrivacyStatus = %q, want %q", v.PrivacyStatus, library.PrivacyUnlisted)
-	}
-	if v.YoutubeID != "aaaaaaaaaaa" {
-		t.Errorf("YoutubeID = %q, want %q", v.YoutubeID, "aaaaaaaaaaa")
-	}
-}
-
-func milestone(c library.ViewCount) *library.ViewCount {
-	return &c
 }
 
 func TestVideoInitMilestone(t *testing.T) {
-	t.Run("初めて再生数がわかった", func(t *testing.T) {
-		v := &library.Video{Views: 2_500_000}
-		v.InitMilestone()
-		if v.ViewMilestone == nil || *v.ViewMilestone != 1_000_000 {
-			t.Errorf("ViewMilestone = %v, want 1000000", v.ViewMilestone)
-		}
-	})
-	t.Run("記録済みの節目は変えない", func(t *testing.T) {
-		v := &library.Video{Views: 2_500_000, ViewMilestone: milestone(100_000)}
-		v.InitMilestone()
-		if *v.ViewMilestone != 100_000 {
-			t.Errorf("ViewMilestone = %d, want 100000", *v.ViewMilestone)
-		}
-	})
+	tests := []struct {
+		name  string
+		video *library.Video
+		want  *library.Video
+	}{
+		{
+			name:  "今の再生数の節目を記録する",
+			video: &library.Video{Views: 2_500_000},
+			want:  &library.Video{Views: 2_500_000, ViewMilestone: viewCount(1_000_000)},
+		},
+		{
+			name:  "記録済みの節目は変えない",
+			video: &library.Video{Views: 2_500_000, ViewMilestone: viewCount(100_000)},
+			want:  &library.Video{Views: 2_500_000, ViewMilestone: viewCount(100_000)},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.video.InitMilestone()
+
+			assert.Equal(t, tt.want, tt.video)
+		})
+	}
 }
 
 func TestVideoUpdateMilestone(t *testing.T) {
-	tests := map[string]struct {
-		recorded *library.ViewCount
-		views    library.ViewCount
-		want     bool
-		wantNext library.ViewCount
+	tests := []struct {
+		name        string
+		video       *library.Video
+		want        *library.Video
+		wantReached bool
 	}{
-		// 既存の再生数は通知しない
-		"初めて再生数がわかった": {nil, 2_500_000, false, 1_000_000},
-		"新しい節目に達した":   {milestone(100_000), 1_000_000, true, 1_000_000},
-		"節目を 2 つ飛ばした": {milestone(0), 10_000_000, true, 10_000_000},
-		"同じ節目のまま":     {milestone(1_000_000), 9_999_999, false, 1_000_000},
-		// 再生数が減っても、記録した節目は下げない（同じ節目を再び通知しない）
-		"再生数が減った": {milestone(1_000_000), 999_999, false, 1_000_000},
+		{
+			name:        "初めて再生数がわかったときは通知しない",
+			video:       &library.Video{Views: 2_500_000},
+			want:        &library.Video{Views: 2_500_000, ViewMilestone: viewCount(1_000_000)},
+			wantReached: false,
+		},
+		{
+			name:        "新しい節目に達した",
+			video:       &library.Video{Views: 1_000_000, ViewMilestone: viewCount(100_000)},
+			want:        &library.Video{Views: 1_000_000, ViewMilestone: viewCount(1_000_000)},
+			wantReached: true,
+		},
+		{
+			name:        "同じ節目のまま",
+			video:       &library.Video{Views: 9_999_999, ViewMilestone: viewCount(1_000_000)},
+			want:        &library.Video{Views: 9_999_999, ViewMilestone: viewCount(1_000_000)},
+			wantReached: false,
+		},
+		{
+			name:        "再生数が減っても節目は下げない",
+			video:       &library.Video{Views: 999_999, ViewMilestone: viewCount(1_000_000)},
+			want:        &library.Video{Views: 999_999, ViewMilestone: viewCount(1_000_000)},
+			wantReached: false,
+		},
 	}
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			v := &library.Video{Views: tt.views, ViewMilestone: tt.recorded}
-			if got := v.UpdateMilestone(); got != tt.want {
-				t.Errorf("UpdateMilestone() = %v, want %v", got, tt.want)
-			}
-			if v.ViewMilestone == nil || *v.ViewMilestone != tt.wantNext {
-				t.Errorf("ViewMilestone = %v, want %d", v.ViewMilestone, tt.wantNext)
-			}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reached := tt.video.UpdateMilestone()
+
+			assert.Equal(t, tt.want, tt.video)
+			assert.Equal(t, tt.wantReached, reached)
 		})
 	}
 }

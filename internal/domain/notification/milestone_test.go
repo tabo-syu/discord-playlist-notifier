@@ -1,9 +1,9 @@
 package notification_test
 
 import (
-	"fmt"
-	"slices"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/notification"
@@ -11,35 +11,49 @@ import (
 )
 
 func TestFindMilestones(t *testing.T) {
-	million := &library.Video{YoutubeID: "million", Views: 1_234_567}
-	hundredK := &library.Video{YoutubeID: "hundred-k", Views: 150_000}
-	videos := []*library.Video{million, hundredK}
-	containing := map[library.VideoID][]library.PlaylistID{
-		"million":   {"PL1", "PL2"},
-		"hundred-k": {"PL2"},
-	}
-	subscriptions := []*subscription.Subscription{
-		sub("PL1", "ch1", at(0)),
-		// ch1 には PL1 で通知するので、PL2 でもう一度通知しない
-		sub("PL2", "ch1", at(0)),
-		sub("PL2", "ch2", at(0)),
-		// 動画を含まないプレイリスト
-		sub("PL3", "ch3", at(0)),
-	}
+	a := &library.Video{YoutubeID: "a", Views: 1_234_567}
 
-	got := notification.FindMilestones(subscriptions, videos, containing)
+	tests := []struct {
+		name          string
+		subscriptions []*subscription.Subscription
+		videos        []*library.Video
+		containing    map[library.VideoID][]library.PlaylistID
+		want          []*notification.Milestone
+	}{
+		{
+			name:          "動画を含むプレイリストのチャンネルに、達した節目を通知する",
+			subscriptions: []*subscription.Subscription{sub("PL1", "ch1"), sub("PL2", "ch2")},
+			videos:        []*library.Video{a},
+			containing:    map[library.VideoID][]library.PlaylistID{"a": {"PL1", "PL2"}},
+			want: []*notification.Milestone{
+				{ChannelID: "ch1", PlaylistID: "PL1", Video: a, Milestone: 1_000_000},
+				{ChannelID: "ch2", PlaylistID: "PL2", Video: a, Milestone: 1_000_000},
+			},
+		},
+		{
+			name:          "同じチャンネルには 1 回だけ通知する",
+			subscriptions: []*subscription.Subscription{sub("PL1", "ch1"), sub("PL2", "ch1")},
+			videos:        []*library.Video{a},
+			containing:    map[library.VideoID][]library.PlaylistID{"a": {"PL1", "PL2"}},
+			want: []*notification.Milestone{
+				{ChannelID: "ch1", PlaylistID: "PL1", Video: a, Milestone: 1_000_000},
+			},
+		},
+		{
+			name:          "動画を含まないプレイリストには通知しない",
+			subscriptions: []*subscription.Subscription{sub("PL1", "ch1"), sub("PL2", "ch2")},
+			videos:        []*library.Video{a},
+			containing:    map[library.VideoID][]library.PlaylistID{"a": {"PL1"}},
+			want: []*notification.Milestone{
+				{ChannelID: "ch1", PlaylistID: "PL1", Video: a, Milestone: 1_000_000},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := notification.FindMilestones(tt.subscriptions, tt.videos, tt.containing)
 
-	var notices []string
-	for _, n := range got {
-		notices = append(notices, fmt.Sprintf("%s %s %s %d", n.ChannelID, n.PlaylistID, n.Video.YoutubeID, n.Milestone))
-	}
-	want := []string{
-		"ch1 PL1 million 1000000",
-		"ch2 PL2 million 1000000",
-		"ch1 PL2 hundred-k 100000",
-		"ch2 PL2 hundred-k 100000",
-	}
-	if !slices.Equal(notices, want) {
-		t.Errorf("FindMilestones() =\n%v\nwant\n%v", notices, want)
+			assert.Equal(t, tt.want, got)
+		})
 	}
 }

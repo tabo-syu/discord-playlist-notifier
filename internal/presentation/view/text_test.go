@@ -7,6 +7,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 )
 
@@ -101,18 +104,12 @@ func TestText(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join("testdata", name+".golden")
 			if *update {
-				if err := os.WriteFile(path, []byte(got), 0o644); err != nil {
-					t.Fatal(err)
-				}
+				require.NoError(t, os.WriteFile(path, []byte(got), 0o644))
 			}
 
 			want, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if got != string(want) {
-				t.Errorf("got:\n%s\nwant:\n%s", got, want)
-			}
+			require.NoError(t, err)
+			assert.Equal(t, string(want), got)
 		})
 	}
 }

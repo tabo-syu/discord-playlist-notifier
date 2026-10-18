@@ -341,18 +341,51 @@ YouTube から直接データを取る前に、DB に保存した中身（`libra
 今あるのは次の 2 つです。
 
 - **ドメイン**（`internal/domain/library`、`notification`、`subscription`）— 純粋な
-  関数とメソッドのテスト。外部のテストパッケージ（`package library_test` など）から
-  公開された API だけを使います。境界の値（基準時刻ちょうど、タイムゾーンをまたぐ
+  関数とメソッドのテスト。境界の値（基準時刻ちょうど、タイムゾーンをまたぐ
   月・年の区切り、節目ちょうどの再生数）とチャンネルごとの重複の排除を固定しています。
-  パッケージ内で共有する組み立て用の関数は `helpers_test.go` に置きます。
 - **view のテキスト** — `text_test.go` が固定のデータで整形した結果を
   `view/testdata/*.golden` と比べます（ゴールデンテスト）。文言を変えたら
   `go test ./internal/presentation/view/ -update` で期待値を書き直し、golden の差分で
   見た目を確認してください。
 
-書き方は標準ライブラリの `testing` だけを使い、テーブル駆動（ケース名は日本語）で
-書きます。結果がマップの順に依存する関数は、並べ替えてから比べます。
-「既知の挙動」の節にある挙動は、直さずに今の挙動のまま固定します。
+### テストの書き方
+
+読むときに頭を使わずに済むよう、全てのテストを同じ形で書きます。
+
+```go
+func TestComputeWrapped(t *testing.T) {
+	tests := []struct {
+		name     string                   // 何を確かめるか（日本語の文）
+		contents []*library.PlaylistVideo // 入力。名前は引数と同じにする
+		want     *library.Wrapped         // 期待値。複数なら wantXxx
+	}{
+		{name: "...", contents: ..., want: &library.Wrapped{...}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := library.ComputeWrapped(tt.contents, 2026, jst)
+
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+```
+
+- 1 つの関数・メソッドにつき 1 つのテーブル（`[]struct` + `t.Run(tt.name, ...)`）。
+  ケースが 1 つでもこの形にします。
+- ケースは 1 つのことだけを確かめ、入力は最小限にします。`name` で何を確かめるかを書きます。
+- ループの中身は「呼ぶ → 空行 → `assert`」だけで、`if` などの分岐は書きません。
+- 期待値は加工せず、戻り値の型そのものを書きます（ID の一覧などに変換して比べない）。
+  状態を変えるメソッドは、呼んだ後のレシーバーを `want` に書きます。
+- 比べ方は `assert.Equal(t, tt.want, got)` が基本です。順序が決まらない結果
+  （マップの順に依存するもの）だけ `assert.ElementsMatch`、ランダムな結果は
+  `assert.Len` / `assert.Subset` を使います。続けられないエラーは `require` にします。
+- テストデータを作る関数（`video`、`added`、`sub` など）はパッケージごとに
+  `helpers_test.go` に置き、何を返すかをコメントに書きます。
+- 外部のテストパッケージ（`package library_test` など）から、公開された API だけを使います。
+- 「既知の挙動」の節にある挙動は、直さずに今の挙動のまま固定します。
+- view のゴールデンテストだけは例外で、ケース名から golden のファイル名を決めるため
+  `map[string]string`（ケース名 → 整形した結果）のテーブルにしています。
 
 変更の検証は最低でも `go build ./... && go vet ./... && go test ./...` で行ってください。
 Discord や YouTube の挙動に関わる変更は実際の認証情報とテスト用サーバーが
