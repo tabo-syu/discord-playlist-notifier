@@ -353,7 +353,8 @@ YouTube から直接データを取る前に、DB に保存した中身（`libra
   基準時刻を送信の前に保存すること、保存に失敗した通知設定には送らないこと、
   `FULL_SYNC_INTERVAL` 以内は全件取得しないこと、詳細を持っていない動画だけ
   `videos.list` を呼ぶこと、定期投稿（ピック・年間のまとめ）の曜日や年を JST で
-  決めること などを固定しています。偽物は本物の DB と同じく読み書きの
+  決めること、MCP の `QueryService` が通知登録されたプレイリストしか見せないことと
+  `FindVideos` の絞り込み・並び順・ページング などを固定しています。偽物は本物の DB と同じく読み書きの
   たびに値をコピーし、空の結果で `domain.ErrDBRecordNotFound` を返すこと、`Update` が
   `UpdatedAt` を上書きすることなど、本物の挙動に合わせます。偽物は
   `var _ library.Repository = (*LibraryRepository)(nil)` などでインターフェースを

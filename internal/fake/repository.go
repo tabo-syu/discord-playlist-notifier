@@ -122,11 +122,13 @@ func (r *SubscriptionRepository) DeleteAll(subscriptions []*subscription.Subscri
 	return nil
 }
 
-// LibraryRepository は library.Repository の偽物。チャンネルとカテゴリは保存しない。
+// LibraryRepository は library.Repository の偽物。
 type LibraryRepository struct {
-	Items     []*library.PlaylistItem
-	Videos    []*library.Video
-	Snapshots []*library.VideoSnapshot
+	Items      []*library.PlaylistItem
+	Videos     []*library.Video
+	Snapshots  []*library.VideoSnapshot
+	Channels   []*library.Channel
+	Categories []*library.Category
 }
 
 func (r *LibraryRepository) FindItems(playlistIDs ...library.PlaylistID) ([]*library.PlaylistItem, error) {
@@ -199,20 +201,38 @@ func (r *LibraryRepository) SaveVideos(videos []*library.Video) error {
 	return nil
 }
 
-func (r *LibraryRepository) SaveChannels([]*library.Channel) error {
+func (r *LibraryRepository) SaveChannels(channels []*library.Channel) error {
+	for _, c := range channels {
+		r.Channels = slices.DeleteFunc(r.Channels, func(stored *library.Channel) bool { return stored.YoutubeID == c.YoutubeID })
+		r.Channels = append(r.Channels, clone(c))
+	}
 	return nil
 }
 
-func (r *LibraryRepository) FindChannels([]library.ChannelID) (map[library.ChannelID]*library.Channel, error) {
-	return map[library.ChannelID]*library.Channel{}, nil
+func (r *LibraryRepository) FindChannels(ids []library.ChannelID) (map[library.ChannelID]*library.Channel, error) {
+	found := map[library.ChannelID]*library.Channel{}
+	for _, c := range r.Channels {
+		if slices.Contains(ids, c.YoutubeID) {
+			found[c.YoutubeID] = clone(c)
+		}
+	}
+	return found, nil
 }
 
-func (r *LibraryRepository) SaveCategories([]*library.Category) error {
+func (r *LibraryRepository) SaveCategories(categories []*library.Category) error {
+	for _, c := range categories {
+		r.Categories = slices.DeleteFunc(r.Categories, func(stored *library.Category) bool { return stored.YoutubeID == c.YoutubeID })
+		r.Categories = append(r.Categories, clone(c))
+	}
 	return nil
 }
 
 func (r *LibraryRepository) FindCategories() (map[library.CategoryID]*library.Category, error) {
-	return map[library.CategoryID]*library.Category{}, nil
+	found := map[library.CategoryID]*library.Category{}
+	for _, c := range r.Categories {
+		found[c.YoutubeID] = clone(c)
+	}
+	return found, nil
 }
 
 func (r *LibraryRepository) AddSnapshots(snapshots []*library.VideoSnapshot) error {
