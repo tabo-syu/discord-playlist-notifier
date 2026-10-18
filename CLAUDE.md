@@ -343,7 +343,7 @@ YouTube から直接データを取る前に、DB に保存した中身（`libra
 
 テストは層ごとに少しずつ増やしています。カバレッジ 100% は目指さず、壊れると
 通知の二重送信・取りこぼしや集計の誤りにつながるロジックを優先します。
-今あるのは次の 5 つです。
+今あるのは次の 6 つです。
 
 - **ドメイン**（`internal/domain/library`、`notification`、`subscription`）— 純粋な
   関数とメソッドのテスト。境界の値（基準時刻ちょうど、タイムゾーンをまたぐ
@@ -372,6 +372,9 @@ YouTube から直接データを取る前に、DB に保存した中身（`libra
   出力は JSON の文字列で書き、`assert.JSONEq` で比べます。エラーのときは出力が
   `null` で、エラーの文言を `wantError` と比べます。日時を JST で返すことを確かめる
   ため、テストデータの時刻は UTC で書きます。
+- **通知の Embed**（`presentation/notifier`）— `notifier.New` は `*discordgo.Session` ではなく
+  `ChannelMessageSendEmbed` だけを持つ `notifier.Sender` を受け取ります。テストでは
+  `fake.Discord` を渡し、送った宛先と `*discordgo.MessageEmbed` を丸ごと比べます。
 - **view のテキスト** — `text_test.go` が固定のデータで整形した結果を
   `view/testdata/*.golden` と比べます（ゴールデンテスト）。文言を変えたら
   `go test ./internal/presentation/view/ -update` で期待値を書き直し、golden の差分で

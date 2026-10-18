@@ -17,12 +17,17 @@ const (
 	PURPLE = 0x9b59b6
 )
 
+// Sender は Discord のチャンネルに Embed を送る。*discordgo.Session が満たす。
+type Sender interface {
+	ChannelMessageSendEmbed(channelID string, embed *discordgo.MessageEmbed, options ...discordgo.RequestOption) (*discordgo.Message, error)
+}
+
 type notifier struct {
-	session *discordgo.Session
+	session Sender
 	// 日付の表示に使うタイムゾーン
 	location *time.Location
 }
 
-func New(s *discordgo.Session, loc *time.Location) *notifier {
+func New(s Sender, loc *time.Location) *notifier {
 	return &notifier{s, loc}
 }
