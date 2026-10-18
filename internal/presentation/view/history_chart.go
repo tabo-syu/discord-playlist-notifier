@@ -12,7 +12,7 @@ import (
 
 // HistoryChart はスナップショットの再生数（右軸）と高評価数（左軸）を
 // PNG 画像として描く。スナップショットは 2 つ以上必要。
-func HistoryChart(snapshots []*library.VideoSnapshot, loc *time.Location) ([]byte, error) {
+func HistoryChart(title string, snapshots []*library.VideoSnapshot, loc *time.Location) ([]byte, error) {
 	if len(snapshots) < 2 {
 		return nil, fmt.Errorf("at least 2 snapshots are needed, got %d", len(snapshots))
 	}
@@ -25,27 +25,17 @@ func HistoryChart(snapshots []*library.VideoSnapshot, loc *time.Location) ([]byt
 		likes = append(likes, float64(s.Likes))
 	}
 
-	graph := chart.Chart{
-		Width:  CHART_WIDTH,
-		Height: CHART_HEIGHT,
-		Background: chart.Style{
-			Padding: chart.Box{Top: 40, Left: 20, Right: 20, Bottom: 20},
-		},
-		XAxis: chart.XAxis{ValueFormatter: timeFormatter(times[0], times[len(times)-1], loc)},
-		YAxis: chart.YAxis{
-			ValueFormatter: compactNumber,
-			Range:          paddedRange(views),
-		},
-		YAxisSecondary: chart.YAxis{
-			ValueFormatter: compactNumber,
-			Range:          paddedRange(likes),
-		},
-		Series: []chart.Series{
-			chart.TimeSeries{Name: "Views", XValues: times, YValues: views},
-			chart.TimeSeries{Name: "Likes", YAxis: chart.YAxisSecondary, XValues: times, YValues: likes},
-		},
-	}
-	graph.Elements = []chart.Renderable{chart.LegendThin(&graph)}
+	graph := newChart(truncate(title, CHART_TITLE_LENGTH), times[0], times[len(times)-1], loc)
+	viewRange, likeRange := paddedRange(views), paddedRange(likes)
+	graph.YAxis.Range = viewRange
+	graph.YAxis.ValueFormatter = axisFormatter(viewRange.Min, viewRange.Max)
+	graph.YAxisSecondary = graph.YAxis
+	graph.YAxisSecondary.GridMajorStyle = chart.Hidden()
+	graph.YAxisSecondary.Range = likeRange
+	graph.YAxisSecondary.ValueFormatter = axisFormatter(likeRange.Min, likeRange.Max)
+	graph.Series = append(starLine("再生数", chartLines[0], times, views, chart.YAxisPrimary),
+		starLine("高評価", chartLines[1], times, likes, chart.YAxisSecondary)...)
+	graph.Elements = []chart.Renderable{legend(graph.Series)}
 
 	var buf bytes.Buffer
 	if err := graph.Render(chart.PNG, &buf); err != nil {

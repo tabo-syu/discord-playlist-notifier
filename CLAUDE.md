@@ -140,8 +140,10 @@ Discord のセッションには一切触れません。** 文字列だけなら
 `*discordgo.ApplicationCommandOption` の変数と `*PlaylistNotifier` のメソッドを
 同じファイルにまとめます（`add.go`、`list.go`、`delete.go`、`source.go`）。
 `history.go` と `trending.go` は、推移のグラフを PNG で添付する例です（描画は `view.HistoryChart` と `view.TrendingChart`、
-`github.com/wcharczuk/go-chart/v2`）。同梱のフォントに日本語がないので、グラフの中の文字は英数字だけにし、
-タイトルなどの日本語は本文に書きます。
+`github.com/wcharczuk/go-chart/v2`）。見た目（夜空の色、丸ゴシックの日本語フォント、
+光る線、凡例、目盛り）は `view/chart.go` にまとめています。フォントは
+`view/fonts/` の M PLUS Rounded 1c（OFL、`OFL.txt`）を `go:embed` で埋め込んでいます。
+go-chart の `LegendThin` は枠の色の指定を無視するので、凡例は自前で描きます。
 ハンドラはアプリケーションサービスだけを呼び、文字列の引数を値オブジェクトに
 変換して渡します。
 
