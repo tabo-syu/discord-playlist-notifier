@@ -9,47 +9,43 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/fake"
 )
 
 func TestGuildServiceRegister(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name       string
-		guilds     []*guild.Guild
-		wantErr    error
-		wantGuilds []*guild.Guild
+		name    string
+		setup   func(m *deps)
+		wantErr error
 	}{
 		{
-			name:    "参加したギルドを記録する",
-			wantErr: nil,
-			wantGuilds: []*guild.Guild{
-				guildOf(1, "guild"),
+			name: "参加したギルドを記録する",
+			setup: func(m *deps) {
+				m.guilds.EXPECT().Exists(guild.DiscordID("guild")).Return(false, nil)
+				m.guilds.EXPECT().Add(guild.New("guild")).Return(nil)
 			},
+			wantErr: nil,
 		},
 		{
 			name: "記録済みのギルドは記録しない",
-			guilds: []*guild.Guild{
-				guildOf(1, "guild"),
+			setup: func(m *deps) {
+				m.guilds.EXPECT().Exists(guild.DiscordID("guild")).Return(true, nil)
 			},
 			wantErr: domain.ErrDBRecordAlreadyCreated,
-			wantGuilds: []*guild.Guild{
-				guildOf(1, "guild"),
-			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			guilds := &fake.GuildRepository{Guilds: tt.guilds}
-			s := application.NewGuildService(guilds, &fake.SubscriptionRepository{Guilds: guilds})
+			m := newDeps(t)
+			tt.setup(m)
+			s := application.NewGuildService(m.guilds, m.subscriptions)
 
 			err := s.Register("guild")
 
 			assert.ErrorIs(t, err, tt.wantErr)
-			assert.Equal(t, tt.wantGuilds, guilds.Guilds)
 		})
 	}
 }
@@ -58,38 +54,40 @@ func TestGuildServiceUnregister(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name              string
-		guilds            []*guild.Guild
-		subscriptions     []*subscription.Subscription
-		wantErr           error
-		wantGuilds        []*guild.Guild
-		wantSubscriptions []*subscription.Subscription
+		name    string
+		setup   func(m *deps)
+		wantErr error
 	}{
 		{
 			name: "ギルドをその通知設定と一緒に削除する",
-			guilds: []*guild.Guild{
-				guildOf(1, "guild"),
+			setup: func(m *deps) {
+				m.guilds.EXPECT().Exists(guild.DiscordID("guild")).Return(true, nil)
+				m.guilds.EXPECT().FindByDiscordID(guild.DiscordID("guild")).Return(guildOf(1, "guild"), nil)
+				m.subscriptions.EXPECT().FindByGuild(guild.DiscordID("guild")).Return([]*subscription.Subscription{
+					sub(1, "PL", "ch", "PL", lastNotified),
+				}, nil)
+				m.guilds.EXPECT().Delete(guildOf(1, "guild")).Return(nil)
+				m.subscriptions.EXPECT().DeleteAll([]*subscription.Subscription{
+					sub(1, "PL", "ch", "PL", lastNotified),
+				}).Return(nil)
 			},
-			subscriptions: []*subscription.Subscription{
-				sub(1, "PL", "ch", "PL", lastNotified),
-			},
-			wantErr:           nil,
-			wantGuilds:        []*guild.Guild{},
-			wantSubscriptions: []*subscription.Subscription{},
+			wantErr: nil,
 		},
 		{
 			// 既知の挙動: FindByGuild が空のときにエラーを返すため、途中で止まる
 			name: "通知設定のないギルドは削除されない",
-			guilds: []*guild.Guild{
-				guildOf(1, "guild"),
+			setup: func(m *deps) {
+				m.guilds.EXPECT().Exists(guild.DiscordID("guild")).Return(true, nil)
+				m.guilds.EXPECT().FindByDiscordID(guild.DiscordID("guild")).Return(guildOf(1, "guild"), nil)
+				m.subscriptions.EXPECT().FindByGuild(guild.DiscordID("guild")).Return(nil, domain.ErrDBRecordNotFound)
 			},
 			wantErr: domain.ErrDBRecordNotFound,
-			wantGuilds: []*guild.Guild{
-				guildOf(1, "guild"),
-			},
 		},
 		{
-			name:    "記録していないギルドは削除できない",
+			name: "記録していないギルドは削除できない",
+			setup: func(m *deps) {
+				m.guilds.EXPECT().Exists(guild.DiscordID("guild")).Return(false, nil)
+			},
 			wantErr: domain.ErrDBRecordNotFound,
 		},
 	}
@@ -97,15 +95,13 @@ func TestGuildServiceUnregister(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			guilds := &fake.GuildRepository{Guilds: tt.guilds}
-			subscriptions := &fake.SubscriptionRepository{Guilds: guilds, Subscriptions: tt.subscriptions}
-			s := application.NewGuildService(guilds, subscriptions)
+			m := newDeps(t)
+			tt.setup(m)
+			s := application.NewGuildService(m.guilds, m.subscriptions)
 
 			err := s.Unregister("guild")
 
 			assert.ErrorIs(t, err, tt.wantErr)
-			assert.Equal(t, tt.wantGuilds, guilds.Guilds)
-			assert.Equal(t, tt.wantSubscriptions, subscriptions.Subscriptions)
 		})
 	}
 }

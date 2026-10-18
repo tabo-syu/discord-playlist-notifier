@@ -1,0 +1,45 @@
+# テストで使う mock を internal/mocks に生成する。インターフェースを変えたら
+# go tool mockery で生成し直す。
+all: false
+dir: internal/mocks
+pkgname: mocks
+template: testify
+formatter: goimports
+template-data:
+  # 可変長引数は 1 つずつ期待する（EXPECT().FindItems(id1, id2)）
+  unroll-variadic: true
+packages:
+  github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild:
+    interfaces:
+      Repository:
+        config:
+          structname: MockGuildRepository
+          filename: guild_repository.go
+  github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription:
+    interfaces:
+      Repository:
+        config:
+          structname: MockSubscriptionRepository
+          filename: subscription_repository.go
+  github.com/tabo-syu/discord-playlist-notifier/internal/domain/library:
+    interfaces:
+      Repository:
+        config:
+          structname: MockLibraryRepository
+          filename: library_repository.go
+      YouTube:
+        config:
+          structname: MockYouTube
+          filename: youtube.go
+  github.com/tabo-syu/discord-playlist-notifier/internal/application:
+    interfaces:
+      Notifier:
+        config:
+          structname: MockNotifier
+          filename: notifier.go
+  github.com/tabo-syu/discord-playlist-notifier/internal/presentation/notifier:
+    interfaces:
+      Sender:
+        config:
+          structname: MockSender
+          filename: sender.go

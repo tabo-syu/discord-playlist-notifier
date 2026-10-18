@@ -17,9 +17,17 @@ tasks:
     cmds:
       - "{{.GOLANGCI_LINT}} run --fix"
   test:
-    desc: テストを実行する
+    desc: テストを実行する（Testcontainers を使うので Docker が必要）
     cmds:
       - go test ./...
+  test:short:
+    desc: DB のテストを飛ばしてテストを実行する
+    cmds:
+      - go test -short ./...
+  mock:
+    desc: mock を生成し直す
+    cmds:
+      - go tool mockery
   check:
     desc: コミット前の確認（build・lint・test）
     cmds:

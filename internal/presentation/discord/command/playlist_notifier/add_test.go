@@ -6,8 +6,10 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/fake"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command"
 )
 
@@ -15,80 +17,75 @@ func TestAdd(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name              string
-		subscriptions     []*subscription.Subscription
-		youtube           *fake.YouTube
-		data              *discordgo.ApplicationCommandInteractionData
-		want              *command.Response
-		wantSubscriptions []*subscription.Subscription
+		name  string
+		data  *discordgo.ApplicationCommandInteractionData
+		setup func(m *deps)
+		want  *command.Response
 	}{
 		{
-			name: "プレイリストを登録する",
-			youtube: &fake.YouTube{
-				Playlists: []*fake.Playlist{
-					{ID: "PL", Title: "タイトル"},
-				},
-			},
+			name: "プレイリストを YouTube のタイトルで登録する",
 			data: subcommand("add", stringOption("playlist-id", "PL")),
-			want: command.Text("通知登録しました！\nhttps://www.youtube.com/playlist?list=PL"),
-			wantSubscriptions: []*subscription.Subscription{
-				{ID: 1, YoutubeID: "PL", SendChannelID: "ch", Title: "タイトル", GuildID: 1},
+			setup: func(m *deps) {
+				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(&library.PlaylistMeta{YoutubeID: "PL", Title: "タイトル"}, nil)
+				m.subscriptions.EXPECT().Exists(mockGuild, library.PlaylistID("PL")).Return(false, nil)
+				m.guilds.EXPECT().FindByDiscordID(mockGuild).Return(&guild.Guild{ID: 1, DiscordID: "guild"}, nil)
+				m.subscriptions.EXPECT().Add(&subscription.Subscription{
+					YoutubeID:     "PL",
+					SendChannelID: "ch",
+					Title:         "タイトル",
+					GuildID:       1,
+				}).Return(nil)
 			},
+			want: command.Text("通知登録しました！\nhttps://www.youtube.com/playlist?list=PL"),
 		},
 		{
 			name: "登録済みのプレイリスト",
-			subscriptions: []*subscription.Subscription{
-				sub(1, "PL", "タイトル"),
-			},
-			youtube: &fake.YouTube{
-				Playlists: []*fake.Playlist{
-					{ID: "PL", Title: "タイトル"},
-				},
-			},
 			data: subcommand("add", stringOption("playlist-id", "PL")),
-			want: command.Text("既に通知登録されているプレイリストです。"),
-			wantSubscriptions: []*subscription.Subscription{
-				sub(1, "PL", "タイトル"),
+			setup: func(m *deps) {
+				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(&library.PlaylistMeta{YoutubeID: "PL", Title: "タイトル"}, nil)
+				m.subscriptions.EXPECT().Exists(mockGuild, library.PlaylistID("PL")).Return(true, nil)
 			},
+			want: command.Text("既に通知登録されているプレイリストです。"),
 		},
 		{
-			name:    "YouTube にないプレイリスト",
-			youtube: &fake.YouTube{},
-			data:    subcommand("add", stringOption("playlist-id", "PL")),
-			want:    command.Text("該当するプレイリストが見つかりませんでした...\n非公開のプレイリストではありませんか？"),
+			name: "YouTube にないプレイリスト",
+			data: subcommand("add", stringOption("playlist-id", "PL")),
+			setup: func(m *deps) {
+				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(nil, domain.ErrYouTubePlaylistNotFound)
+			},
+			want: command.Text("該当するプレイリストが見つかりませんでした...\n非公開のプレイリストではありませんか？"),
 		},
 		{
 			name: "YouTube API が失敗した",
-			youtube: &fake.YouTube{
-				FindFails: true,
-			},
 			data: subcommand("add", stringOption("playlist-id", "PL")),
+			setup: func(m *deps) {
+				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(nil, errMock)
+			},
 			want: command.Text("YouTube API のサービス状況を確認してください。"),
 		},
 		{
-			name:    "プレイリスト ID がない",
-			youtube: &fake.YouTube{},
-			data:    subcommand("add"),
-			want:    command.Text("Error: Playlist ID is required."),
+			name:  "プレイリスト ID がない",
+			data:  subcommand("add"),
+			setup: func(m *deps) {},
+			want:  command.Text("Error: Playlist ID is required."),
 		},
 		{
-			name:    "プレイリスト ID が空",
-			youtube: &fake.YouTube{},
-			data:    subcommand("add", stringOption("playlist-id", "")),
-			want:    command.Text("Error: Playlist ID cannot be empty."),
+			name:  "プレイリスト ID が空",
+			data:  subcommand("add", stringOption("playlist-id", "")),
+			setup: func(m *deps) {},
+			want:  command.Text("Error: Playlist ID cannot be empty."),
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			subscriptions := &fake.SubscriptionRepository{Subscriptions: tt.subscriptions}
-			c := newCommand(subscriptions, &fake.LibraryRepository{}, tt.youtube)
+			m := newDeps(t)
+			tt.setup(m)
 
-			got := c.Handle(tt.data, "guild", "ch")
+			got := newCommand(m).Handle(tt.data, "guild", "ch")
 
 			assert.Equal(t, tt.want, got)
-			assert.Equal(t, tt.wantSubscriptions, subscriptions.Subscriptions)
 		})
 	}
 }

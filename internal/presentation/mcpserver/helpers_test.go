@@ -16,7 +16,7 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/fake"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/mocks"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/mcpserver"
 )
 
@@ -40,11 +40,27 @@ func date(year int, month time.Month, day, hour int) time.Time {
 	return time.Date(year, month, day, hour, 0, 0, 0, jst)
 }
 
-// connect は偽物のリポジトリで MCP サーバーを HTTP で立て、クライアントとして接続する。
-func connect(t *testing.T, subscriptions *fake.SubscriptionRepository, lib *fake.LibraryRepository) *mcp.ClientSession {
+// deps は QueryService が使う mock をまとめる。各テストケースの setup で、呼ばれる
+// はずのメソッドと、その戻り値を指定する。
+type deps struct {
+	subscriptions *mocks.MockSubscriptionRepository
+	library       *mocks.MockLibraryRepository
+}
+
+func newDeps(t *testing.T) *deps {
 	t.Helper()
 
-	query := application.NewQueryService(subscriptions, application.NewLibraryService(&fake.YouTube{}, lib, jst, clock), lib)
+	return &deps{
+		subscriptions: mocks.NewMockSubscriptionRepository(t),
+		library:       mocks.NewMockLibraryRepository(t),
+	}
+}
+
+// connect は mock で組み立てた MCP サーバーを HTTP で立て、クライアントとして接続する。
+func connect(t *testing.T, m *deps) *mcp.ClientSession {
+	t.Helper()
+
+	query := application.NewQueryService(m.subscriptions, application.NewLibraryService(mocks.NewMockYouTube(t), m.library, jst, clock), m.library)
 	ts := httptest.NewServer(mcpserver.NewServer("", query, jst, clock).Handler())
 	t.Cleanup(ts.Close)
 
@@ -54,6 +70,46 @@ func connect(t *testing.T, subscriptions *fake.SubscriptionRepository, lib *fake
 	t.Cleanup(func() { session.Close() })
 
 	return session
+}
+
+// watched は、通知登録されたプレイリストが subscriptions であることを期待する。何度呼ばれてもよい。
+func (m *deps) watched(subscriptions ...*subscription.Subscription) {
+	m.subscriptions.EXPECT().FindAll().Return(subscriptions, nil)
+}
+
+// playlistHas は、プレイリストの保存済みの中身が contents であることを期待する。
+func (m *deps) playlistHas(playlistID library.PlaylistID, contents ...*library.PlaylistVideo) {
+	items := make([]*library.PlaylistItem, 0, len(contents))
+	videos := map[library.VideoID]*library.Video{}
+
+	for _, c := range contents {
+		items = append(items, c.Item)
+		videos[c.Video.YoutubeID] = c.Video
+	}
+
+	m.library.EXPECT().FindItems(playlistID).Return(items, nil)
+	m.library.EXPECT().FindVideosInPlaylists(playlistID).Return(videos, nil)
+}
+
+// names は、動画を出力するときに引くチャンネルとカテゴリを期待する。channelIDs は
+// 出力する動画のチャンネル（わからなければ空文字列）を、出力する順に並べたもの。
+func (m *deps) names(channelIDs []library.ChannelID, channels map[library.ChannelID]*library.Channel) {
+	m.library.EXPECT().FindChannels(channelIDs).Return(channels, nil)
+	m.library.EXPECT().FindCategories().Return(categories(), nil)
+}
+
+// categories は保存済みのカテゴリを返す。
+func categories() map[library.CategoryID]*library.Category {
+	return map[library.CategoryID]*library.Category{
+		"10": {YoutubeID: "10", Title: "音楽", Assignable: true},
+		"20": {YoutubeID: "20", Title: "ゲーム", Assignable: true},
+		"99": {YoutubeID: "99", Title: "古いカテゴリ", Assignable: false},
+	}
+}
+
+// added はプレイリストに addedAt に追加された動画を返す。
+func added(playlistID library.PlaylistID, v *library.Video, addedAt time.Time) *library.PlaylistVideo {
+	return &library.PlaylistVideo{PlaylistID: playlistID, Item: item(playlistID, "1", v.YoutubeID, addedAt), Video: v}
 }
 
 // call はツールを呼び、構造化された出力の JSON と、ツールが返したエラーの文言を返す。

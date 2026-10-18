@@ -10,24 +10,25 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/fake"
 )
 
 func TestQueryServicePlaylists(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name          string
-		subscriptions []*subscription.Subscription
-		want          []*application.WatchedPlaylist
+		name  string
+		setup func(m *deps)
+		want  []*application.WatchedPlaylist
 	}{
 		{
 			name: "通知登録されたプレイリストを、1 つずつタイトル順に返す",
-			subscriptions: []*subscription.Subscription{
-				sub(1, "PL1", "ch1", "作業用", lastNotified),
-				sub(2, "PL2", "ch1", "お気に入り", lastNotified),
-				// 別のギルドが同じプレイリストを登録している
-				sub(3, "PL1", "ch2", "作業用", lastNotified),
+			setup: func(m *deps) {
+				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
+					sub(1, "PL1", "ch1", "作業用", lastNotified),
+					sub(2, "PL2", "ch1", "お気に入り", lastNotified),
+					// 別のギルドが同じプレイリストを登録している
+					sub(3, "PL1", "ch2", "作業用", lastNotified),
+				}, nil)
 			},
 			want: []*application.WatchedPlaylist{
 				{ID: "PL2", Title: "お気に入り"},
@@ -36,6 +37,9 @@ func TestQueryServicePlaylists(t *testing.T) {
 		},
 		{
 			name: "通知設定がなければ空のスライスを返す",
+			setup: func(m *deps) {
+				m.subscriptions.EXPECT().FindAll().Return(nil, domain.ErrDBRecordNotFound)
+			},
 			want: []*application.WatchedPlaylist{},
 		},
 	}
@@ -43,9 +47,10 @@ func TestQueryServicePlaylists(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := application.NewQueryService(&fake.SubscriptionRepository{Subscriptions: tt.subscriptions}, application.NewLibraryService(&fake.YouTube{}, &fake.LibraryRepository{}, jst, clock), &fake.LibraryRepository{})
+			m := newDeps(t)
+			tt.setup(m)
 
-			got, err := s.Playlists()
+			got, err := newQueryService(m).Playlists()
 
 			assert.NoError(t, err)
 			assert.Equal(t, tt.want, got)
@@ -56,57 +61,63 @@ func TestQueryServicePlaylists(t *testing.T) {
 func TestQueryServiceFindVideos(t *testing.T) {
 	t.Parallel()
 
-	// 通知登録されているのは PL1 と PL2 だけで、UNWATCHED はどこも登録していない
-	subscriptions := []*subscription.Subscription{
-		sub(1, "PL1", "ch", "PL1", lastNotified),
-		sub(2, "PL2", "ch", "PL2", lastNotified),
+	short := func() *library.Video {
+		return &library.Video{YoutubeID: "short", Title: "Short Song", PrivacyStatus: library.PrivacyPublic, Views: 300, Duration: 2 * time.Minute, Tags: []string{"J-Pop"}, CategoryID: "10", ChannelYoutubeID: "UC1"}
 	}
-	short := &library.Video{YoutubeID: "short", Title: "Short Song", PrivacyStatus: library.PrivacyPublic, Views: 300, Duration: 2 * time.Minute, Tags: []string{"J-Pop"}, CategoryID: "10", ChannelYoutubeID: "UC1"}
-	long := &library.Video{YoutubeID: "long", Title: "Long Mix", PrivacyStatus: library.PrivacyPublic, Views: 100, Duration: 10 * time.Minute, Tags: []string{"Lo-Fi", "作業用"}, CategoryID: "10", ChannelYoutubeID: "UC2"}
-	live := &library.Video{YoutubeID: "live", Title: "Live Stream", PrivacyStatus: library.PrivacyPublic, Views: 200, CategoryID: "20", ChannelYoutubeID: "UC1"}
-	private := &library.Video{YoutubeID: "private", Title: "Secret", PrivacyStatus: library.PrivacyPrivate}
-	unwatched := &library.Video{YoutubeID: "unwatched", Title: "Unwatched Song", PrivacyStatus: library.PrivacyPublic}
-
-	shortInPL1 := &library.PlaylistVideo{PlaylistID: "PL1", Item: item("PL1", "1", "short", hoursAgo(5)), Video: short}
-	longInPL1 := &library.PlaylistVideo{PlaylistID: "PL1", Item: item("PL1", "2", "long", hoursAgo(4)), Video: long}
-	liveInPL1 := &library.PlaylistVideo{PlaylistID: "PL1", Item: item("PL1", "3", "live", hoursAgo(3)), Video: live}
-	privateInPL1 := &library.PlaylistVideo{PlaylistID: "PL1", Item: item("PL1", "4", "private", hoursAgo(2)), Video: private}
+	long := func() *library.Video {
+		return &library.Video{YoutubeID: "long", Title: "Long Mix", PrivacyStatus: library.PrivacyPublic, Views: 100, Duration: 10 * time.Minute, Tags: []string{"Lo-Fi", "作業用"}, CategoryID: "10", ChannelYoutubeID: "UC2"}
+	}
+	live := func() *library.Video {
+		return &library.Video{YoutubeID: "live", Title: "Live Stream", PrivacyStatus: library.PrivacyPublic, Views: 200, CategoryID: "20", ChannelYoutubeID: "UC1"}
+	}
+	private := func() *library.Video {
+		return &library.Video{YoutubeID: "private", Title: "Secret", PrivacyStatus: library.PrivacyPrivate}
+	}
+	shortInPL1 := &library.PlaylistVideo{PlaylistID: "PL1", Item: item("PL1", "1", "short", hoursAgo(5)), Video: short()}
+	longInPL1 := &library.PlaylistVideo{PlaylistID: "PL1", Item: item("PL1", "2", "long", hoursAgo(4)), Video: long()}
+	liveInPL1 := &library.PlaylistVideo{PlaylistID: "PL1", Item: item("PL1", "3", "live", hoursAgo(3)), Video: live()}
+	privateInPL1 := &library.PlaylistVideo{PlaylistID: "PL1", Item: item("PL1", "4", "private", hoursAgo(2)), Video: private()}
 	// 複数のプレイリストにある動画は、アイテムごとに現れる
-	shortInPL2 := &library.PlaylistVideo{PlaylistID: "PL2", Item: item("PL2", "5", "short", hoursAgo(1)), Video: short}
+	shortInPL2 := &library.PlaylistVideo{PlaylistID: "PL2", Item: item("PL2", "5", "short", hoursAgo(1)), Video: short()}
 
-	newLibrary := func() *fake.LibraryRepository {
-		return &fake.LibraryRepository{
-			Items: []*library.PlaylistItem{
-				shortInPL1.Item,
-				longInPL1.Item,
-				liveInPL1.Item,
-				privateInPL1.Item,
-				shortInPL2.Item,
-				item("UNWATCHED", "6", "unwatched", hoursAgo(1)),
-			},
-			Videos: []*library.Video{
-				short,
-				long,
-				live,
-				private,
-				unwatched,
-			},
-			Channels: []*library.Channel{
-				{YoutubeID: "UC1", Title: "Official Channel"},
-				{YoutubeID: "UC2", Title: "Lofi Girl"},
-			},
-		}
+	// 通知登録されているのは PL1 と PL2
+	watched := func(m *deps) {
+		m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
+			sub(1, "PL1", "ch", "PL1", lastNotified),
+			sub(2, "PL2", "ch", "PL2", lastNotified),
+		}, nil)
+	}
+	// 通知登録されたプレイリストの中身。通知登録されていないプレイリストは読まない
+	contents := func(m *deps) {
+		m.library.EXPECT().FindItems(library.PlaylistID("PL1"), library.PlaylistID("PL2")).Return([]*library.PlaylistItem{
+			item("PL1", "1", "short", hoursAgo(5)),
+			item("PL1", "2", "long", hoursAgo(4)),
+			item("PL1", "3", "live", hoursAgo(3)),
+			item("PL1", "4", "private", hoursAgo(2)),
+			item("PL2", "5", "short", hoursAgo(1)),
+		}, nil)
+		m.library.EXPECT().FindVideosInPlaylists(library.PlaylistID("PL1"), library.PlaylistID("PL2")).Return(map[library.VideoID]*library.Video{
+			"short":   short(),
+			"long":    long(),
+			"live":    live(),
+			"private": private(),
+		}, nil)
 	}
 
 	tests := []struct {
 		name    string
 		query   application.VideoQuery
+		setup   func(m *deps)
 		want    *application.VideoPage
 		wantErr error
 	}{
 		{
 			name:  "条件がなければ、通知登録されたプレイリストの見られる動画を新しい順に返す",
 			query: application.VideoQuery{},
+			setup: func(m *deps) {
+				watched(m)
+				contents(m)
+			},
 			want: &application.VideoPage{
 				Total: 4,
 				Videos: []*library.PlaylistVideo{
@@ -120,12 +131,16 @@ func TestQueryServiceFindVideos(t *testing.T) {
 		{
 			name: "見られない動画も含める",
 			query: application.VideoQuery{
-				PlaylistID:         "PL1",
 				IncludeUnavailable: true,
 			},
+			setup: func(m *deps) {
+				watched(m)
+				contents(m)
+			},
 			want: &application.VideoPage{
-				Total: 4,
+				Total: 5,
 				Videos: []*library.PlaylistVideo{
+					shortInPL2,
 					privateInPL1,
 					liveInPL1,
 					longInPL1,
@@ -137,6 +152,15 @@ func TestQueryServiceFindVideos(t *testing.T) {
 			name: "プレイリストを指定する",
 			query: application.VideoQuery{
 				PlaylistID: "PL2",
+			},
+			setup: func(m *deps) {
+				watched(m)
+				m.library.EXPECT().FindItems(library.PlaylistID("PL2")).Return([]*library.PlaylistItem{
+					item("PL2", "5", "short", hoursAgo(1)),
+				}, nil)
+				m.library.EXPECT().FindVideosInPlaylists(library.PlaylistID("PL2")).Return(map[library.VideoID]*library.Video{
+					"short": short(),
+				}, nil)
 			},
 			want: &application.VideoPage{
 				Total: 1,
@@ -150,6 +174,7 @@ func TestQueryServiceFindVideos(t *testing.T) {
 			query: application.VideoQuery{
 				PlaylistID: "UNWATCHED",
 			},
+			setup:   watched,
 			want:    nil,
 			wantErr: domain.ErrDBRecordNotFound,
 		},
@@ -157,6 +182,10 @@ func TestQueryServiceFindVideos(t *testing.T) {
 			name: "タイトルの一部で絞り込む（大文字・小文字を区別しない）",
 			query: application.VideoQuery{
 				Title: "song",
+			},
+			setup: func(m *deps) {
+				watched(m)
+				contents(m)
 			},
 			want: &application.VideoPage{
 				Total: 2,
@@ -171,6 +200,14 @@ func TestQueryServiceFindVideos(t *testing.T) {
 			query: application.VideoQuery{
 				Channel: "lofi",
 			},
+			setup: func(m *deps) {
+				watched(m)
+				contents(m)
+				m.library.EXPECT().FindChannels([]library.ChannelID{"UC1", "UC2", "UC1", "UC1"}).Return(map[library.ChannelID]*library.Channel{
+					"UC1": {YoutubeID: "UC1", Title: "Official Channel"},
+					"UC2": {YoutubeID: "UC2", Title: "Lofi Girl"},
+				}, nil)
+			},
 			want: &application.VideoPage{
 				Total: 1,
 				Videos: []*library.PlaylistVideo{
@@ -182,6 +219,10 @@ func TestQueryServiceFindVideos(t *testing.T) {
 			name: "チャンネル ID で絞り込む",
 			query: application.VideoQuery{
 				ChannelID: "UC1",
+			},
+			setup: func(m *deps) {
+				watched(m)
+				contents(m)
 			},
 			want: &application.VideoPage{
 				Total: 3,
@@ -197,6 +238,10 @@ func TestQueryServiceFindVideos(t *testing.T) {
 			query: application.VideoQuery{
 				Tag: "lo-fi",
 			},
+			setup: func(m *deps) {
+				watched(m)
+				contents(m)
+			},
 			want: &application.VideoPage{
 				Total: 1,
 				Videos: []*library.PlaylistVideo{
@@ -208,6 +253,10 @@ func TestQueryServiceFindVideos(t *testing.T) {
 			name: "カテゴリで絞り込む",
 			query: application.VideoQuery{
 				CategoryID: "20",
+			},
+			setup: func(m *deps) {
+				watched(m)
+				contents(m)
 			},
 			want: &application.VideoPage{
 				Total: 1,
@@ -221,6 +270,10 @@ func TestQueryServiceFindVideos(t *testing.T) {
 			query: application.VideoQuery{
 				MinDuration: 5 * time.Minute,
 			},
+			setup: func(m *deps) {
+				watched(m)
+				contents(m)
+			},
 			want: &application.VideoPage{
 				Total: 1,
 				Videos: []*library.PlaylistVideo{
@@ -232,6 +285,10 @@ func TestQueryServiceFindVideos(t *testing.T) {
 			name: "長さの上限で絞り込むと、長さのわからない動画は除く",
 			query: application.VideoQuery{
 				MaxDuration: 5 * time.Minute,
+			},
+			setup: func(m *deps) {
+				watched(m)
+				contents(m)
 			},
 			want: &application.VideoPage{
 				Total: 2,
@@ -247,6 +304,10 @@ func TestQueryServiceFindVideos(t *testing.T) {
 				AddedFrom:  hoursAgo(4),
 				AddedUntil: hoursAgo(1),
 			},
+			setup: func(m *deps) {
+				watched(m)
+				contents(m)
+			},
 			want: &application.VideoPage{
 				Total: 2,
 				Videos: []*library.PlaylistVideo{
@@ -259,6 +320,10 @@ func TestQueryServiceFindVideos(t *testing.T) {
 			name: "古い順に並べる",
 			query: application.VideoQuery{
 				Sort: application.SortAddedAsc,
+			},
+			setup: func(m *deps) {
+				watched(m)
+				contents(m)
 			},
 			want: &application.VideoPage{
 				Total: 4,
@@ -274,6 +339,10 @@ func TestQueryServiceFindVideos(t *testing.T) {
 			name: "再生数の多い順に並べる（同じなら古い順）",
 			query: application.VideoQuery{
 				Sort: application.SortViewsDesc,
+			},
+			setup: func(m *deps) {
+				watched(m)
+				contents(m)
 			},
 			want: &application.VideoPage{
 				Total: 4,
@@ -291,6 +360,10 @@ func TestQueryServiceFindVideos(t *testing.T) {
 				Offset: 1,
 				Limit:  2,
 			},
+			setup: func(m *deps) {
+				watched(m)
+				contents(m)
+			},
 			want: &application.VideoPage{
 				Total: 4,
 				Videos: []*library.PlaylistVideo{
@@ -304,38 +377,21 @@ func TestQueryServiceFindVideos(t *testing.T) {
 			query: application.VideoQuery{
 				Offset: 10,
 			},
+			setup: func(m *deps) {
+				watched(m)
+				contents(m)
+			},
 			want: &application.VideoPage{
 				Total:  4,
 				Videos: []*library.PlaylistVideo{},
 			},
 		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			lib := newLibrary()
-			s := application.NewQueryService(&fake.SubscriptionRepository{Subscriptions: subscriptions}, application.NewLibraryService(&fake.YouTube{}, lib, jst, clock), lib)
-
-			got, err := s.FindVideos(tt.query)
-
-			assert.ErrorIs(t, err, tt.wantErr)
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
-func TestQueryServiceFindVideosWithoutSubscriptions(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name  string
-		query application.VideoQuery
-		want  *application.VideoPage
-	}{
 		{
 			name:  "通知設定がなければ空のスライスを返す",
 			query: application.VideoQuery{},
+			setup: func(m *deps) {
+				m.subscriptions.EXPECT().FindAll().Return(nil, domain.ErrDBRecordNotFound)
+			},
 			want: &application.VideoPage{
 				Total:  0,
 				Videos: []*library.PlaylistVideo{},
@@ -346,12 +402,12 @@ func TestQueryServiceFindVideosWithoutSubscriptions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			lib := &fake.LibraryRepository{}
-			s := application.NewQueryService(&fake.SubscriptionRepository{}, application.NewLibraryService(&fake.YouTube{}, lib, jst, clock), lib)
+			m := newDeps(t)
+			tt.setup(m)
 
-			got, err := s.FindVideos(tt.query)
+			got, err := newQueryService(m).FindVideos(tt.query)
 
-			assert.NoError(t, err)
+			assert.ErrorIs(t, err, tt.wantErr)
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -360,23 +416,26 @@ func TestQueryServiceFindVideosWithoutSubscriptions(t *testing.T) {
 func TestQueryServiceWrapped(t *testing.T) {
 	t.Parallel()
 
-	subscriptions := []*subscription.Subscription{
-		sub(1, "PL", "ch", "PL", lastNotified),
-	}
-	a := video("a", library.PrivacyPublic, 100, 0)
-
 	tests := []struct {
-		name        string
-		playlistID  library.PlaylistID
-		storedItems []*library.PlaylistItem
-		want        *library.Wrapped
-		wantErr     error
+		name       string
+		playlistID library.PlaylistID
+		setup      func(m *deps)
+		want       *library.Wrapped
+		wantErr    error
 	}{
 		{
 			name:       "通知登録されたプレイリストのまとめを返す",
 			playlistID: "PL",
-			storedItems: []*library.PlaylistItem{
-				item("PL", "1", "a", date(2026, time.March, 1, 0)),
+			setup: func(m *deps) {
+				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
+					sub(1, "PL", "ch", "PL", lastNotified),
+				}, nil)
+				m.library.EXPECT().FindItems(library.PlaylistID("PL")).Return([]*library.PlaylistItem{
+					item("PL", "1", "a", date(2026, time.March, 1, 0)),
+				}, nil)
+				m.library.EXPECT().FindVideosInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
+					"a": video("a", library.PrivacyPublic, 100, 0),
+				}, nil)
 			},
 			want: &library.Wrapped{
 				Year:  2026,
@@ -386,25 +445,19 @@ func TestQueryServiceWrapped(t *testing.T) {
 					Count: 1,
 				},
 				TopViewed: []*library.Video{
-					a,
+					video("a", library.PrivacyPublic, 100, 0),
 				},
-				First: &library.PlaylistVideo{
-					PlaylistID: "PL",
-					Item:       item("PL", "1", "a", date(2026, time.March, 1, 0)),
-					Video:      a,
-				},
-				Last: &library.PlaylistVideo{
-					PlaylistID: "PL",
-					Item:       item("PL", "1", "a", date(2026, time.March, 1, 0)),
-					Video:      a,
-				},
+				First: &library.PlaylistVideo{PlaylistID: "PL", Item: item("PL", "1", "a", date(2026, time.March, 1, 0)), Video: video("a", library.PrivacyPublic, 100, 0)},
+				Last:  &library.PlaylistVideo{PlaylistID: "PL", Item: item("PL", "1", "a", date(2026, time.March, 1, 0)), Video: video("a", library.PrivacyPublic, 100, 0)},
 			},
 		},
 		{
-			name:       "通知登録されていないプレイリストはまとめない",
+			name:       "通知登録されていないプレイリストは、中身を読まずに断る",
 			playlistID: "UNWATCHED",
-			storedItems: []*library.PlaylistItem{
-				item("UNWATCHED", "1", "a", date(2026, time.March, 1, 0)),
+			setup: func(m *deps) {
+				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
+					sub(1, "PL", "ch", "PL", lastNotified),
+				}, nil)
 			},
 			want:    nil,
 			wantErr: domain.ErrDBRecordNotFound,
@@ -414,10 +467,10 @@ func TestQueryServiceWrapped(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			lib := &fake.LibraryRepository{Items: tt.storedItems, Videos: []*library.Video{a}}
-			s := application.NewQueryService(&fake.SubscriptionRepository{Subscriptions: subscriptions}, application.NewLibraryService(&fake.YouTube{}, lib, jst, clock), lib)
+			m := newDeps(t)
+			tt.setup(m)
 
-			got, err := s.Wrapped(tt.playlistID, 2026)
+			got, err := newQueryService(m).Wrapped(tt.playlistID, 2026)
 
 			assert.ErrorIs(t, err, tt.wantErr)
 			assert.Equal(t, tt.want, got)
@@ -431,28 +484,40 @@ func TestQueryServiceStats(t *testing.T) {
 	tests := []struct {
 		name       string
 		playlistID library.PlaylistID
+		setup      func(m *deps)
 		wantErr    error
 	}{
 		{
 			name:       "通知登録されたプレイリストは集計する",
 			playlistID: "PL",
-			wantErr:    nil,
+			setup: func(m *deps) {
+				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
+					sub(1, "PL", "ch", "PL", lastNotified),
+				}, nil)
+				m.library.EXPECT().FindItems(library.PlaylistID("PL")).Return([]*library.PlaylistItem{}, nil)
+				m.library.EXPECT().FindVideosInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{}, nil)
+			},
+			wantErr: nil,
 		},
 		{
-			name:       "通知登録されていないプレイリストは集計しない",
+			name:       "通知登録されていないプレイリストは、中身を読まずに断る",
 			playlistID: "UNWATCHED",
-			wantErr:    domain.ErrDBRecordNotFound,
+			setup: func(m *deps) {
+				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
+					sub(1, "PL", "ch", "PL", lastNotified),
+				}, nil)
+			},
+			wantErr: domain.ErrDBRecordNotFound,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			lib := &fake.LibraryRepository{}
-			subscriptions := &fake.SubscriptionRepository{Subscriptions: []*subscription.Subscription{sub(1, "PL", "ch", "PL", lastNotified)}}
-			s := application.NewQueryService(subscriptions, application.NewLibraryService(&fake.YouTube{}, lib, jst, clock), lib)
+			m := newDeps(t)
+			tt.setup(m)
 
-			_, err := s.Stats(tt.playlistID)
+			_, err := newQueryService(m).Stats(tt.playlistID)
 
 			assert.ErrorIs(t, err, tt.wantErr)
 		})
@@ -462,44 +527,62 @@ func TestQueryServiceStats(t *testing.T) {
 func TestQueryServiceRandomVideos(t *testing.T) {
 	t.Parallel()
 
-	subscriptions := []*subscription.Subscription{
-		sub(1, "PL", "ch", "PL", lastNotified),
-	}
-	a := &library.PlaylistVideo{PlaylistID: "PL", Item: item("PL", "1", "a", hoursAgo(2)), Video: video("a", library.PrivacyPublic, 0, 0)}
-	b := &library.PlaylistVideo{PlaylistID: "UNWATCHED", Item: item("UNWATCHED", "2", "b", hoursAgo(1)), Video: video("b", library.PrivacyPublic, 0, 0)}
-
-	// 選ぶ順はランダムなので、全て選ぶ数を指定して中身だけを比べる
 	tests := []struct {
 		name       string
 		playlistID library.PlaylistID
+		setup      func(m *deps)
 		want       []*library.PlaylistVideo
 		wantErr    error
 	}{
 		{
-			name:       "通知登録されたプレイリストからだけ選ぶ",
+			name:       "プレイリストを省略すると、通知登録された全てのプレイリストから選ぶ",
 			playlistID: "",
+			setup: func(m *deps) {
+				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
+					sub(1, "PL", "ch", "PL", lastNotified),
+				}, nil)
+				m.library.EXPECT().FindItems(library.PlaylistID("PL")).Return([]*library.PlaylistItem{
+					item("PL", "1", "a", hoursAgo(2)),
+				}, nil)
+				m.library.EXPECT().FindVideosInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
+					"a": video("a", library.PrivacyPublic, 0, 0),
+				}, nil)
+			},
 			want: []*library.PlaylistVideo{
-				a,
+				{PlaylistID: "PL", Item: item("PL", "1", "a", hoursAgo(2)), Video: video("a", library.PrivacyPublic, 0, 0)},
 			},
 		},
 		{
-			name:       "通知登録されていないプレイリストは指定できない",
+			name:       "通知登録されていないプレイリストは、中身を読まずに断る",
 			playlistID: "UNWATCHED",
-			want:       nil,
-			wantErr:    domain.ErrDBRecordNotFound,
+			setup: func(m *deps) {
+				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
+					sub(1, "PL", "ch", "PL", lastNotified),
+				}, nil)
+			},
+			want:    nil,
+			wantErr: domain.ErrDBRecordNotFound,
+		},
+		{
+			name:       "通知設定がなければ空のスライスを返す",
+			playlistID: "",
+			setup: func(m *deps) {
+				m.subscriptions.EXPECT().FindAll().Return(nil, domain.ErrDBRecordNotFound)
+			},
+			want: []*library.PlaylistVideo{},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			lib := &fake.LibraryRepository{Items: []*library.PlaylistItem{a.Item, b.Item}, Videos: []*library.Video{a.Video, b.Video}}
-			s := application.NewQueryService(&fake.SubscriptionRepository{Subscriptions: subscriptions}, application.NewLibraryService(&fake.YouTube{}, lib, jst, clock), lib)
+			m := newDeps(t)
+			tt.setup(m)
 
-			got, err := s.RandomVideos(tt.playlistID, 10)
+			got, err := newQueryService(m).RandomVideos(tt.playlistID, 10)
 
 			assert.ErrorIs(t, err, tt.wantErr)
-			assert.ElementsMatch(t, tt.want, got)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
@@ -507,22 +590,27 @@ func TestQueryServiceRandomVideos(t *testing.T) {
 func TestQueryServiceHistory(t *testing.T) {
 	t.Parallel()
 
-	subscriptions := []*subscription.Subscription{
-		sub(1, "PL", "ch", "PL", lastNotified),
-	}
-
 	tests := []struct {
-		name        string
-		videoID     library.VideoID
-		storedItems []*library.PlaylistItem
-		want        *library.VideoHistory
-		wantErr     error
+		name    string
+		setup   func(m *deps)
+		want    *library.VideoHistory
+		wantErr error
 	}{
 		{
-			name:    "通知登録されたプレイリストにある動画の推移を返す",
-			videoID: "a",
-			storedItems: []*library.PlaylistItem{
-				item("PL", "1", "a", hoursAgo(100)),
+			name: "通知登録されたプレイリストにある動画の推移を返す",
+			setup: func(m *deps) {
+				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
+					sub(1, "PL", "ch", "PL", lastNotified),
+				}, nil)
+				m.library.EXPECT().FindItemsByVideos([]library.VideoID{"a"}).Return([]*library.PlaylistItem{
+					item("PL", "1", "a", hoursAgo(100)),
+				}, nil)
+				m.library.EXPECT().FindVideos([]library.VideoID{"a"}).Return(map[library.VideoID]*library.Video{
+					"a": video("a", library.PrivacyPublic, 0, 0),
+				}, nil)
+				m.library.EXPECT().FindSnapshots(library.VideoID("a"), hoursAgo(48)).Return([]*library.VideoSnapshot{
+					{VideoYoutubeID: "a", RecordedAt: hoursAgo(24), Views: 100},
+				}, nil)
 			},
 			want: &library.VideoHistory{
 				Video: video("a", library.PrivacyPublic, 0, 0),
@@ -532,10 +620,14 @@ func TestQueryServiceHistory(t *testing.T) {
 			},
 		},
 		{
-			name:    "通知登録されていないプレイリストにしかない動画は返さない",
-			videoID: "a",
-			storedItems: []*library.PlaylistItem{
-				item("UNWATCHED", "1", "a", hoursAgo(100)),
+			name: "通知登録されていないプレイリストにしかない動画は返さない",
+			setup: func(m *deps) {
+				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
+					sub(1, "PL", "ch", "PL", lastNotified),
+				}, nil)
+				m.library.EXPECT().FindItemsByVideos([]library.VideoID{"a"}).Return([]*library.PlaylistItem{
+					item("UNWATCHED", "1", "a", hoursAgo(100)),
+				}, nil)
 			},
 			want:    nil,
 			wantErr: domain.ErrDBRecordNotFound,
@@ -545,14 +637,10 @@ func TestQueryServiceHistory(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			lib := &fake.LibraryRepository{
-				Items:     tt.storedItems,
-				Videos:    []*library.Video{video("a", library.PrivacyPublic, 0, 0)},
-				Snapshots: []*library.VideoSnapshot{{VideoYoutubeID: "a", RecordedAt: hoursAgo(24), Views: 100}},
-			}
-			s := application.NewQueryService(&fake.SubscriptionRepository{Subscriptions: subscriptions}, application.NewLibraryService(&fake.YouTube{}, lib, jst, clock), lib)
+			m := newDeps(t)
+			tt.setup(m)
 
-			got, err := s.History(tt.videoID, hoursAgo(48))
+			got, err := newQueryService(m).History("a", hoursAgo(48))
 
 			assert.ErrorIs(t, err, tt.wantErr)
 			assert.Equal(t, tt.want, got)

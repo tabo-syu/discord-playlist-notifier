@@ -46,13 +46,13 @@ linters:
               desc: application は infrastructure を import しない
             - pkg: github.com/tabo-syu/discord-playlist-notifier/internal/presentation
               desc: application は presentation を import しない
-        fake:
+        mocks:
           files:
             - "!$test"
-            - "!**/internal/fake/**"
+            - "!**/internal/mocks/**"
           deny:
-            - pkg: github.com/tabo-syu/discord-playlist-notifier/internal/fake
-              desc: fake はテストからだけ使う
+            - pkg: github.com/tabo-syu/discord-playlist-notifier/internal/mocks
+              desc: mock はテストからだけ使う
     exhaustive:
       # default があれば残りの値はまとめて扱っているとみなす
       default-signifies-exhaustive: true
@@ -72,6 +72,10 @@ linters:
       - path: _test\.go
         linters:
           - unparam
+      # リポジトリのテストは 1 つの DB をテストごとに TRUNCATE して使うので並列にしない
+      - path: internal/infrastructure/persistence/.*_test\.go
+        linters:
+          - paralleltest
 
 formatters:
   enable:
