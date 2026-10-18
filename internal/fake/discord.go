@@ -24,6 +24,8 @@ func (d *Discord) ChannelMessageSendEmbed(channelID string, embed *discordgo.Mes
 	if slices.Contains(d.FailTitles, embed.Title) {
 		return nil, Err
 	}
+
 	d.Sent = append(d.Sent, &SentEmbed{ChannelID: channelID, Embed: embed})
+
 	return &discordgo.Message{}, nil
 }

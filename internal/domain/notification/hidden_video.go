@@ -20,15 +20,19 @@ type HiddenVideo struct {
 // 全プレイリストに、チャンネルごとに 1 回ずつ通知する。
 func FindHiddenVideos(subscriptions []*subscription.Subscription, snapshots map[library.PlaylistID]*library.Snapshot) []*HiddenVideo {
 	hidden := map[library.VideoID]*library.Video{}
+
 	var order []library.VideoID
+
 	for _, snapshot := range snapshots {
 		for _, v := range snapshot.Hidden {
 			if _, ok := hidden[v.YoutubeID]; !ok {
 				order = append(order, v.YoutubeID)
 			}
+
 			hidden[v.YoutubeID] = v
 		}
 	}
+
 	if len(hidden) == 0 {
 		return nil
 	}
@@ -37,19 +41,25 @@ func FindHiddenVideos(subscriptions []*subscription.Subscription, snapshots map[
 		channel subscription.ChannelID
 		video   library.VideoID
 	}
+
 	var notices []*HiddenVideo
+
 	sent := map[key]bool{}
+
 	for _, videoID := range order {
 		for _, sub := range subscriptions {
 			snapshot, ok := snapshots[sub.YoutubeID]
 			if !ok || !snapshot.Contains(videoID) {
 				continue
 			}
+
 			k := key{sub.SendChannelID, videoID}
 			if sent[k] {
 				continue
 			}
+
 			sent[k] = true
+
 			notices = append(notices, &HiddenVideo{
 				ChannelID:     sub.SendChannelID,
 				PlaylistID:    sub.YoutubeID,

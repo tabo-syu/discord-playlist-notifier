@@ -34,7 +34,9 @@ func (n *Notifier) NotifyNewVideos(news *notification.NewVideos, _ map[library.V
 	if n.Fails {
 		return Err
 	}
+
 	n.NewVideos = append(n.NewVideos, news)
+
 	return nil
 }
 
@@ -42,7 +44,9 @@ func (n *Notifier) NotifyHiddenVideo(notice *notification.HiddenVideo) error {
 	if n.Fails {
 		return Err
 	}
+
 	n.Hidden = append(n.Hidden, notice)
+
 	return nil
 }
 
@@ -50,7 +54,9 @@ func (n *Notifier) NotifyMilestone(notice *notification.Milestone, _ map[library
 	if n.Fails {
 		return Err
 	}
+
 	n.Milestones = append(n.Milestones, notice)
+
 	return nil
 }
 
@@ -58,7 +64,9 @@ func (n *Notifier) PostWrapped(sub *subscription.Subscription, wrapped *library.
 	if n.Fails {
 		return Err
 	}
+
 	n.Wrapped = append(n.Wrapped, &WrappedPost{Subscription: sub, Wrapped: wrapped})
+
 	return nil
 }
 
@@ -66,6 +74,8 @@ func (n *Notifier) PostPick(sub *subscription.Subscription, picked *library.Play
 	if n.Fails {
 		return Err
 	}
+
 	n.Picks = append(n.Picks, &PickPost{Subscription: sub, Picked: picked})
+
 	return nil
 }

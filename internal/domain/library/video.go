@@ -56,6 +56,7 @@ func (v *Video) ChangePrivacy(status PrivacyStatus) (changed bool, hidden bool) 
 	if v.PrivacyStatus == status {
 		return false, false
 	}
+
 	hidden = v.Available() && status.Hidden()
 	v.PrivacyStatus = status
 
@@ -91,10 +92,13 @@ func (v *Video) UpdateMilestone() bool {
 	milestone := v.Views.Milestone()
 	if v.ViewMilestone == nil {
 		v.ViewMilestone = &milestone
+
 		return false
 	}
+
 	if milestone > *v.ViewMilestone {
 		v.ViewMilestone = &milestone
+
 		return true
 	}
 

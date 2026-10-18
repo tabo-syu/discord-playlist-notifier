@@ -57,6 +57,7 @@ func (s *server) Serve() error {
 			log.Println("MCP server stopped cause:", err)
 		}
 	}()
+
 	log.Println("Started MCP server:", s.http.Addr+ENDPOINT_PATH)
 
 	return nil
@@ -65,9 +66,11 @@ func (s *server) Serve() error {
 func (s *server) Stop() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
+
 	if err := s.http.Shutdown(ctx); err != nil {
 		return err
 	}
+
 	log.Println("Stopped MCP server")
 
 	return nil

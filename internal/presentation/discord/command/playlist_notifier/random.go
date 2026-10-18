@@ -39,6 +39,7 @@ func (c *PlaylistNotifier) random(guildId string, count int) string {
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
 		return "通知登録されているプレイリストが存在しません。"
 	}
+
 	if err != nil {
 		return "エラー！システムに問題があります！"
 	}
@@ -47,6 +48,7 @@ func (c *PlaylistNotifier) random(guildId string, count int) string {
 	for _, sub := range subscriptions {
 		ids = append(ids, sub.YoutubeID)
 	}
+
 	picked, err := c.library.RandomVideos(ids, count)
 	if err != nil {
 		return "エラー！システムに問題があります！"

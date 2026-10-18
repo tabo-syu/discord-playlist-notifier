@@ -26,11 +26,13 @@ func (c *PlaylistNotifier) summary(guildId string, playlistId string) string {
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
 		return "通知登録されているプレイリストが存在しません。"
 	}
+
 	if err != nil {
 		return "エラー！システムに問題があります！"
 	}
 
 	var sections []string
+
 	for _, sub := range subscriptions {
 		if playlistId != "" && sub.YoutubeID != library.PlaylistID(playlistId) {
 			continue
@@ -40,8 +42,10 @@ func (c *PlaylistNotifier) summary(guildId string, playlistId string) string {
 		if err != nil {
 			return "エラー！システムに問題があります！"
 		}
+
 		sections = append(sections, view.Summary(sub.Title, stats, c.location))
 	}
+
 	if len(sections) == 0 {
 		return "通知登録されていないプレイリストです。"
 	}

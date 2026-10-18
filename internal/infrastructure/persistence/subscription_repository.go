@@ -28,6 +28,7 @@ func (r *subscriptionRepository) ofGuild(guildID guild.DiscordID) *gorm.DB {
 
 func (r *subscriptionRepository) Exists(guildID guild.DiscordID, playlistID library.PlaylistID) (bool, error) {
 	var subscriptions []*subscription.Subscription
+
 	err := r.ofGuild(guildID).Where(subscription.Subscription{YoutubeID: playlistID}).Find(&subscriptions).Error
 	if err != nil {
 		return false, err
@@ -99,10 +100,12 @@ func (r *subscriptionRepository) UpdatePickInterval(s *subscription.Subscription
 
 func (r *subscriptionRepository) DeleteAll(subscriptions []*subscription.Subscription) error {
 	var ids []uint
+
 	for _, s := range subscriptions {
 		if s.ID == 0 {
 			return domain.ErrDBRecordNotFound
 		}
+
 		ids = append(ids, s.ID)
 	}
 

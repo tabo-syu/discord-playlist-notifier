@@ -13,6 +13,7 @@ func (n *notifier) NotifyNewVideos(news *notification.NewVideos, live map[librar
 	sub := news.Subscription
 
 	var errs []error
+
 	for _, added := range news.Videos {
 		video := added.Video
 		// 動画 1 件につき 1 通送り、1 件失敗しても残りを送り続ける

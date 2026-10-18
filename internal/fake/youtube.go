@@ -34,6 +34,7 @@ func (y *YouTube) find(id library.PlaylistID) *Playlist {
 			return p
 		}
 	}
+
 	return nil
 }
 
@@ -41,20 +42,24 @@ func (y *YouTube) FindPlaylist(id library.PlaylistID) (*library.PlaylistMeta, er
 	if y.FindFails {
 		return nil, Err
 	}
+
 	p := y.find(id)
 	if p == nil {
 		return nil, domain.ErrYouTubePlaylistNotFound
 	}
+
 	return &library.PlaylistMeta{YoutubeID: p.ID, Title: p.Title}, nil
 }
 
 func (y *YouTube) FetchPlaylistMetas(ids ...library.PlaylistID) (map[library.PlaylistID]*library.PlaylistMeta, error) {
 	metas := map[library.PlaylistID]*library.PlaylistMeta{}
+
 	for _, id := range ids {
 		if p := y.find(id); p != nil {
 			metas[id] = &library.PlaylistMeta{YoutubeID: p.ID, Title: p.Title, ItemCount: int64(len(p.Items))}
 		}
 	}
+
 	return metas, nil
 }
 
@@ -63,20 +68,24 @@ func (y *YouTube) FetchPlaylistItems(id library.PlaylistID) ([]*library.FetchedI
 	if slices.Contains(y.ItemFails, id) {
 		return nil, Err
 	}
+
 	var items []*library.FetchedItem
 	for _, item := range y.find(id).Items {
 		items = append(items, clone(item))
 	}
+
 	return items, nil
 }
 
 // FetchVideos は動画 ID をタイトルにした詳細を返す。
 func (y *YouTube) FetchVideos(ids []library.VideoID) ([]*library.Video, []*library.Channel, error) {
 	y.VideoRequests = append(y.VideoRequests, ids)
+
 	var videos []*library.Video
 	for _, id := range ids {
 		videos = append(videos, &library.Video{YoutubeID: id, Title: string(id), Views: y.Views[id]})
 	}
+
 	return videos, nil, nil
 }
 

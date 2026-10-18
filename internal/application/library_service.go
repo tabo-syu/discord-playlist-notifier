@@ -44,24 +44,29 @@ func (s *LibraryService) Sync(playlistIDs []library.PlaylistID) (map[library.Pla
 	defer s.mu.Unlock()
 
 	ids := unique(playlistIDs)
+
 	metas, err := s.youtube.FetchPlaylistMetas(ids...)
 	if err != nil {
 		return nil, err
 	}
 
 	snapshots := map[library.PlaylistID]*library.Snapshot{}
+
 	for _, id := range ids {
 		meta, ok := metas[id]
 		if !ok {
 			snapshots[id] = &library.Snapshot{YoutubeID: id, Deleted: true}
+
 			continue
 		}
 
 		snapshot, err := s.syncPlaylist(meta)
 		if err != nil {
 			log.Println("Could not sync playlist:", id, "cause:", err)
+
 			continue
 		}
+
 		snapshots[id] = snapshot
 	}
 
@@ -78,6 +83,7 @@ func (s *LibraryService) syncPlaylist(meta *library.PlaylistMeta) (*library.Snap
 	}
 
 	state, synced := s.state[meta.YoutubeID]
+
 	now := s.now()
 	if synced && state.itemCount == meta.ItemCount && now.Sub(state.fullSyncAt) < FULL_SYNC_INTERVAL {
 		return s.snapshot(meta, stored)
@@ -94,15 +100,18 @@ func (s *LibraryService) syncPlaylist(meta *library.PlaylistMeta) (*library.Snap
 	}
 	// このプレイリストで初めて見る動画でも、別のプレイリストの分として保存済みのことがある
 	var missing []library.VideoID
+
 	for _, f := range fetched {
 		if _, ok := videos[f.VideoID]; !ok {
 			missing = append(missing, f.VideoID)
 		}
 	}
+
 	others, err := s.library.FindVideos(unique(missing))
 	if err != nil {
 		return nil, err
 	}
+
 	for id, v := range others {
 		videos[id] = v
 	}
@@ -113,6 +122,7 @@ func (s *LibraryService) syncPlaylist(meta *library.PlaylistMeta) (*library.Snap
 		if err != nil {
 			return nil, err
 		}
+
 		changes.ApplyDetails(details)
 		// チャンネルは動画の検索にしか使わない
 		if err := s.library.SaveChannels(channels); err != nil {
@@ -159,6 +169,7 @@ func (s *LibraryService) RefreshVideos() ([]*library.Video, error) {
 	}
 
 	var targets []library.VideoID
+
 	for id, v := range stored {
 		if v.Available() {
 			targets = append(targets, id)
@@ -175,18 +186,25 @@ func (s *LibraryService) RefreshVideos() ([]*library.Video, error) {
 	}
 
 	now := s.now()
-	var toSave []*library.Video
-	var snapshots []*library.VideoSnapshot
-	var reached []*library.Video
+
+	var (
+		toSave    []*library.Video
+		snapshots []*library.VideoSnapshot
+		reached   []*library.Video
+	)
+
 	for _, f := range fetched {
 		video := stored[f.YoutubeID]
 		video.ApplyDetails(f)
+
 		if video.UpdateMilestone() {
 			reached = append(reached, video)
 		}
+
 		toSave = append(toSave, video)
 		snapshots = append(snapshots, library.NewVideoSnapshot(video, now))
 	}
+
 	if err := s.library.SaveVideos(toSave); err != nil {
 		return nil, err
 	}
@@ -206,10 +224,13 @@ func (s *LibraryService) RefreshCategories() {
 	categories, err := s.youtube.FetchCategories()
 	if err != nil {
 		log.Println("Could not fetch video categories cause:", err)
+
 		return
 	}
+
 	if err := s.library.SaveCategories(categories); err != nil {
 		log.Println("Could not save video categories cause:", err)
+
 		return
 	}
 
@@ -230,6 +251,7 @@ func (s *LibraryService) History(playlistIDs []library.PlaylistID, id library.Vi
 	if err != nil {
 		return nil, err
 	}
+
 	if !slices.ContainsFunc(containing[id], func(p library.PlaylistID) bool { return slices.Contains(playlistIDs, p) }) {
 		return nil, domain.ErrDBRecordNotFound
 	}
@@ -238,6 +260,7 @@ func (s *LibraryService) History(playlistIDs []library.PlaylistID, id library.Vi
 	if err != nil {
 		return nil, err
 	}
+
 	video, ok := videos[id]
 	if !ok || !video.HasDetails() {
 		return nil, domain.ErrDBRecordNotFound
@@ -280,11 +303,13 @@ func (s *LibraryService) Contents(playlistIDs []library.PlaylistID) ([]*library.
 	}
 
 	var contents []*library.PlaylistVideo
+
 	for _, item := range items {
 		video, ok := videos[item.VideoYoutubeID]
 		if !ok {
 			continue
 		}
+
 		contents = append(contents, &library.PlaylistVideo{PlaylistID: item.PlaylistYoutubeID, Item: item, Video: video})
 	}
 
@@ -313,10 +338,12 @@ func (s *LibraryService) Trending(playlistID library.PlaylistID, since time.Time
 	for id := range videos {
 		ids = append(ids, id)
 	}
+
 	earliest, err := s.library.FindEarliestSnapshots(ids, since)
 	if err != nil {
 		return nil, err
 	}
+
 	latest, err := s.library.FindLatestSnapshots(ids, since)
 	if err != nil {
 		return nil, err
@@ -354,7 +381,9 @@ func (s *LibraryService) Wrapped(playlistID library.PlaylistID, year int) (*libr
 
 func unique[T comparable](ids []T) []T {
 	seen := map[T]bool{}
+
 	var result []T
+
 	for _, id := range ids {
 		if !seen[id] {
 			seen[id] = true

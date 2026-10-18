@@ -41,6 +41,7 @@ func init() {
 	if err != nil {
 		log.Fatalf("Could not load time location: %v", err)
 	}
+
 	sr = gocron.NewScheduler(location)
 
 	dsn := fmt.Sprintf(
@@ -52,10 +53,12 @@ func init() {
 		env.DB_PORT,
 		env.DB_TIMEZONE,
 	)
+
 	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalf("Could not connect the db: %v", err)
 	}
+
 	if err := persistence.Migrate(db); err != nil {
 		log.Fatalf("Could not migrate tables: %v", err)
 	}
@@ -85,6 +88,7 @@ func main() {
 	ns := application.NewNotificationService(sbr, ls, notifier.New(dc, location), location, time.Now)
 
 	commands := []command.Command{playlist_notifier.NewPlaylistNotifier(ss, ls, location, time.Now)}
+
 	server := discord.NewServer(
 		dc,
 		discord.NewRegisterer(dc, commands),
@@ -94,6 +98,7 @@ func main() {
 	if err := server.Serve(); err != nil {
 		log.Fatalf("Cannot open the session: %v", err)
 	}
+
 	defer func() {
 		if err := server.Stop(); err != nil {
 			log.Println("Could not stop the session cause:", err)
@@ -104,6 +109,7 @@ func main() {
 	if err := scheduler.Start(); err != nil {
 		// log.Fatalf では defer の server.Stop が動かず、コマンドの登録が残るので return する
 		log.Println("Cannot start the scheduler:", err)
+
 		return
 	}
 	defer scheduler.Stop()

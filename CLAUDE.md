@@ -17,6 +17,7 @@ Discord のテキストチャンネルに Embed を投稿する Discord ボッ�
 # 整形 / 静的チェック / テスト（Taskfile.yml、Task v3 が必要）
 task fmt            # gofumpt + goimports で整形する
 task lint           # golangci-lint（.golangci.yml）
+task lint:fix       # 自動で直せる指摘（空行など）を直す
 task test           # go test ./...
 task check          # build・lint・test をまとめて実行する。コミット前はこれ
 
@@ -284,6 +285,9 @@ YouTube プレイリストの中身は、サーバーごとの通知設定（`su
 - 整形は gofumpt + goimports（`task fmt`）です。import は、このモジュール
   （`github.com/tabo-syu/discord-playlist-notifier/...`）のものを外部のパッケージと
   空行で分けます（goimports が強制します）。
+- 空行は nlreturn と wsl_v5 が決めます（`return` / `if` / `for` の前、ブロックの後などに
+  空行を入れ、続けて書く `var` は `var (...)` にまとめる）。`task fmt` では直らないので、
+  `task lint:fix` で直します。
 - ログは標準ライブラリの `log` を使い、フィールドをスペース区切りで並べます
   （`log.Println("Guild record created:", guildId)`）。構造化ロガーは使いません。
 

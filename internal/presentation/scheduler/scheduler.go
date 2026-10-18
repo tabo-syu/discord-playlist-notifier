@@ -23,6 +23,7 @@ func NewScheduler(sdr *gocron.Scheduler, n *application.NotificationService, l *
 func (s *scheduler) Start() error {
 	// ジョブの登録に失敗したら（cron の書式の誤りなど）、起動させずにまとめて返す
 	var errs []error
+
 	add := func(_ *gocron.Job, err error) { errs = append(errs, err) }
 	add(s.scheduler.Every(5).Minutes().Do(guard("Notify", s.notification.NotifyUpdates)))
 	add(s.scheduler.Every(6).Hours().WaitForSchedule().Do(guard("RefreshVideos", s.notification.RefreshVideos)))
@@ -30,9 +31,11 @@ func (s *scheduler) Start() error {
 	add(s.scheduler.Every(1).Day().At(PICK_TIME).Do(guard("Pick", s.notification.PostPicks)))
 	// 新しい DB でも名前がそろうように、起動直後にも実行する
 	add(s.scheduler.Every(1).Day().Do(guard("RefreshCategories", s.library.RefreshCategories)))
+
 	if err := errors.Join(errs...); err != nil {
 		return err
 	}
+
 	s.scheduler.StartAsync()
 
 	log.Println("Scheduler started")

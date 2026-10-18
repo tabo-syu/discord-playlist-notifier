@@ -46,12 +46,14 @@ func (n *notifier) sendVideo(channelID subscription.ChannelID, v *library.Video,
 	for _, f := range notice.Fields {
 		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{Name: f.Name, Value: f.Value, Inline: true})
 	}
+
 	switch notice.Image {
 	case LARGE:
 		embed.Image = &discordgo.MessageEmbedImage{URL: v.Thumbnail()}
 	case SMALL:
 		embed.Thumbnail = &discordgo.MessageEmbedThumbnail{URL: v.Thumbnail()}
 	}
+
 	if !notice.Timestamp.IsZero() {
 		// UTC の時刻を渡すと、Discord がユーザーに合ったタイムゾーンに変換する
 		embed.Timestamp = notice.Timestamp.Format(time.RFC3339)
@@ -71,6 +73,7 @@ func views(video *library.Video, live map[library.VideoID]*library.LiveVideo) li
 	if l, ok := live[video.YoutubeID]; ok {
 		return l.Views
 	}
+
 	return video.Views
 }
 
@@ -81,5 +84,6 @@ func channelFooter(video *library.Video, live map[library.VideoID]*library.LiveV
 	if !ok {
 		return nil
 	}
+
 	return &discordgo.MessageEmbedFooter{Text: l.ChannelName, IconURL: l.ChannelIcon}
 }

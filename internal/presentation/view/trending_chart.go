@@ -33,9 +33,13 @@ type trendingLine struct {
 // 下に順位・曲名・伸び・今の再生数の表を描く。表の順はメッセージの順位と
 // 一致させること。
 func TrendingChart(title string, videos []*library.TrendingVideo, loc *time.Location) ([]byte, error) {
-	var lines []*trendingLine
-	var from, to time.Time
+	var (
+		lines    []*trendingLine
+		from, to time.Time
+	)
+
 	maxGained := 0.0
+
 	for i, v := range videos {
 		if len(v.Snapshots) < 2 {
 			return nil, fmt.Errorf("at least 2 snapshots are needed, got %d for %s", len(v.Snapshots), v.Video.YoutubeID)
@@ -48,14 +52,18 @@ func TrendingChart(title string, videos []*library.TrendingVideo, loc *time.Loca
 			l.gained = append(l.gained, float64(s.Views)-float64(v.Snapshots[0].Views))
 			maxGained = max(maxGained, l.gained[len(l.gained)-1])
 		}
+
 		if from.IsZero() || l.times[0].Before(from) {
 			from = l.times[0]
 		}
+
 		if at := l.times[len(l.times)-1]; at.After(to) {
 			to = at
 		}
+
 		lines = append(lines, l)
 	}
+
 	if len(lines) == 0 {
 		return nil, fmt.Errorf("no videos to draw")
 	}
@@ -70,10 +78,12 @@ func TrendingChart(title string, videos []*library.TrendingVideo, loc *time.Loca
 	ticks := niceTicks(maxGained, func(float64) string { return "" })
 	top := ticks[len(ticks)-1].Value
 	graph.YAxis.Ticks = ticks
+
 	graph.YAxis.Range = &chart.ContinuousRange{Min: 0, Max: top}
 	for _, l := range lines {
 		graph.Series = append(graph.Series, starLine("", l.color, l.times, l.gained, chart.YAxisPrimary)...)
 	}
+
 	graph.Elements = []chart.Renderable{trendingTags(lines, from, to, top), trendingTable(lines)}
 
 	var buf bytes.Buffer
@@ -91,6 +101,7 @@ func TrendingChart(title string, videos []*library.TrendingVideo, loc *time.Loca
 func trendingTags(lines []*trendingLine, from, to time.Time, top float64) chart.Renderable {
 	return func(r chart.Renderer, canvas chart.Box, _ chart.Style) {
 		const height, gap, padX = 22, 4, 8
+
 		type tag struct {
 			color   drawing.Color
 			text    string
@@ -99,8 +110,11 @@ func trendingTags(lines []*trendingLine, from, to time.Time, top float64) chart.
 
 		r.SetFont(chartFont)
 		r.SetFontSize(12)
+
 		span := to.Sub(from).Seconds()
+
 		var tags []tag
+
 		for _, l := range lines {
 			at, gained := l.times[len(l.times)-1], l.gained[len(l.gained)-1]
 			x := canvas.Left + int(float64(canvas.Width())*at.Sub(from).Seconds()/span)
@@ -112,7 +126,9 @@ func trendingTags(lines []*trendingLine, from, to time.Time, top float64) chart.
 			t.y = max(t.y, canvas.Top+2)
 			tags = append(tags, t)
 		}
+
 		sort.Slice(tags, func(i, j int) bool { return tags[i].y < tags[j].y })
+
 		for i := 1; i < len(tags); i++ {
 			tags[i].y = max(tags[i].y, tags[i-1].y+height+gap)
 		}
@@ -154,6 +170,7 @@ func trendingTable(lines []*trendingLine) chart.Renderable {
 				chart.Draw.Box(r, chart.Box{Left: left, Top: y - TRENDING_ROW_HEIGHT + 9, Right: right + 6, Bottom: y + 9},
 					chart.Style{FillColor: chartCanvas, StrokeColor: chartCanvas})
 			}
+
 			r.SetStrokeColor(l.color)
 			r.SetStrokeWidth(4)
 			r.MoveTo(left+8, y-5)

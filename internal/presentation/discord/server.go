@@ -45,6 +45,7 @@ func (s *Server) Serve() error {
 	// コマンドを受け取ったとき
 	s.session.AddHandler(func(d *discordgo.Session, i *discordgo.InteractionCreate) {
 		request := i.ApplicationCommandData()
+
 		command := s.router.Route(request.Name)
 		if command == nil {
 			log.Println("Unknown command received:", request.Name)
@@ -58,6 +59,7 @@ func (s *Server) Serve() error {
 			if err != nil {
 				log.Println("Error responding to interaction:", err)
 			}
+
 			return
 		}
 
@@ -78,6 +80,7 @@ func (s *Server) Serve() error {
 	if err := s.session.Open(); err != nil {
 		return err
 	}
+
 	log.Println("Started server")
 
 	return nil
@@ -90,6 +93,7 @@ func (s *Server) Stop() error {
 	if err := s.session.Close(); err != nil {
 		return err
 	}
+
 	log.Println("Stopped server")
 
 	return nil

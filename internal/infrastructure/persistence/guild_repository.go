@@ -15,8 +15,11 @@ func NewGuildRepository(db *gorm.DB) *guildRepository {
 }
 
 func (r *guildRepository) Exists(id guild.DiscordID) (bool, error) {
-	var g guild.Guild
-	var count int64
+	var (
+		g     guild.Guild
+		count int64
+	)
+
 	err := r.db.Where(guild.Guild{DiscordID: id}).Find(&g).Count(&count).Error
 	if err != nil {
 		return false, err
@@ -36,6 +39,7 @@ func (r *guildRepository) Add(g *guild.Guild) error {
 
 func (r *guildRepository) FindByDiscordID(id guild.DiscordID) (*guild.Guild, error) {
 	var g guild.Guild
+
 	result := r.db.Where(&guild.Guild{DiscordID: id}).Take(&g)
 	if err := result.Error; err != nil {
 		return nil, err

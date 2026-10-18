@@ -21,6 +21,7 @@ func (c *PlaylistNotifier) list(guildId string) string {
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
 		return "通知登録されているプレイリストが存在しません。"
 	}
+
 	if err != nil {
 		return "エラー！システムに問題があります！"
 	}

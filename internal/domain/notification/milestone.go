@@ -19,6 +19,7 @@ type Milestone struct {
 // containing は動画ごとに、それを含むプレイリストを対応付ける。
 func FindMilestones(subscriptions []*subscription.Subscription, videos []*library.Video, containing map[library.VideoID][]library.PlaylistID) []*Milestone {
 	var notices []*Milestone
+
 	for _, video := range videos {
 		inPlaylist := map[library.PlaylistID]bool{}
 		for _, id := range containing[video.YoutubeID] {
@@ -30,6 +31,7 @@ func FindMilestones(subscriptions []*subscription.Subscription, videos []*librar
 			if !inPlaylist[sub.YoutubeID] || sent[sub.SendChannelID] {
 				continue
 			}
+
 			sent[sub.SendChannelID] = true
 			notices = append(notices, &Milestone{
 				ChannelID:  sub.SendChannelID,

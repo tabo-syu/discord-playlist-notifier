@@ -86,19 +86,23 @@ func (s *QueryService) Playlists() ([]*WatchedPlaylist, error) {
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
 		return []*WatchedPlaylist{}, nil
 	}
+
 	if err != nil {
 		return nil, err
 	}
 
 	seen := map[library.PlaylistID]bool{}
 	playlists := []*WatchedPlaylist{}
+
 	for _, sub := range subscriptions {
 		if seen[sub.YoutubeID] {
 			continue
 		}
+
 		seen[sub.YoutubeID] = true
 		playlists = append(playlists, &WatchedPlaylist{ID: sub.YoutubeID, Title: sub.Title})
 	}
+
 	sort.SliceStable(playlists, func(i, j int) bool {
 		return playlists[i].Title < playlists[j].Title
 	})
@@ -114,11 +118,13 @@ func (s *QueryService) Overviews() ([]*PlaylistOverview, error) {
 	}
 
 	overviews := []*PlaylistOverview{}
+
 	for _, p := range playlists {
 		stats, err := s.library.Stats(p.ID)
 		if err != nil {
 			return nil, err
 		}
+
 		overviews = append(overviews, &PlaylistOverview{WatchedPlaylist: *p, Stats: stats})
 	}
 
@@ -131,6 +137,7 @@ func (s *QueryService) Playlist(id library.PlaylistID) (*WatchedPlaylist, error)
 	if err != nil {
 		return nil, err
 	}
+
 	for _, p := range playlists {
 		if p.ID == id {
 			return p, nil
@@ -146,6 +153,7 @@ func (s *QueryService) scope(id library.PlaylistID) ([]library.PlaylistID, error
 		if _, err := s.Playlist(id); err != nil {
 			return nil, err
 		}
+
 		return []library.PlaylistID{id}, nil
 	}
 
@@ -153,6 +161,7 @@ func (s *QueryService) scope(id library.PlaylistID) ([]library.PlaylistID, error
 	if err != nil {
 		return nil, err
 	}
+
 	var ids []library.PlaylistID
 	for _, p := range playlists {
 		ids = append(ids, p.ID)
@@ -168,6 +177,7 @@ func (s *QueryService) FindVideos(q VideoQuery) (*VideoPage, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	if len(ids) == 0 {
 		return &VideoPage{Videos: []*library.PlaylistVideo{}}, nil
 	}
@@ -188,6 +198,7 @@ func (s *QueryService) FindVideos(q VideoQuery) (*VideoPage, error) {
 	title, tag := strings.ToLower(q.Title), strings.ToLower(q.Tag)
 	byDuration := q.MinDuration > 0 || q.MaxDuration > 0
 	matched := []*library.PlaylistVideo{}
+
 	for _, c := range contents {
 		v := c.Video
 		switch {
@@ -226,6 +237,7 @@ func (s *QueryService) FindVideos(q VideoQuery) (*VideoPage, error) {
 		if q.Limit > 0 {
 			end = min(q.Offset+q.Limit, len(matched))
 		}
+
 		page.Videos = matched[q.Offset:end]
 	}
 
@@ -275,11 +287,13 @@ func (s *QueryService) Channels(ids []library.ChannelID) (map[library.ChannelID]
 // 返す。大文字・小文字は区別しない。
 func (s *QueryService) channelsNamed(contents []*library.PlaylistVideo, name string) (map[library.ChannelID]bool, error) {
 	var ids []library.ChannelID
+
 	for _, c := range contents {
 		if c.Video.ChannelYoutubeID != "" {
 			ids = append(ids, c.Video.ChannelYoutubeID)
 		}
 	}
+
 	stored, err := s.contents.FindChannels(ids)
 	if err != nil {
 		return nil, err
@@ -287,6 +301,7 @@ func (s *QueryService) channelsNamed(contents []*library.PlaylistVideo, name str
 
 	name = strings.ToLower(name)
 	matched := map[library.ChannelID]bool{}
+
 	for id, ch := range stored {
 		if strings.Contains(strings.ToLower(ch.Title), name) {
 			matched[id] = true
@@ -303,6 +318,7 @@ func (s *QueryService) RandomVideos(id library.PlaylistID, n int) ([]*library.Pl
 	if err != nil {
 		return nil, err
 	}
+
 	if len(ids) == 0 {
 		return []*library.PlaylistVideo{}, nil
 	}

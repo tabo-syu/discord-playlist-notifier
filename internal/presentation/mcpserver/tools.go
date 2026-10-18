@@ -50,6 +50,7 @@ type tools struct {
 
 func readOnly(name, title, description string) *mcp.Tool {
 	closed := false
+
 	return &mcp.Tool{
 		Name:        name,
 		Title:       title,
@@ -101,6 +102,7 @@ func clientError(err error) error {
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
 		return errors.New(ERR_NOT_WATCHED)
 	}
+
 	log.Println("MCP query failed cause:", err)
 
 	return errors.New(ERR_INTERNAL)
@@ -147,6 +149,7 @@ func (t *tools) timeOut(at time.Time) string {
 	if at.IsZero() {
 		return ""
 	}
+
 	return at.In(t.location).Format(time.RFC3339)
 }
 
@@ -163,6 +166,7 @@ type videoNames struct {
 
 func (t *tools) toVideo(c *library.PlaylistVideo, names *videoNames) videoOut {
 	v := c.Video
+
 	out := videoOut{
 		VideoID:       string(v.YoutubeID),
 		Title:         v.Title,
@@ -179,12 +183,15 @@ func (t *tools) toVideo(c *library.PlaylistVideo, names *videoNames) videoOut {
 	if v.HasDetails() {
 		out.PublishedAt = t.timeOut(v.PublishedAt)
 	}
+
 	if ch, ok := names.channels[v.ChannelYoutubeID]; ok {
 		out.Channel = ch.Title
 	}
+
 	if v.Tags != nil {
 		out.Tags = v.Tags[:min(len(v.Tags), MAX_TAGS_SHOWN)]
 	}
+
 	if cat, ok := names.categories[v.CategoryID]; ok {
 		out.Category = cat.Title
 	}
@@ -194,10 +201,12 @@ func (t *tools) toVideo(c *library.PlaylistVideo, names *videoNames) videoOut {
 
 func (t *tools) toVideos(contents []*library.PlaylistVideo) ([]videoOut, error) {
 	names := &videoNames{playlists: map[library.PlaylistID]string{}}
+
 	playlists, err := t.query.Playlists()
 	if err != nil {
 		return nil, err
 	}
+
 	for _, p := range playlists {
 		names.playlists[p.ID] = p.Title
 	}
@@ -206,9 +215,11 @@ func (t *tools) toVideos(contents []*library.PlaylistVideo) ([]videoOut, error) 
 	for _, c := range contents {
 		channelIDs = append(channelIDs, c.Video.ChannelYoutubeID)
 	}
+
 	if names.channels, err = t.query.Channels(channelIDs); err != nil {
 		return nil, err
 	}
+
 	if names.categories, err = t.query.Categories(); err != nil {
 		return nil, err
 	}
@@ -240,6 +251,7 @@ func (t *tools) parseDate(name, value string) (time.Time, error) {
 	if value == "" {
 		return time.Time{}, nil
 	}
+
 	date, err := time.ParseInLocation(DATE_FORMAT, value, t.location)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("%s は YYYY-MM-DD の形式で指定してください: %q", name, value)
@@ -322,27 +334,33 @@ func (t *tools) findVideos(_ context.Context, _ *mcp.CallToolRequest, in findVid
 	default:
 		return nil, findVideosOut{}, fmt.Errorf("sort は added_desc、added_asc、views_desc のいずれかを指定してください: %q", in.Sort)
 	}
+
 	limit := in.Limit
 	if limit == 0 {
 		limit = DEFAULT_VIDEO_LIMIT
 	}
+
 	if limit < 1 || limit > MAX_VIDEO_LIMIT || in.Offset < 0 {
 		return nil, findVideosOut{}, fmt.Errorf("limit は 1〜%d、offset は 0 以上で指定してください", MAX_VIDEO_LIMIT)
 	}
+
 	from, err := t.parseDate("added_from", in.AddedFrom)
 	if err != nil {
 		return nil, findVideosOut{}, err
 	}
+
 	until, err := t.parseDate("added_until", in.AddedUntil)
 	if err != nil {
 		return nil, findVideosOut{}, err
 	}
+
 	var category library.CategoryID
 	if in.Category != "" {
 		if category, err = t.categoryByName(in.Category); err != nil {
 			return nil, findVideosOut{}, err
 		}
 	}
+
 	if in.MinDurationSec < 0 || in.MaxDurationSec < 0 {
 		return nil, findVideosOut{}, errors.New("min_duration_seconds と max_duration_seconds は 0 以上で指定してください")
 	}
@@ -366,6 +384,7 @@ func (t *tools) findVideos(_ context.Context, _ *mcp.CallToolRequest, in findVid
 	if err != nil {
 		return nil, findVideosOut{}, clientError(err)
 	}
+
 	videos, err := t.toVideos(page.Videos)
 	if err != nil {
 		return nil, findVideosOut{}, clientError(err)
@@ -383,14 +402,17 @@ func (t *tools) categoryByName(name string) (library.CategoryID, error) {
 	}
 
 	var names []string
+
 	for id, c := range categories {
 		if c.Title == name {
 			return id, nil
 		}
+
 		if c.Assignable {
 			names = append(names, c.Title)
 		}
 	}
+
 	slices.Sort(names)
 
 	return "", fmt.Errorf("category は次のどれかを指定してください: %s（指定された値: %q）", strings.Join(names, "、"), name)
@@ -418,10 +440,12 @@ type playlistStatsOut struct {
 
 func (t *tools) playlistStats(_ context.Context, _ *mcp.CallToolRequest, in playlistIn) (*mcp.CallToolResult, playlistStatsOut, error) {
 	id := library.PlaylistID(in.PlaylistID)
+
 	playlist, err := t.query.Playlist(id)
 	if err != nil {
 		return nil, playlistStatsOut{}, clientError(err)
 	}
+
 	stats, err := t.query.Stats(id)
 	if err != nil {
 		return nil, playlistStatsOut{}, clientError(err)
@@ -470,11 +494,14 @@ func (t *tools) playlistWrapped(_ context.Context, _ *mcp.CallToolRequest, in pl
 	if year == 0 {
 		year = t.now().In(t.location).Year()
 	}
+
 	id := library.PlaylistID(in.PlaylistID)
+
 	playlist, err := t.query.Playlist(id)
 	if err != nil {
 		return nil, playlistWrappedOut{}, clientError(err)
 	}
+
 	w, err := t.query.Wrapped(id, year)
 	if err != nil {
 		return nil, playlistWrappedOut{}, clientError(err)
@@ -490,11 +517,13 @@ func (t *tools) playlistWrapped(_ context.Context, _ *mcp.CallToolRequest, in pl
 	if w.BusiestMonth.Count > 0 {
 		out.BusiestMonth = &monthCountOut{Month: w.BusiestMonth.Month.Format(MONTH_FORMAT), Count: w.BusiestMonth.Count}
 	}
+
 	if w.First != nil {
 		videos, err := t.toVideos([]*library.PlaylistVideo{w.First, w.Last})
 		if err != nil {
 			return nil, playlistWrappedOut{}, clientError(err)
 		}
+
 		out.First, out.Last = &videos[0], &videos[1]
 	}
 
@@ -517,6 +546,7 @@ func (t *tools) randomVideos(_ context.Context, _ *mcp.CallToolRequest, in rando
 	if count == 0 {
 		count = 1
 	}
+
 	if count < 1 || count > MAX_RANDOM_COUNT {
 		return nil, randomVideosOut{}, fmt.Errorf("count は 1〜%d で指定してください", MAX_RANDOM_COUNT)
 	}
@@ -525,6 +555,7 @@ func (t *tools) randomVideos(_ context.Context, _ *mcp.CallToolRequest, in rando
 	if err != nil {
 		return nil, randomVideosOut{}, clientError(err)
 	}
+
 	videos, err := t.toVideos(picked)
 	if err != nil {
 		return nil, randomVideosOut{}, clientError(err)
@@ -566,6 +597,7 @@ func (t *tools) videoHistory(_ context.Context, _ *mcp.CallToolRequest, in video
 	if days == 0 {
 		days = DEFAULT_HISTORY_DAYS
 	}
+
 	if days < 1 || days > MAX_HISTORY_DAYS {
 		return nil, videoHistoryOut{}, fmt.Errorf("days は 1〜%d で指定してください", MAX_HISTORY_DAYS)
 	}
@@ -574,6 +606,7 @@ func (t *tools) videoHistory(_ context.Context, _ *mcp.CallToolRequest, in video
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
 		return nil, videoHistoryOut{}, errors.New(ERR_VIDEO_NOT_WATCHED)
 	}
+
 	if err != nil {
 		return nil, videoHistoryOut{}, clientError(err)
 	}

@@ -46,6 +46,7 @@ func Reconcile(playlistID PlaylistID, stored []*PlaylistItem, fetched []*Fetched
 	for _, item := range stored {
 		storedByID[item.ItemID] = item
 	}
+
 	fetchedByID := map[ItemID]bool{}
 	for _, f := range fetched {
 		fetchedByID[f.ItemID] = true
@@ -58,6 +59,7 @@ func Reconcile(playlistID PlaylistID, stored []*PlaylistItem, fetched []*Fetched
 			})
 		}
 	}
+
 	for _, item := range stored {
 		if !fetchedByID[item.ItemID] {
 			s.Removed = append(s.Removed, item)
@@ -65,19 +67,23 @@ func Reconcile(playlistID PlaylistID, stored []*PlaylistItem, fetched []*Fetched
 	}
 
 	needDetails := map[VideoID]bool{}
+
 	for _, f := range fetched {
 		video, ok := videos[f.VideoID]
 		if !ok {
 			video = &Video{YoutubeID: f.VideoID}
 			videos[f.VideoID] = video
 		}
+
 		changed, hidden := video.ChangePrivacy(f.PrivacyStatus)
 		if hidden {
 			s.Hidden = append(s.Hidden, video)
 		}
+
 		if changed {
 			s.changed[f.VideoID] = video
 		}
+
 		if !video.HasDetails() && f.PrivacyStatus.Watchable() && !needDetails[f.VideoID] {
 			needDetails[f.VideoID] = true
 			s.NeedDetails = append(s.NeedDetails, f.VideoID)

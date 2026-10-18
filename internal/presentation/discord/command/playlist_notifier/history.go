@@ -58,6 +58,7 @@ func (c *PlaylistNotifier) history(guildId string, video string, days int) *comm
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
 		return command.Text("通知登録されているプレイリストが存在しません。")
 	}
+
 	if err != nil {
 		return command.Text("エラー！システムに問題があります！")
 	}
@@ -66,11 +67,14 @@ func (c *PlaylistNotifier) history(guildId string, video string, days int) *comm
 	for _, sub := range subscriptions {
 		ids = append(ids, sub.YoutubeID)
 	}
+
 	since := c.now().AddDate(0, 0, -days)
+
 	history, err := c.library.History(ids, videoID, since)
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
 		return command.Text("通知登録されているプレイリストに、その動画は見つかりませんでした。")
 	}
+
 	if err != nil {
 		return command.Text("エラー！システムに問題があります！")
 	}
@@ -83,6 +87,7 @@ func (c *PlaylistNotifier) history(guildId string, video string, days int) *comm
 	png, err := view.HistoryChart(history.Video.Title, history.Snapshots, c.location)
 	if err != nil {
 		log.Println("Could not draw history chart:", videoID, "cause:", err)
+
 		return command.Text(message)
 	}
 

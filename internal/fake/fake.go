@@ -20,6 +20,7 @@ var Err = errors.New("fake error")
 
 func clone[T any](v *T) *T {
 	c := *v
+
 	return &c
 }
 

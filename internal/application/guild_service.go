@@ -23,6 +23,7 @@ func (s *GuildService) Register(id guild.DiscordID) error {
 	if err != nil {
 		return err
 	}
+
 	if exists {
 		return domain.ErrDBRecordAlreadyCreated
 	}
@@ -36,6 +37,7 @@ func (s *GuildService) Unregister(id guild.DiscordID) error {
 	if err != nil {
 		return err
 	}
+
 	if !exists {
 		return domain.ErrDBRecordNotFound
 	}
@@ -44,6 +46,7 @@ func (s *GuildService) Unregister(id guild.DiscordID) error {
 	if err != nil {
 		return err
 	}
+
 	subscriptions, err := s.subscriptions.FindByGuild(id)
 	if err != nil {
 		return err

@@ -54,12 +54,14 @@ func mustParseFont(ttf []byte) *truetype.Font {
 	if err != nil {
 		panic(fmt.Sprintf("bundled chart font is broken: %v", err))
 	}
+
 	return font
 }
 
 // newChart は夜空の見た目のグラフの土台を返す。系列と凡例は呼び出し側で足す。
 func newChart(title string, from, to time.Time, loc *time.Location) chart.Chart {
 	axis := chart.Style{FontColor: chartText, Font: chartFont, FontSize: 11, StrokeColor: chartGrid}
+
 	return chart.Chart{
 		Title:      title,
 		TitleStyle: chart.Style{FontColor: chartText, Font: chartFont, FontSize: 18},
@@ -89,6 +91,7 @@ func starLine(name string, color drawing.Color, times []time.Time, values []floa
 				if index == last {
 					return 9
 				}
+
 				return 0
 			},
 		},
@@ -104,24 +107,33 @@ func legend(series []chart.Series) chart.Renderable {
 	return func(r chart.Renderer, canvas chart.Box, _ chart.Style) {
 		r.SetFont(chartFont)
 		r.SetFontSize(12)
+
 		const swatch, gap, between = 22, 6, 28
-		var named []chart.TimeSeries
-		var widths []int
+
+		var (
+			named  []chart.TimeSeries
+			widths []int
+		)
+
 		total := 0
+
 		for _, s := range series {
 			ts, ok := s.(chart.TimeSeries)
 			if !ok || ts.Name == "" {
 				continue
 			}
+
 			w := r.MeasureText(ts.Name).Width()
 			named = append(named, ts)
 			widths = append(widths, w)
 			total += swatch + gap + w
 		}
+
 		total += between * max(len(named)-1, 0)
 
 		x := max((CHART_WIDTH-total)/2, 10)
 		y := canvas.Top - 30
+
 		for i, ts := range named {
 			r.SetStrokeColor(ts.Style.StrokeColor)
 			r.SetStrokeWidth(4)
@@ -140,10 +152,12 @@ func legend(series []chart.Series) chart.Renderable {
 func niceTicks(maxValue float64, label func(float64) string) []chart.Tick {
 	raw := max(maxValue, 1) / CHART_TICKS
 	pow := math.Pow(10, math.Floor(math.Log10(raw)))
+
 	step := 10 * pow
 	for _, m := range []float64{1, 2, 2.5, 5} {
 		if raw <= m*pow {
 			step = m * pow
+
 			break
 		}
 	}
@@ -152,6 +166,7 @@ func niceTicks(maxValue float64, label func(float64) string) []chart.Tick {
 	for v := 0.0; v < maxValue+step; v += step {
 		ticks = append(ticks, chart.Tick{Value: v, Label: label(v)})
 	}
+
 	return ticks
 }
 
@@ -167,6 +182,7 @@ func timeFormatter(from, to time.Time, loc *time.Location) chart.ValueFormatter 
 		if f, ok := v.(float64); ok {
 			return chart.TimeFromFloat64(f).In(loc).Format(layout)
 		}
+
 		return ""
 	}
 }
@@ -188,13 +204,16 @@ func ShortCount[T ~int | ~uint64 | ~float64](n T) string {
 // ならない桁数で、万・億の単位で書く。例: 6億9,442万 ではなく 69,442万
 func axisFormatter(lo, hi float64) chart.ValueFormatter {
 	unit, suffix := 1.0, ""
+
 	switch {
 	case hi-lo >= 100_000_000:
 		unit, suffix = 100_000_000, "億"
 	case hi >= 10_000:
 		unit, suffix = 10_000, "万"
 	}
+
 	step := (hi - lo) / CHART_TICKS / unit
+
 	decimals := 0
 	if step > 0 && step < 1 {
 		decimals = min(int(math.Ceil(-math.Log10(step))), 2)
@@ -204,10 +223,12 @@ func axisFormatter(lo, hi float64) chart.ValueFormatter {
 		f, _ := v.(float64)
 		// 丸めてから整数部に桁区切りを付ける（509.996 を 510.00 にするため）
 		whole, frac, _ := strings.Cut(fmt.Sprintf("%.*f", decimals, f/unit), ".")
+
 		n, _ := strconv.Atoi(whole)
 		if frac == "" {
 			return Number(n) + suffix
 		}
+
 		return Number(n) + "." + frac + suffix
 	}
 }
@@ -218,5 +239,6 @@ func truncate(title string, n int) string {
 	if len(runes) <= n {
 		return title
 	}
+
 	return string(runes[:n-1]) + "…"
 }

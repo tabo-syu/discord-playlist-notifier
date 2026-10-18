@@ -50,13 +50,18 @@ func (c *PlaylistNotifier) trending(guildId string, playlistId string, days int)
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
 		return command.Text("通知登録されているプレイリストが存在しません。")
 	}
+
 	if err != nil {
 		return command.Text("エラー！システムに問題があります！")
 	}
 
 	since := c.now().AddDate(0, 0, -days)
-	var sections []string
-	var files []*discordgo.File
+
+	var (
+		sections []string
+		files    []*discordgo.File
+	)
+
 	for _, sub := range subscriptions {
 		if playlistId != "" && sub.YoutubeID != library.PlaylistID(playlistId) {
 			continue
@@ -81,8 +86,10 @@ func (c *PlaylistNotifier) trending(guildId string, playlistId string, days int)
 				heading += fmt.Sprintf("（グラフ %d）", len(files))
 			}
 		}
+
 		sections = append(sections, heading+"\n"+view.Trending(trending, c.location))
 	}
+
 	if len(sections) == 0 {
 		return command.Text("通知登録されていないプレイリストです。")
 	}

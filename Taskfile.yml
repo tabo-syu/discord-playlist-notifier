@@ -12,6 +12,10 @@ tasks:
     desc: golangci-lint で静的チェックする
     cmds:
       - "{{.GOLANGCI_LINT}} run"
+  lint:fix:
+    desc: golangci-lint の指摘のうち自動で直せるもの（空行など）を直す
+    cmds:
+      - "{{.GOLANGCI_LINT}} run --fix"
   test:
     desc: テストを実行する
     cmds:

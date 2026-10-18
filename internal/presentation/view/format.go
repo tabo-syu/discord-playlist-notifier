@@ -13,11 +13,14 @@ const MAX_MESSAGE_LENGTH = 2000
 // Number は n を 3 桁区切りで整形する。例: 1,234,567
 func Number[T ~int | ~uint64](n T) string {
 	s := fmt.Sprintf("%d", n)
+
 	var sb strings.Builder
+
 	for i, r := range s {
 		if i > 0 && (len(s)-i)%3 == 0 {
 			sb.WriteRune(',')
 		}
+
 		sb.WriteRune(r)
 	}
 

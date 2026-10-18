@@ -39,21 +39,27 @@ func ComputeStats(contents []*PlaylistVideo, now time.Time, loc *time.Location) 
 
 	monthly := map[time.Time]int{}
 	viewed := map[VideoID]*Video{}
+
 	for _, c := range contents {
 		stats.Total++
+
 		addedAt := c.Item.AddedAt.In(loc)
 		if stats.FirstAddedAt.IsZero() || addedAt.Before(stats.FirstAddedAt) {
 			stats.FirstAddedAt = addedAt
 		}
+
 		if addedAt.After(stats.LastAddedAt) {
 			stats.LastAddedAt = addedAt
 		}
+
 		if now.Sub(addedAt) <= 30*24*time.Hour {
 			stats.AddedLast30Days++
 		}
+
 		if !addedAt.Before(thisMonth) {
 			stats.AddedThisMonth++
 		}
+
 		if !addedAt.Before(firstMonth) {
 			monthly[time.Date(addedAt.Year(), addedAt.Month(), 1, 0, 0, 0, 0, loc)]++
 		}
@@ -83,13 +89,16 @@ func rankViewed(videos map[VideoID]*Video, n int) []*Video {
 	for _, v := range videos {
 		ranked = append(ranked, v)
 	}
+
 	sort.Slice(ranked, func(i, j int) bool {
 		a, b := ranked[i], ranked[j]
 		if a.Views != b.Views {
 			return a.Views > b.Views
 		}
+
 		return a.YoutubeID < b.YoutubeID
 	})
+
 	if len(ranked) > n {
 		ranked = ranked[:n]
 	}

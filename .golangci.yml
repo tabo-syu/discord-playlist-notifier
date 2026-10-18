@@ -8,11 +8,13 @@ linters:
     - gocritic
     - intrange
     - misspell
+    - nlreturn
     - nolintlint
     - testifylint
     - thelper
     - unconvert
     - usestdlibvars
+    - wsl_v5
   settings:
     testifylint:
       disable:

@@ -67,9 +67,11 @@ func call(t *testing.T, session *mcp.ClientSession, name string, arguments map[s
 
 	output, err := json.Marshal(res.StructuredContent)
 	require.NoError(t, err)
+
 	if !res.IsError {
 		return string(output), ""
 	}
+
 	require.Len(t, res.Content, 1)
 
 	return string(output), res.Content[0].(*mcp.TextContent).Text

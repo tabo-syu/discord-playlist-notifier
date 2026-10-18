@@ -19,6 +19,7 @@ func NewLibraryRepository(db *gorm.DB) *libraryRepository {
 
 func (r *libraryRepository) FindItems(playlistIDs ...library.PlaylistID) ([]*library.PlaylistItem, error) {
 	var items []*library.PlaylistItem
+
 	err := r.db.Where("playlist_youtube_id IN ?", playlistIDs).Order("added_at").Find(&items).Error
 	if err != nil {
 		return nil, err
@@ -37,6 +38,7 @@ func (r *libraryRepository) FindVideos(ids []library.VideoID) (map[library.Video
 	if err := r.db.Where("youtube_id IN ?", ids).Find(&rows).Error; err != nil {
 		return nil, err
 	}
+
 	for _, v := range rows {
 		videos[v.YoutubeID] = v
 	}
@@ -49,6 +51,7 @@ func (r *libraryRepository) FindItemsByVideos(ids []library.VideoID) ([]*library
 	if len(ids) == 0 {
 		return items, nil
 	}
+
 	if err := r.db.Where("video_youtube_id IN ?", ids).Find(&items).Error; err != nil {
 		return nil, err
 	}
@@ -90,6 +93,7 @@ func (r *libraryRepository) ApplyItems(playlistID library.PlaylistID, added []*l
 				return err
 			}
 		}
+
 		if len(added) > 0 {
 			if err := tx.CreateInBatches(added, 500).Error; err != nil {
 				return err
@@ -114,6 +118,7 @@ func (r *libraryRepository) AddSnapshots(snapshots []*library.VideoSnapshot) err
 
 func (r *libraryRepository) FindSnapshots(id library.VideoID, since time.Time) ([]*library.VideoSnapshot, error) {
 	var snapshots []*library.VideoSnapshot
+
 	err := r.db.Where("video_youtube_id = ? AND recorded_at >= ?", id, since).Order("recorded_at").Find(&snapshots).Error
 	if err != nil {
 		return nil, err
@@ -139,6 +144,7 @@ func (r *libraryRepository) findBoundarySnapshots(ids []library.VideoID, since t
 	}
 
 	var rows []*library.VideoSnapshot
+
 	err := r.db.Select("DISTINCT ON (video_youtube_id) *").
 		Where("video_youtube_id IN ? AND recorded_at >= ?", ids, since).
 		Order("video_youtube_id, " + order).
@@ -146,6 +152,7 @@ func (r *libraryRepository) findBoundarySnapshots(ids []library.VideoID, since t
 	if err != nil {
 		return nil, err
 	}
+
 	for _, s := range rows {
 		snapshots[s.VideoYoutubeID] = s
 	}
@@ -174,6 +181,7 @@ func (r *libraryRepository) FindChannels(ids []library.ChannelID) (map[library.C
 	if err := r.db.Where("youtube_id IN ?", ids).Find(&rows).Error; err != nil {
 		return nil, err
 	}
+
 	for _, c := range rows {
 		channels[c.YoutubeID] = c
 	}

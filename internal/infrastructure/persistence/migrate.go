@@ -20,6 +20,7 @@ func Migrate(db *gorm.DB) error {
 		if err := db.Migrator().DropTable("videos"); err != nil {
 			return fmt.Errorf("could not drop the old videos table: %w", err)
 		}
+
 		log.Println("Dropped the old videos table")
 	}
 

@@ -36,6 +36,7 @@ func (s *NotificationService) NotifyUpdates() {
 	subscriptions, err := s.subscriptions.FindAll()
 	if err != nil {
 		log.Println("Could not notify cause:", err)
+
 		return
 	}
 
@@ -43,9 +44,11 @@ func (s *NotificationService) NotifyUpdates() {
 	for _, sub := range subscriptions {
 		ids = append(ids, sub.YoutubeID)
 	}
+
 	snapshots, err := s.library.Sync(ids)
 	if err != nil {
 		log.Println("Could not notify cause:", err)
+
 		return
 	}
 
@@ -56,18 +59,23 @@ func (s *NotificationService) NotifyUpdates() {
 			log.Println("Playlist(ID:", sub.YoutubeID, ") may have been deleted from YouTube")
 		}
 	}
+
 	updates := notification.FindNewVideos(subscriptions, snapshots)
 	if len(updates) == 0 {
 		log.Println("Playlist was not updated")
+
 		return
 	}
 
 	now := s.now()
+
 	var saved []*notification.NewVideos
+
 	for _, update := range updates {
 		sub := update.Subscription
 		sub.Rename(update.PlaylistTitle)
 		sub.MarkNotified(now)
+
 		if err := s.subscriptions.Update(sub); err != nil {
 			log.Println("Could not update playlist:", sub.YoutubeID, "cause:", err)
 		} else {
@@ -82,6 +90,7 @@ func (s *NotificationService) NotifyUpdates() {
 		for _, v := range update.Videos {
 			videoIDs = append(videoIDs, v.Video.YoutubeID)
 		}
+
 		live, err := s.library.LiveVideos(videoIDs)
 		if err != nil {
 			log.Println("Could not fetch channels for playlist:", sub.YoutubeID, "cause:", err)
@@ -111,8 +120,10 @@ func (s *NotificationService) RefreshVideos() {
 	reached, err := s.library.RefreshVideos()
 	if err != nil {
 		log.Println("Could not refresh videos cause:", err)
+
 		return
 	}
+
 	if len(reached) == 0 {
 		return
 	}
@@ -120,15 +131,19 @@ func (s *NotificationService) RefreshVideos() {
 	subscriptions, err := s.subscriptions.FindAll()
 	if err != nil {
 		log.Println("Could not notify milestones cause:", err)
+
 		return
 	}
+
 	var videoIDs []library.VideoID
 	for _, v := range reached {
 		videoIDs = append(videoIDs, v.YoutubeID)
 	}
+
 	containing, err := s.library.PlaylistsContaining(videoIDs)
 	if err != nil {
 		log.Println("Could not notify milestones cause:", err)
+
 		return
 	}
 
@@ -154,8 +169,10 @@ func (s *NotificationService) PostWrapped() {
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
 		return
 	}
+
 	if err != nil {
 		log.Println("Could not post wrapped cause:", err)
+
 		return
 	}
 
@@ -164,8 +181,10 @@ func (s *NotificationService) PostWrapped() {
 		w, err := s.library.Wrapped(sub.YoutubeID, year)
 		if err != nil {
 			log.Println("Could not load playlist:", sub.YoutubeID, "cause:", err)
+
 			continue
 		}
+
 		if w.Added == 0 {
 			continue
 		}
@@ -185,8 +204,10 @@ func (s *NotificationService) PostPicks() {
 	if errors.Is(err, domain.ErrDBRecordNotFound) {
 		return
 	}
+
 	if err != nil {
 		log.Println("Could not post pick cause:", err)
+
 		return
 	}
 
@@ -199,10 +220,13 @@ func (s *NotificationService) PostPicks() {
 		picked, err := s.library.RandomVideos([]library.PlaylistID{sub.YoutubeID}, 1)
 		if err != nil {
 			log.Println("Could not pick a video for playlist:", sub.YoutubeID, "cause:", err)
+
 			continue
 		}
+
 		if len(picked) == 0 {
 			log.Println("No video to pick for playlist:", sub.YoutubeID)
+
 			continue
 		}
 

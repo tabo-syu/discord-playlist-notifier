@@ -14,6 +14,7 @@ var ViewMilestones = []ViewCount{
 // Milestone は再生数が達した最も高い節目を返す。なければ 0。
 func (c ViewCount) Milestone() ViewCount {
 	var reached ViewCount
+
 	for _, m := range ViewMilestones {
 		if c >= m {
 			reached = m

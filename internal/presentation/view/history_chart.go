@@ -17,8 +17,11 @@ func HistoryChart(title string, snapshots []*library.VideoSnapshot, loc *time.Lo
 		return nil, fmt.Errorf("at least 2 snapshots are needed, got %d", len(snapshots))
 	}
 
-	var times []time.Time
-	var views, likes []float64
+	var (
+		times        []time.Time
+		views, likes []float64
+	)
+
 	for _, s := range snapshots {
 		times = append(times, s.RecordedAt)
 		views = append(views, float64(s.Views))
@@ -52,6 +55,7 @@ func paddedRange(values []float64) *chart.ContinuousRange {
 	for _, v := range values {
 		lo, hi = min(lo, v), max(hi, v)
 	}
+
 	pad := (hi - lo) * 0.1
 	if pad == 0 {
 		pad = max(hi*0.01, 1)
