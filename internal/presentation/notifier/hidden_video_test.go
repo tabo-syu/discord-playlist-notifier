@@ -8,7 +8,7 @@ import (
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/notification"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/fake"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/mocks"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/notifier"
 )
 
@@ -16,7 +16,7 @@ func TestNotifyHiddenVideo(t *testing.T) {
 	tests := []struct {
 		name   string
 		notice *notification.HiddenVideo
-		want   []*fake.SentEmbed
+		setup  func(discord *mocks.MockSender)
 	}{
 		{
 			name: "非公開になった動画を、小さいサムネイルで知らせる",
@@ -30,17 +30,14 @@ func TestNotifyHiddenVideo(t *testing.T) {
 					PrivacyStatus: library.PrivacyPrivate,
 				},
 			},
-			want: []*fake.SentEmbed{
-				{
-					ChannelID: "ch",
-					Embed: &discordgo.MessageEmbed{
-						Color:     notifier.GRAY,
-						Author:    &discordgo.MessageEmbedAuthor{Name: "お気に入り の動画が非公開になりました"},
-						Title:     "a",
-						URL:       "https://www.youtube.com/watch?v=a&list=PL",
-						Thumbnail: &discordgo.MessageEmbedThumbnail{URL: "https://i.ytimg.com/vi/a/hqdefault.jpg"},
-					},
-				},
+			setup: func(discord *mocks.MockSender) {
+				discord.EXPECT().ChannelMessageSendEmbed("ch", &discordgo.MessageEmbed{
+					Color:     notifier.GRAY,
+					Author:    &discordgo.MessageEmbedAuthor{Name: "お気に入り の動画が非公開になりました"},
+					Title:     "a",
+					URL:       "https://www.youtube.com/watch?v=a&list=PL",
+					Thumbnail: &discordgo.MessageEmbedThumbnail{URL: "https://i.ytimg.com/vi/a/hqdefault.jpg"},
+				}).Return(&discordgo.Message{}, nil)
 			},
 		},
 		{
@@ -55,29 +52,26 @@ func TestNotifyHiddenVideo(t *testing.T) {
 					PrivacyStatus: library.PrivacyDeleted,
 				},
 			},
-			want: []*fake.SentEmbed{
-				{
-					ChannelID: "ch",
-					Embed: &discordgo.MessageEmbed{
-						Color:     notifier.GRAY,
-						Author:    &discordgo.MessageEmbedAuthor{Name: "お気に入り の動画が削除されました"},
-						Title:     "a",
-						URL:       "https://www.youtube.com/watch?v=a&list=PL",
-						Thumbnail: &discordgo.MessageEmbedThumbnail{URL: "https://i.ytimg.com/vi/a/hqdefault.jpg"},
-					},
-				},
+			setup: func(discord *mocks.MockSender) {
+				discord.EXPECT().ChannelMessageSendEmbed("ch", &discordgo.MessageEmbed{
+					Color:     notifier.GRAY,
+					Author:    &discordgo.MessageEmbedAuthor{Name: "お気に入り の動画が削除されました"},
+					Title:     "a",
+					URL:       "https://www.youtube.com/watch?v=a&list=PL",
+					Thumbnail: &discordgo.MessageEmbedThumbnail{URL: "https://i.ytimg.com/vi/a/hqdefault.jpg"},
+				}).Return(&discordgo.Message{}, nil)
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			discord := &fake.Discord{}
+			discord := mocks.NewMockSender(t)
+			tt.setup(discord)
 			n := notifier.New(discord, jst)
 
 			err := n.NotifyHiddenVideo(tt.notice)
 
 			assert.NoError(t, err)
-			assert.Equal(t, tt.want, discord.Sent)
 		})
 	}
 }

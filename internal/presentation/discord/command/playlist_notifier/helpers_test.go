@@ -1,6 +1,7 @@
 package playlist_notifier_test
 
 import (
+	"errors"
 	"io"
 	"log"
 	"os"
@@ -11,10 +12,11 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/fake"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/mocks"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command/playlist_notifier"
 )
 
@@ -38,17 +40,56 @@ func hoursAgo(hours int) time.Time {
 	return now.Add(-time.Duration(hours) * time.Hour)
 }
 
-// newCommand は、ギルド「guild」（ID 1）だけがある状態のコマンドを、偽物のリポジトリと YouTube で組み立てる。
-func newCommand(subscriptions *fake.SubscriptionRepository, lib *fake.LibraryRepository, yt *fake.YouTube) *playlist_notifier.PlaylistNotifier {
-	guilds := &fake.GuildRepository{Guilds: []*guild.Guild{{Model: gorm.Model{ID: 1}, DiscordID: "guild"}}}
-	subscriptions.Guilds = guilds
+// errMock は mock に失敗させるときに返すエラー。
+var errMock = errors.New("mock error")
 
+// deps はコマンドが使うサービスの、さらに先にある mock をまとめる。各テストケースの
+// setup で、呼ばれるはずのメソッドと、その戻り値を指定する。
+type deps struct {
+	guilds        *mocks.MockGuildRepository
+	subscriptions *mocks.MockSubscriptionRepository
+	library       *mocks.MockLibraryRepository
+	youtube       *mocks.MockYouTube
+}
+
+func newDeps(t *testing.T) *deps {
+	return &deps{
+		guilds:        mocks.NewMockGuildRepository(t),
+		subscriptions: mocks.NewMockSubscriptionRepository(t),
+		library:       mocks.NewMockLibraryRepository(t),
+		youtube:       mocks.NewMockYouTube(t),
+	}
+}
+
+// newCommand は mock で組み立てた本物のサービスでコマンドを作る。
+func newCommand(m *deps) *playlist_notifier.PlaylistNotifier {
 	return playlist_notifier.NewPlaylistNotifier(
-		application.NewSubscriptionService(yt, subscriptions, guilds),
-		application.NewLibraryService(yt, lib, jst, clock),
+		application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds),
+		application.NewLibraryService(m.youtube, m.library, jst, clock),
 		jst,
 		clock,
 	)
+}
+
+// guildHas は、ギルド「guild」の通知設定が subscriptions であることを期待する。
+func (m *deps) guildHas(subscriptions ...*subscription.Subscription) {
+	if len(subscriptions) == 0 {
+		m.subscriptions.EXPECT().FindByGuild(mockGuild).Return(nil, domain.ErrDBRecordNotFound)
+		return
+	}
+	m.subscriptions.EXPECT().FindByGuild(mockGuild).Return(subscriptions, nil)
+}
+
+// playlistHas は、プレイリストの保存済みの中身が contents であることを期待する。
+func (m *deps) playlistHas(playlistID library.PlaylistID, contents ...*library.PlaylistVideo) {
+	items := []*library.PlaylistItem{}
+	videos := map[library.VideoID]*library.Video{}
+	for _, c := range contents {
+		items = append(items, c.Item)
+		videos[c.Video.YoutubeID] = c.Video
+	}
+	m.library.EXPECT().FindItems(playlistID).Return(items, nil)
+	m.library.EXPECT().FindVideosInPlaylists(playlistID).Return(videos, nil)
 }
 
 // subcommand はサブコマンド name を options 付きで呼んだときの入力を返す。
@@ -87,6 +128,11 @@ func item(playlistID library.PlaylistID, videoID library.VideoID, addedAt time.T
 	return &library.PlaylistItem{PlaylistYoutubeID: playlistID, ItemID: library.ItemID(string(playlistID) + string(videoID)), VideoYoutubeID: videoID, AddedAt: addedAt}
 }
 
+// added はプレイリストに addedAt に追加された動画を返す。
+func added(playlistID library.PlaylistID, v *library.Video, addedAt time.Time) *library.PlaylistVideo {
+	return &library.PlaylistVideo{PlaylistID: playlistID, Item: item(playlistID, v.YoutubeID, addedAt), Video: v}
+}
+
 // video は保存した公開の動画を返す。タイトルは ID と同じにする。
 func video(id library.VideoID) *library.Video {
 	return &library.Video{YoutubeID: id, Title: string(id), PrivacyStatus: library.PrivacyPublic}
@@ -102,4 +148,12 @@ func picking(interval subscription.PickInterval) *subscription.Subscription {
 		PickInterval:  interval,
 		GuildID:       1,
 	}
+}
+
+// mockGuild はテストのギルドの ID。
+var mockGuild = guild.DiscordID("guild")
+
+// daysAgo は now の days 日前の時刻を返す。
+func daysAgo(days int) time.Time {
+	return now.AddDate(0, 0, -days)
 }

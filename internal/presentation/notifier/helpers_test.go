@@ -1,6 +1,7 @@
 package notifier_test
 
 import (
+	"errors"
 	"time"
 
 	"gorm.io/gorm"
@@ -8,6 +9,9 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 )
+
+// errMock は mock に失敗させるときに返すエラー。
+var errMock = errors.New("mock error")
 
 var jst = time.FixedZone("Asia/Tokyo", 9*60*60)
 

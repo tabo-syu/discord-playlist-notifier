@@ -6,7 +6,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/fake"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command"
 )
 
@@ -44,9 +43,9 @@ func TestHandle(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c := newCommand(&fake.SubscriptionRepository{}, &fake.LibraryRepository{}, &fake.YouTube{})
+			m := newDeps(t)
 
-			got := c.Handle(tt.data, "guild", "ch")
+			got := newCommand(m).Handle(tt.data, "guild", "ch")
 
 			assert.Equal(t, tt.want, got)
 		})
