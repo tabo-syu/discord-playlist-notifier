@@ -2,6 +2,7 @@ package application_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -239,6 +240,284 @@ func TestNotificationServiceRefreshVideos(t *testing.T) {
 			s.RefreshVideos()
 
 			assert.Equal(t, tt.wantMilestones, n.Milestones)
+		})
+	}
+}
+
+func TestNotificationServicePostPicks(t *testing.T) {
+	// 選ぶ順はランダムなので、各プレイリストの候補は 1 曲だけにする
+	tests := []struct {
+		name          string
+		now           time.Time
+		subscriptions []*subscription.Subscription
+		storedItems   []*library.PlaylistItem
+		storedVideos  []*library.Video
+		want          []*fake.PickPost
+	}{
+		{
+			name: "毎日のピックは毎日投稿する",
+			now:  date(2026, time.October, 18, 12),
+			subscriptions: []*subscription.Subscription{
+				picking(1, "PL", subscription.PickDaily),
+			},
+			storedItems: []*library.PlaylistItem{
+				item("PL", "1", "a", hoursAgo(10)),
+			},
+			storedVideos: []*library.Video{
+				video("a", library.PrivacyPublic, 0, 0),
+			},
+			want: []*fake.PickPost{
+				{Subscription: picking(1, "PL", subscription.PickDaily), Picked: &library.PlaylistVideo{
+					PlaylistID: "PL",
+					Item:       item("PL", "1", "a", hoursAgo(10)),
+					Video:      video("a", library.PrivacyPublic, 0, 0),
+				}},
+			},
+		},
+		{
+			name: "毎週のピックは月曜日に投稿する",
+			now:  date(2026, time.October, 19, 12),
+			subscriptions: []*subscription.Subscription{
+				picking(1, "PL", subscription.PickWeekly),
+			},
+			storedItems: []*library.PlaylistItem{
+				item("PL", "1", "a", hoursAgo(10)),
+			},
+			storedVideos: []*library.Video{
+				video("a", library.PrivacyPublic, 0, 0),
+			},
+			want: []*fake.PickPost{
+				{Subscription: picking(1, "PL", subscription.PickWeekly), Picked: &library.PlaylistVideo{
+					PlaylistID: "PL",
+					Item:       item("PL", "1", "a", hoursAgo(10)),
+					Video:      video("a", library.PrivacyPublic, 0, 0),
+				}},
+			},
+		},
+		{
+			name: "毎週のピックは月曜日以外は投稿しない",
+			now:  date(2026, time.October, 18, 12),
+			subscriptions: []*subscription.Subscription{
+				picking(1, "PL", subscription.PickWeekly),
+			},
+			storedItems: []*library.PlaylistItem{
+				item("PL", "1", "a", hoursAgo(10)),
+			},
+			storedVideos: []*library.Video{
+				video("a", library.PrivacyPublic, 0, 0),
+			},
+			want: nil,
+		},
+		{
+			name: "曜日は JST で決める",
+			// UTC では日曜日の 15 時、JST では月曜日の 0 時
+			now: time.Date(2026, time.October, 18, 15, 0, 0, 0, time.UTC),
+			subscriptions: []*subscription.Subscription{
+				picking(1, "PL", subscription.PickWeekly),
+			},
+			storedItems: []*library.PlaylistItem{
+				item("PL", "1", "a", hoursAgo(10)),
+			},
+			storedVideos: []*library.Video{
+				video("a", library.PrivacyPublic, 0, 0),
+			},
+			want: []*fake.PickPost{
+				{Subscription: picking(1, "PL", subscription.PickWeekly), Picked: &library.PlaylistVideo{
+					PlaylistID: "PL",
+					Item:       item("PL", "1", "a", hoursAgo(10)),
+					Video:      video("a", library.PrivacyPublic, 0, 0),
+				}},
+			},
+		},
+		{
+			name: "毎月のピックは 1 日に投稿する",
+			now:  date(2026, time.November, 1, 12),
+			subscriptions: []*subscription.Subscription{
+				picking(1, "PL", subscription.PickMonthly),
+			},
+			storedItems: []*library.PlaylistItem{
+				item("PL", "1", "a", hoursAgo(10)),
+			},
+			storedVideos: []*library.Video{
+				video("a", library.PrivacyPublic, 0, 0),
+			},
+			want: []*fake.PickPost{
+				{Subscription: picking(1, "PL", subscription.PickMonthly), Picked: &library.PlaylistVideo{
+					PlaylistID: "PL",
+					Item:       item("PL", "1", "a", hoursAgo(10)),
+					Video:      video("a", library.PrivacyPublic, 0, 0),
+				}},
+			},
+		},
+		{
+			name: "通知設定ごとに、そのプレイリストから選ぶ",
+			now:  date(2026, time.October, 18, 12),
+			subscriptions: []*subscription.Subscription{
+				picking(1, "PL1", subscription.PickDaily),
+				picking(2, "PL2", subscription.PickDaily),
+			},
+			storedItems: []*library.PlaylistItem{
+				item("PL1", "1", "a", hoursAgo(10)),
+				item("PL2", "2", "b", hoursAgo(10)),
+			},
+			storedVideos: []*library.Video{
+				video("a", library.PrivacyPublic, 0, 0),
+				video("b", library.PrivacyPublic, 0, 0),
+			},
+			want: []*fake.PickPost{
+				{Subscription: picking(1, "PL1", subscription.PickDaily), Picked: &library.PlaylistVideo{
+					PlaylistID: "PL1",
+					Item:       item("PL1", "1", "a", hoursAgo(10)),
+					Video:      video("a", library.PrivacyPublic, 0, 0),
+				}},
+				{Subscription: picking(2, "PL2", subscription.PickDaily), Picked: &library.PlaylistVideo{
+					PlaylistID: "PL2",
+					Item:       item("PL2", "2", "b", hoursAgo(10)),
+					Video:      video("b", library.PrivacyPublic, 0, 0),
+				}},
+			},
+		},
+		{
+			name: "ピックを設定していなければ投稿しない",
+			now:  date(2026, time.November, 1, 12),
+			subscriptions: []*subscription.Subscription{
+				picking(1, "PL", subscription.PickNone),
+			},
+			storedItems: []*library.PlaylistItem{
+				item("PL", "1", "a", hoursAgo(10)),
+			},
+			storedVideos: []*library.Video{
+				video("a", library.PrivacyPublic, 0, 0),
+			},
+			want: nil,
+		},
+		{
+			name: "選べる曲がなければ投稿しない",
+			now:  date(2026, time.October, 18, 12),
+			subscriptions: []*subscription.Subscription{
+				picking(1, "PL", subscription.PickDaily),
+			},
+			storedItems: []*library.PlaylistItem{
+				item("PL", "1", "a", hoursAgo(10)),
+			},
+			storedVideos: []*library.Video{
+				video("a", library.PrivacyPrivate, 0, 0),
+			},
+			want: nil,
+		},
+		{
+			name: "通知設定がなければ何もしない",
+			now:  date(2026, time.October, 18, 12),
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clock := func() time.Time { return tt.now }
+			lib := &fake.LibraryRepository{Items: tt.storedItems, Videos: tt.storedVideos}
+			n := &fake.Notifier{}
+			s := application.NewNotificationService(&fake.SubscriptionRepository{Subscriptions: tt.subscriptions}, application.NewLibraryService(&fake.YouTube{}, lib, jst, clock), n, jst, clock)
+
+			s.PostPicks()
+
+			assert.Equal(t, tt.want, n.Picks)
+		})
+	}
+}
+
+func TestNotificationServicePostWrapped(t *testing.T) {
+	tests := []struct {
+		name          string
+		now           time.Time
+		subscriptions []*subscription.Subscription
+		storedItems   []*library.PlaylistItem
+		storedVideos  []*library.Video
+		want          []*fake.WrappedPost
+	}{
+		{
+			name: "今年追加された曲があるプレイリストのまとめを投稿する",
+			now:  date(2026, time.December, 31, 21),
+			subscriptions: []*subscription.Subscription{
+				sub(1, "PL", "ch", "PL", lastNotified),
+			},
+			storedItems: []*library.PlaylistItem{
+				item("PL", "1", "a", date(2026, time.March, 1, 0)),
+			},
+			storedVideos: []*library.Video{
+				video("a", library.PrivacyPublic, 100, 0),
+			},
+			want: []*fake.WrappedPost{
+				{
+					Subscription: sub(1, "PL", "ch", "PL", lastNotified),
+					Wrapped: &library.Wrapped{
+						Year:  2026,
+						Added: 1,
+						BusiestMonth: library.MonthCount{
+							Month: date(2026, time.March, 1, 0),
+							Count: 1,
+						},
+						TopViewed: []*library.Video{
+							video("a", library.PrivacyPublic, 100, 0),
+						},
+						First: &library.PlaylistVideo{
+							PlaylistID: "PL",
+							Item:       item("PL", "1", "a", date(2026, time.March, 1, 0)),
+							Video:      video("a", library.PrivacyPublic, 100, 0),
+						},
+						Last: &library.PlaylistVideo{
+							PlaylistID: "PL",
+							Item:       item("PL", "1", "a", date(2026, time.March, 1, 0)),
+							Video:      video("a", library.PrivacyPublic, 100, 0),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "今年追加された曲がないプレイリストには投稿しない",
+			now:  date(2026, time.December, 31, 21),
+			subscriptions: []*subscription.Subscription{
+				sub(1, "PL", "ch", "PL", lastNotified),
+			},
+			storedItems: []*library.PlaylistItem{
+				item("PL", "1", "a", date(2025, time.March, 1, 0)),
+			},
+			storedVideos: []*library.Video{
+				video("a", library.PrivacyPublic, 100, 0),
+			},
+			want: nil,
+		},
+		{
+			name: "年は JST で決める",
+			// UTC では 2026 年 12 月 31 日の 15 時、JST では 2027 年 1 月 1 日の 0 時
+			now: time.Date(2026, time.December, 31, 15, 0, 0, 0, time.UTC),
+			subscriptions: []*subscription.Subscription{
+				sub(1, "PL", "ch", "PL", lastNotified),
+			},
+			storedItems: []*library.PlaylistItem{
+				item("PL", "1", "a", date(2026, time.March, 1, 0)),
+			},
+			storedVideos: []*library.Video{
+				video("a", library.PrivacyPublic, 100, 0),
+			},
+			want: nil,
+		},
+		{
+			name: "通知設定がなければ何もしない",
+			now:  date(2026, time.December, 31, 21),
+			want: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clock := func() time.Time { return tt.now }
+			lib := &fake.LibraryRepository{Items: tt.storedItems, Videos: tt.storedVideos}
+			n := &fake.Notifier{}
+			s := application.NewNotificationService(&fake.SubscriptionRepository{Subscriptions: tt.subscriptions}, application.NewLibraryService(&fake.YouTube{}, lib, jst, clock), n, jst, clock)
+
+			s.PostWrapped()
+
+			assert.Equal(t, tt.want, n.Wrapped)
 		})
 	}
 }

@@ -67,3 +67,16 @@ func item(playlistID library.PlaylistID, itemID library.ItemID, videoID library.
 func video(id library.VideoID, status library.PrivacyStatus, views, milestone library.ViewCount) *library.Video {
 	return &library.Video{YoutubeID: id, Title: string(id), PrivacyStatus: status, Views: views, ViewMilestone: &milestone}
 }
+
+// picking はピックの間隔を interval にした、ギルド 1 の通知設定を返す。
+func picking(id uint, playlistID library.PlaylistID, interval subscription.PickInterval) *subscription.Subscription {
+	s := sub(id, playlistID, "ch", string(playlistID), lastNotified)
+	s.ChangePickInterval(interval)
+
+	return s
+}
+
+// date は JST の日時を返す。
+func date(year int, month time.Month, day, hour int) time.Time {
+	return time.Date(year, month, day, hour, 0, 0, 0, jst)
+}
