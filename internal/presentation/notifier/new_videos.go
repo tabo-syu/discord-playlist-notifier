@@ -4,12 +4,14 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
+
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/view"
 )
 
-func (n *notifier) NotifyNewVideos(news *subscription.VideosAdded, live map[library.VideoID]*library.LiveVideo) error {
+func (n *notifier) NotifyNewVideos(news *subscription.VideosAdded, live map[library.VideoID]*application.LiveVideo) error {
 	var errs []error
 
 	for _, added := range news.Videos {

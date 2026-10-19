@@ -1,6 +1,7 @@
 package notifier
 
 import (
+	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/view"
@@ -17,7 +18,7 @@ func pickLabel(interval subscription.PickInterval) string {
 	}
 }
 
-func (n *notifier) PostPick(sub *subscription.Subscription, picked *library.PlaylistVideo, live map[library.VideoID]*library.LiveVideo) error {
+func (n *notifier) PostPick(sub *subscription.Subscription, picked *library.PlaylistVideo, live map[library.VideoID]*application.LiveVideo) error {
 	return n.sendVideo(sub.SendChannelID, picked.Video, sub.YoutubeID, live, videoNotice{
 		Color:  BLUE,
 		Author: "🎬 " + pickLabel(sub.PickInterval) + " from " + sub.Title,

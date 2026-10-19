@@ -1,4 +1,9 @@
-// Package youtube は YouTube Data API v3 で library.YouTube を実装する。
+// Package youtube は YouTube Data API v3 で、ドメインの取得元 library.Source と、
+// 通知に添える情報の取得元 application.LiveVideoSource を実装する。
+//
+// YouTube との間の腐敗防止層で、API の応答をドメインの値（PlaylistMeta・
+// FetchedItem・VideoDetails など）に翻訳して返す。動画やチャンネルのエンティティを
+// 作ったり変えたりするのはドメインに任せ、ここでは作らない。
 package youtube
 
 import (
@@ -8,6 +13,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 
 	ytapi "google.golang.org/api/youtube/v3"
@@ -135,19 +141,17 @@ func (c *client) FetchPlaylistItems(id library.PlaylistID) ([]*library.FetchedIt
 	return items, nil
 }
 
-// FetchVideos は 50 動画ごとに 1 ユニットを消費する。part の数は消費量に
+// FetchVideoDetails は 50 動画ごとに 1 ユニットを消費する。part の数は消費量に
 // 影響せず、チャンネル名も動画と一緒に取れる。
-func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, []*library.Channel, error) {
-	var videos []*library.Video
-
-	channels := map[library.ChannelID]*library.Channel{}
+func (c *client) FetchVideoDetails(ids []library.VideoID) ([]*library.VideoDetails, error) {
+	var details []*library.VideoDetails
 
 	for _, batch := range batches(ids) {
-		res, err := c.youtube.Videos.List([]string{"id", "snippet", "contentDetails", "statistics", "status"}).
+		res, err := c.youtube.Videos.List([]string{"id", "snippet", "contentDetails", "statistics"}).
 			MaxResults(int64(len(batch))).
 			Id(batch...).Do()
 		if err != nil {
-			return nil, nil, fmt.Errorf("failed to fetch videos: %w", err)
+			return nil, fmt.Errorf("failed to fetch videos: %w", err)
 		}
 
 		for _, v := range res.Items {
@@ -157,48 +161,35 @@ func (c *client) FetchVideos(ids []library.VideoID) ([]*library.Video, []*librar
 
 			publishedAt, err := time.Parse(YOUTUBE_TIMEFORMAT, v.Snippet.PublishedAt)
 			if err != nil {
-				return nil, nil, fmt.Errorf("failed to parse video publish time: %w", err)
+				return nil, fmt.Errorf("failed to parse video publish time: %w", err)
 			}
 
-			video := &library.Video{
-				YoutubeID:     library.VideoID(v.Id),
-				Title:         v.Snippet.Title,
-				Views:         videoViews(v),
-				PrivacyStatus: library.PrivacyPublic,
-				PublishedAt:   publishedAt,
-				Tags:          v.Snippet.Tags,
-				CategoryID:    library.CategoryID(v.Snippet.CategoryId),
-			}
-			if v.Snippet.ChannelId != "" {
-				id := library.ChannelID(v.Snippet.ChannelId)
-				video.ChannelYoutubeID = id
-				channels[id] = &library.Channel{YoutubeID: id, Title: v.Snippet.ChannelTitle}
+			d := &library.VideoDetails{
+				VideoID:      library.VideoID(v.Id),
+				Title:        v.Snippet.Title,
+				Views:        videoViews(v),
+				PublishedAt:  publishedAt,
+				ChannelID:    library.ChannelID(v.Snippet.ChannelId),
+				ChannelTitle: v.Snippet.ChannelTitle,
+				Tags:         v.Snippet.Tags,
+				CategoryID:   library.CategoryID(v.Snippet.CategoryId),
 			}
 			// ライブ配信中・配信予定の動画は配信開始からの時間を返し、
 			// それは動画の長さではない
 			if v.ContentDetails != nil && (v.Snippet.LiveBroadcastContent == "" || v.Snippet.LiveBroadcastContent == "none") {
-				video.Duration = parseDuration(v.ContentDetails.Duration)
+				d.Duration = parseDuration(v.ContentDetails.Duration)
 			}
 
 			if v.Statistics != nil {
-				video.Likes = v.Statistics.LikeCount
-				video.Comments = v.Statistics.CommentCount
+				d.Likes = v.Statistics.LikeCount
+				d.Comments = v.Statistics.CommentCount
 			}
 
-			if v.Status != nil && v.Status.PrivacyStatus != "" {
-				video.PrivacyStatus = library.PrivacyStatus(v.Status.PrivacyStatus)
-			}
-
-			videos = append(videos, video)
+			details = append(details, d)
 		}
 	}
 
-	var fetched []*library.Channel
-	for _, ch := range channels {
-		fetched = append(fetched, ch)
-	}
-
-	return videos, fetched, nil
+	return details, nil
 }
 
 // FetchCategories は 1 ユニットを消費する。
@@ -228,8 +219,8 @@ func (c *client) FetchCategories() ([]*library.Category, error) {
 }
 
 // FetchLiveVideos は 50 動画ごとに 1 ユニット、加えて 50 チャンネルごとに 1 ユニットを消費する。
-func (c *client) FetchLiveVideos(ids []library.VideoID) (map[library.VideoID]*library.LiveVideo, error) {
-	live := map[library.VideoID]*library.LiveVideo{}
+func (c *client) FetchLiveVideos(ids []library.VideoID) (map[library.VideoID]*application.LiveVideo, error) {
+	live := map[library.VideoID]*application.LiveVideo{}
 	channelOf := map[library.VideoID]string{}
 
 	var channelIds []string
@@ -248,7 +239,7 @@ func (c *client) FetchLiveVideos(ids []library.VideoID) (map[library.VideoID]*li
 			}
 
 			id := library.VideoID(v.Id)
-			live[id] = &library.LiveVideo{ChannelName: v.Snippet.ChannelTitle, Views: videoViews(v)}
+			live[id] = &application.LiveVideo{ChannelName: v.Snippet.ChannelTitle, Views: videoViews(v)}
 			channelOf[id] = v.Snippet.ChannelId
 			channelIds = append(channelIds, v.Snippet.ChannelId)
 		}

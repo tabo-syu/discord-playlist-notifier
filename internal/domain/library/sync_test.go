@@ -74,14 +74,14 @@ func TestVideoSyncApplyDetails(t *testing.T) {
 	tests := []struct {
 		name        string
 		fetched     []*library.FetchedItem
-		details     []*library.Video
+		details     []*library.VideoDetails
 		want        map[library.VideoID]*library.Video
 		wantChanged []*library.Video
 	}{
 		{
 			name:    "詳細をコピーし、今の再生数の節目を記録する",
 			fetched: []*library.FetchedItem{fetched("1", "a", library.PrivacyPublic)},
-			details: []*library.Video{{YoutubeID: "a", Title: "曲", Views: 250_000}},
+			details: []*library.VideoDetails{{VideoID: "a", Title: "曲", Views: 250_000}},
 			want: map[library.VideoID]*library.Video{
 				"a": {
 					YoutubeID:      "a",

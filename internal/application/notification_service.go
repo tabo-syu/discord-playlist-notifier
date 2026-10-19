@@ -19,7 +19,7 @@ import (
 type NotificationService struct {
 	subscriptions subscription.Repository
 	catalog       *library.Catalog
-	youtube       library.YouTube
+	live          LiveVideoSource
 	notifier      Notifier
 	events        *EventPublisher
 	// 投稿の基準にする日付や年のタイムゾーン
@@ -28,8 +28,8 @@ type NotificationService struct {
 	now func() time.Time
 }
 
-func NewNotificationService(s subscription.Repository, c *library.Catalog, y library.YouTube, n Notifier, e *EventPublisher, loc *time.Location, now func() time.Time) *NotificationService {
-	return &NotificationService{s, c, y, n, e, loc, now}
+func NewNotificationService(s subscription.Repository, c *library.Catalog, l LiveVideoSource, n Notifier, e *EventPublisher, loc *time.Location, now func() time.Time) *NotificationService {
+	return &NotificationService{s, c, l, n, e, loc, now}
 }
 
 // TakeNewVideos は PlaylistSynced のハンドラで、同期したプレイリストの通知設定ごとに
@@ -162,7 +162,7 @@ func (s *NotificationService) PostPicks() {
 		}
 
 		// チャンネルは保存していないのでここで取得する。失敗したらチャンネルなしで送る。
-		live, err := s.youtube.FetchLiveVideos([]library.VideoID{picked[0].Video.YoutubeID})
+		live, err := s.live.FetchLiveVideos([]library.VideoID{picked[0].Video.YoutubeID})
 		if err != nil {
 			log.Println("Could not fetch the channel for pick cause:", err)
 		}

@@ -96,12 +96,12 @@ func SyncVideos(fetched []*FetchedItem, videos map[VideoID]*Video) *VideoSync {
 }
 
 // ApplyDetails は取得した詳細を NeedDetails の動画にコピーする。
-func (s *VideoSync) ApplyDetails(details []*Video) {
+func (s *VideoSync) ApplyDetails(details []*VideoDetails) {
 	for _, d := range details {
-		video := s.Videos[d.YoutubeID]
+		video := s.Videos[d.VideoID]
 		video.ApplyDetails(d)
 		video.InitMilestone()
-		s.changed[d.YoutubeID] = video
+		s.changed[d.VideoID] = video
 	}
 }
 

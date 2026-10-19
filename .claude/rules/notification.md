@@ -62,6 +62,7 @@ paths:
 
 - 各ジョブは `guard` で包み、`recover` で panic を捕まえて、1 回の失敗でボット全体が落ちない
   ようにしています。新しいジョブも `guard` で包みます。
-- 通知の Embed に出す投稿者は送る直前に `library.YouTube.FetchLiveVideos` で取り、取れなかったときは
-  投稿者なしで送ります。同じ動画の重複は YouTube のクライアントが除きます。
+- 通知の Embed に出す投稿者は送る直前に `application.LiveVideoSource.FetchLiveVideos` で取り、
+  取れなかったときは投稿者なしで送ります。同じ動画の重複は YouTube のクライアントが除きます。
+  表示にしか使わない値なので、ドメインの `library.Source` ではなく application のポートです（issue #75）。
 - 定期のまとめは、その年に追加がなければ（`Wrapped.Empty`）投稿しません。

@@ -22,7 +22,7 @@ func TestSubscriptionServiceSubscribe(t *testing.T) {
 		{
 			name: "YouTube のタイトルで登録し、登録した時刻を新着動画の基準時刻にする",
 			setup: func(m *deps) {
-				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(&library.PlaylistMeta{YoutubeID: "PL", Title: "タイトル"}, nil)
+				m.source.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(&library.PlaylistMeta{YoutubeID: "PL", Title: "タイトル"}, nil)
 				m.guilds.EXPECT().FindByDiscordID(guild.DiscordID("guild")).Return(guildOf(1, "guild"), nil)
 				m.subscriptions.EXPECT().Add(&subscription.Subscription{
 					YoutubeID:     "PL",
@@ -38,7 +38,7 @@ func TestSubscriptionServiceSubscribe(t *testing.T) {
 			// 登録済みかは事前に確かめず、リポジトリの Add が断る
 			name: "登録済みのプレイリストは登録しない",
 			setup: func(m *deps) {
-				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(&library.PlaylistMeta{YoutubeID: "PL", Title: "タイトル"}, nil)
+				m.source.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(&library.PlaylistMeta{YoutubeID: "PL", Title: "タイトル"}, nil)
 				m.guilds.EXPECT().FindByDiscordID(guild.DiscordID("guild")).Return(guildOf(1, "guild"), nil)
 				m.subscriptions.EXPECT().Add(&subscription.Subscription{
 					YoutubeID:     "PL",
@@ -53,14 +53,14 @@ func TestSubscriptionServiceSubscribe(t *testing.T) {
 		{
 			name: "YouTube にないプレイリストは登録しない",
 			setup: func(m *deps) {
-				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(nil, library.ErrPlaylistNotFound)
+				m.source.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(nil, library.ErrPlaylistNotFound)
 			},
 			wantErr: library.ErrPlaylistNotFound,
 		},
 		{
 			name: "YouTube API の失敗は一般的なエラーにする",
 			setup: func(m *deps) {
-				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(nil, errMock)
+				m.source.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(nil, errMock)
 			},
 			wantErr: application.ErrYouTubeUnavailable,
 		},
@@ -71,7 +71,7 @@ func TestSubscriptionServiceSubscribe(t *testing.T) {
 
 			m := newDeps(t)
 			tt.setup(m)
-			s := application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds, clock)
+			s := application.NewSubscriptionService(m.source, m.subscriptions, m.guilds, clock)
 
 			err := s.Subscribe("guild", "ch", "PL")
 
@@ -115,7 +115,7 @@ func TestSubscriptionServiceUnsubscribe(t *testing.T) {
 
 			m := newDeps(t)
 			tt.setup(m)
-			s := application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds, clock)
+			s := application.NewSubscriptionService(m.source, m.subscriptions, m.guilds, clock)
 
 			err := s.Unsubscribe("guild", tt.playlistID)
 
@@ -157,7 +157,7 @@ func TestSubscriptionServiceSetPickInterval(t *testing.T) {
 
 			m := newDeps(t)
 			tt.setup(m)
-			s := application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds, clock)
+			s := application.NewSubscriptionService(m.source, m.subscriptions, m.guilds, clock)
 
 			err := s.SetPickInterval("guild", tt.playlistID, subscription.PickWeekly)
 

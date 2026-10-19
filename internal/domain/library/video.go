@@ -41,11 +41,6 @@ func (v *Video) Available() bool {
 	return v.HasDetails() && v.PrivacyStatus.Watchable()
 }
 
-// Thumbnail は動画のサムネイルの URL を返す。YouTube は動画 ID からこれを作る。
-func (v *Video) Thumbnail() string {
-	return "https://i.ytimg.com/vi/" + string(v.YoutubeID) + "/hqdefault.jpg"
-}
-
 // ChangePrivacy は公開状態を設定し、変わったかどうかを返す。その変化で動画が
 // 見られなくなったときは VideoHidden も返す（それ以外は nil）。初めて見る動画は
 // 見られなくなったとはみなさない。
@@ -63,16 +58,16 @@ func (v *Video) ChangePrivacy(status PrivacyStatus) (changed bool, hidden *Video
 	return true, hidden
 }
 
-// ApplyDetails は videos のエンドポイントから取得した詳細をコピーし、詳細を
-// 取得済みにする。公開状態はプレイリストのアイテムが持つものなので変えない。
-func (v *Video) ApplyDetails(details *Video) {
+// ApplyDetails は取得元から取得した詳細をコピーし、詳細を取得済みにする。
+// 公開状態はプレイリストのアイテムが持つものなので変えない。
+func (v *Video) ApplyDetails(details *VideoDetails) {
 	v.DetailsFetched = true
 	v.Title = details.Title
 	v.Views = details.Views
 	v.Likes = details.Likes
 	v.Comments = details.Comments
 	v.PublishedAt = details.PublishedAt
-	v.ChannelYoutubeID = details.ChannelYoutubeID
+	v.ChannelYoutubeID = details.ChannelID
 	v.Duration = details.Duration
 	v.Tags = details.Tags
 	v.CategoryID = details.CategoryID
@@ -106,10 +101,22 @@ func (v *Video) UpdateMilestone() *MilestoneReached {
 	return nil
 }
 
-// LiveVideo は動画を表示する直前に YouTube から取得する情報。チャンネルは
-// 保存せず、再生数は保存済みのものより新しい。
-type LiveVideo struct {
-	ChannelName string
-	ChannelIcon string
+// VideoDetails は取得元から取得した動画の詳細。動画（Video）の状態を決めるのは
+// ドメインなので、取得元はエンティティではなくこの値を返し、Video.ApplyDetails が
+// コピーする。公開状態はプレイリストのアイテム（FetchedItem）から取るので持たない。
+type VideoDetails struct {
+	VideoID     VideoID
+	Title       string
 	Views       ViewCount
+	PublishedAt time.Time
+	// 所有者が非表示にしたか無効にしたときはゼロ
+	Likes    uint64
+	Comments uint64
+	// 動画を投稿したチャンネル。取得元が返さなかったときは空
+	ChannelID    ChannelID
+	ChannelTitle string
+	// ライブ配信中・配信予定のときはゼロ
+	Duration   time.Duration
+	Tags       []string
+	CategoryID CategoryID
 }

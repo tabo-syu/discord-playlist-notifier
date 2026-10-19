@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/infrastructure/youtube"
 )
@@ -244,19 +245,18 @@ func TestFetchPlaylistItems(t *testing.T) {
 	}
 }
 
-func TestFetchVideos(t *testing.T) {
+func TestFetchVideoDetails(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name         string
 		ids          []library.VideoID
 		responses    map[string][]response
-		want         []*library.Video
-		wantChannels []*library.Channel
+		want         []*library.VideoDetails
 		wantRequests []string
 	}{
 		{
-			name: "動画の詳細と、投稿したチャンネルを返す",
+			name: "動画の詳細を、投稿したチャンネルと一緒に返す",
 			ids:  []library.VideoID{"a", "b"},
 			responses: map[string][]response{
 				"/videos": {ok(`{"items": [
@@ -264,8 +264,7 @@ func TestFetchVideos(t *testing.T) {
 						"id": "a",
 						"snippet": {"title": "夜に駆ける", "publishedAt": "2019-12-15T00:00:00Z", "channelId": "UC1", "channelTitle": "YOASOBI", "tags": ["J-Pop"], "categoryId": "10", "liveBroadcastContent": "none"},
 						"contentDetails": {"duration": "PT4M21S"},
-						"statistics": {"viewCount": "1234", "likeCount": "56", "commentCount": "7"},
-						"status": {"privacyStatus": "unlisted"}
+						"statistics": {"viewCount": "1234", "likeCount": "56", "commentCount": "7"}
 					},
 					{
 						"id": "b",
@@ -274,17 +273,13 @@ func TestFetchVideos(t *testing.T) {
 					}
 				]}`)},
 			},
-			want: []*library.Video{
-				{YoutubeID: "a", Title: "夜に駆ける", Views: 1234, Likes: 56, Comments: 7, PrivacyStatus: library.PrivacyUnlisted, PublishedAt: time.Date(2019, time.December, 15, 0, 0, 0, 0, time.UTC), Duration: 4*time.Minute + 21*time.Second, Tags: []string{"J-Pop"}, CategoryID: "10", ChannelYoutubeID: "UC1"},
-				// statistics と status が欠けていれば、再生数は 0 で公開とみなす
-				{YoutubeID: "b", Title: "群青", PrivacyStatus: library.PrivacyPublic, PublishedAt: time.Date(2020, time.September, 1, 0, 0, 0, 0, time.UTC), Duration: 26 * time.Hour, ChannelYoutubeID: "UC1"},
-			},
-			// 同じチャンネルは 1 つにまとめる
-			wantChannels: []*library.Channel{
-				{YoutubeID: "UC1", Title: "YOASOBI"},
+			want: []*library.VideoDetails{
+				{VideoID: "a", Title: "夜に駆ける", Views: 1234, Likes: 56, Comments: 7, PublishedAt: time.Date(2019, time.December, 15, 0, 0, 0, 0, time.UTC), Duration: 4*time.Minute + 21*time.Second, Tags: []string{"J-Pop"}, CategoryID: "10", ChannelID: "UC1", ChannelTitle: "YOASOBI"},
+				// statistics が欠けていれば、再生数は 0 とみなす
+				{VideoID: "b", Title: "群青", PublishedAt: time.Date(2020, time.September, 1, 0, 0, 0, 0, time.UTC), Duration: 26 * time.Hour, ChannelID: "UC1", ChannelTitle: "YOASOBI"},
 			},
 			wantRequests: []string{
-				"/videos id=a,b maxResults=2 part=id,snippet,contentDetails,statistics,status",
+				"/videos id=a,b maxResults=2 part=id,snippet,contentDetails,statistics",
 			},
 		},
 		{
@@ -295,12 +290,11 @@ func TestFetchVideos(t *testing.T) {
 					{"id": "live", "snippet": {"title": "配信", "publishedAt": "2026-10-18T00:00:00Z", "liveBroadcastContent": "live"}, "contentDetails": {"duration": "PT2H"}}
 				]}`)},
 			},
-			want: []*library.Video{
-				{YoutubeID: "live", Title: "配信", PrivacyStatus: library.PrivacyPublic, PublishedAt: time.Date(2026, time.October, 18, 0, 0, 0, 0, time.UTC)},
+			want: []*library.VideoDetails{
+				{VideoID: "live", Title: "配信", PublishedAt: time.Date(2026, time.October, 18, 0, 0, 0, 0, time.UTC)},
 			},
-			wantChannels: nil,
 			wantRequests: []string{
-				"/videos id=live maxResults=1 part=id,snippet,contentDetails,statistics,status",
+				"/videos id=live maxResults=1 part=id,snippet,contentDetails,statistics",
 			},
 		},
 		{
@@ -311,12 +305,11 @@ func TestFetchVideos(t *testing.T) {
 					{"id": "a", "snippet": {"title": "a", "publishedAt": "2026-10-18T00:00:00Z"}, "contentDetails": {"duration": "4 minutes"}}
 				]}`)},
 			},
-			want: []*library.Video{
-				{YoutubeID: "a", Title: "a", PrivacyStatus: library.PrivacyPublic, PublishedAt: time.Date(2026, time.October, 18, 0, 0, 0, 0, time.UTC)},
+			want: []*library.VideoDetails{
+				{VideoID: "a", Title: "a", PublishedAt: time.Date(2026, time.October, 18, 0, 0, 0, 0, time.UTC)},
 			},
-			wantChannels: nil,
 			wantRequests: []string{
-				"/videos id=a maxResults=1 part=id,snippet,contentDetails,statistics,status",
+				"/videos id=a maxResults=1 part=id,snippet,contentDetails,statistics",
 			},
 		},
 		{
@@ -328,11 +321,10 @@ func TestFetchVideos(t *testing.T) {
 					ok(`{"items": []}`),
 				},
 			},
-			want:         nil,
-			wantChannels: nil,
+			want: nil,
 			wantRequests: []string{
-				"/videos id=" + joined(numbered[library.VideoID]("v", 50)) + " maxResults=50 part=id,snippet,contentDetails,statistics,status",
-				"/videos id=v51 maxResults=1 part=id,snippet,contentDetails,statistics,status",
+				"/videos id=" + joined(numbered[library.VideoID]("v", 50)) + " maxResults=50 part=id,snippet,contentDetails,statistics",
+				"/videos id=v51 maxResults=1 part=id,snippet,contentDetails,statistics",
 			},
 		},
 	}
@@ -342,11 +334,10 @@ func TestFetchVideos(t *testing.T) {
 
 			yt, api := serve(t, tt.responses)
 
-			got, gotChannels, err := youtube.NewClient(yt).FetchVideos(tt.ids)
+			got, err := youtube.NewClient(yt).FetchVideoDetails(tt.ids)
 
 			assert.NoError(t, err)
 			assert.Equal(t, tt.want, got)
-			assert.Equal(t, tt.wantChannels, gotChannels)
 			assert.Equal(t, tt.wantRequests, api.requests)
 		})
 	}
@@ -401,7 +392,7 @@ func TestFetchLiveVideos(t *testing.T) {
 		name         string
 		ids          []library.VideoID
 		responses    map[string][]response
-		want         map[library.VideoID]*library.LiveVideo
+		want         map[library.VideoID]*application.LiveVideo
 		wantRequests []string
 	}{
 		{
@@ -418,7 +409,7 @@ func TestFetchLiveVideos(t *testing.T) {
 					{"id": "UC2", "snippet": {}}
 				]}`)},
 			},
-			want: map[library.VideoID]*library.LiveVideo{
+			want: map[library.VideoID]*application.LiveVideo{
 				"a": {ChannelName: "YOASOBI", ChannelIcon: "https://example.com/uc1.jpg", Views: 100},
 				"b": {ChannelName: "YOASOBI", ChannelIcon: "https://example.com/uc1.jpg", Views: 200},
 				"c": {ChannelName: "アイコンなし", ChannelIcon: "", Views: 0},
@@ -440,7 +431,7 @@ func TestFetchLiveVideos(t *testing.T) {
 					{"id": "UC1", "snippet": {}}
 				]}`)},
 			},
-			want: map[library.VideoID]*library.LiveVideo{
+			want: map[library.VideoID]*application.LiveVideo{
 				"a": {ChannelName: "YOASOBI", ChannelIcon: "", Views: 100},
 			},
 			wantRequests: []string{

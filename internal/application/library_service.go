@@ -14,7 +14,7 @@ import (
 // （非公開・節目・同期の結果）は、保存した後にドメインイベントとして events に発行し、
 // 誰が受け取るかは知らない。
 type LibraryService struct {
-	youtube       library.YouTube
+	source        library.Source
 	subscriptions subscription.Repository
 	playlists     library.PlaylistRepository
 	videos        library.VideoRepository
@@ -36,7 +36,7 @@ type LibraryService struct {
 }
 
 func NewLibraryService(
-	y library.YouTube,
+	src library.Source,
 	s subscription.Repository,
 	p library.PlaylistRepository,
 	v library.VideoRepository,
@@ -49,7 +49,7 @@ func NewLibraryService(
 	now func() time.Time,
 ) *LibraryService {
 	return &LibraryService{
-		youtube:       y,
+		source:        src,
 		subscriptions: s,
 		playlists:     p,
 		videos:        v,
@@ -113,7 +113,7 @@ func (s *LibraryService) RefreshVideos() {
 // RefreshCategories は動画のカテゴリを、YouTube での現在の名前で保存する。
 // 1 ユニットを消費する。
 func (s *LibraryService) RefreshCategories() {
-	categories, err := s.youtube.FetchCategories()
+	categories, err := s.source.FetchCategories()
 	if err != nil {
 		log.Println("Could not fetch video categories cause:", err)
 
@@ -219,7 +219,7 @@ func (s *LibraryService) sync(playlistIDs []library.PlaylistID) ([]*library.Play
 
 	ids := unique(playlistIDs)
 
-	metas, err := s.youtube.FetchPlaylistMetas(ids...)
+	metas, err := s.source.FetchPlaylistMetas(ids...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -273,12 +273,12 @@ func (s *LibraryService) refreshVideos() ([]*library.MilestoneReached, error) {
 		}
 	}
 
-	fetched, channels, err := s.youtube.FetchVideos(targets)
+	fetched, err := s.source.FetchVideoDetails(targets)
 	if err != nil {
 		return nil, err
 	}
 	// チャンネルは動画の検索にしか使わない
-	if err = s.channels.Save(channels); err != nil {
+	if err = s.channels.Save(library.ChannelsOf(fetched)); err != nil {
 		log.Println("Could not save channels cause:", err)
 	}
 
@@ -291,7 +291,7 @@ func (s *LibraryService) refreshVideos() ([]*library.MilestoneReached, error) {
 	)
 
 	for _, f := range fetched {
-		video := stored[f.YoutubeID]
+		video := stored[f.VideoID]
 		video.ApplyDetails(f)
 
 		if e := video.UpdateMilestone(); e != nil {
@@ -343,7 +343,7 @@ func (s *LibraryService) syncPlaylist(meta *library.PlaylistMeta) (*library.Snap
 		return snapshot, nil, err
 	}
 
-	fetched, err := s.youtube.FetchPlaylistItems(meta.YoutubeID)
+	fetched, err := s.source.FetchPlaylistItems(meta.YoutubeID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -372,19 +372,16 @@ func (s *LibraryService) syncPlaylist(meta *library.PlaylistMeta) (*library.Snap
 
 	changes := library.SyncVideos(fetched, videos)
 	if len(changes.NeedDetails) > 0 {
-		var (
-			details  []*library.Video
-			channels []*library.Channel
-		)
+		var details []*library.VideoDetails
 
-		details, channels, err = s.youtube.FetchVideos(changes.NeedDetails)
+		details, err = s.source.FetchVideoDetails(changes.NeedDetails)
 		if err != nil {
 			return nil, nil, err
 		}
 
 		changes.ApplyDetails(details)
 		// チャンネルは動画の検索にしか使わない
-		if err = s.channels.Save(channels); err != nil {
+		if err = s.channels.Save(library.ChannelsOf(details)); err != nil {
 			log.Println("Could not save channels cause:", err)
 		}
 	}

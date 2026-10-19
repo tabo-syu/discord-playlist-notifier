@@ -56,7 +56,7 @@ cmd/bot/main.go              ボットのコンポジションルート — 全�
 cmd/mcp/main.go              MCP サーバーのコンポジションルート（読み取りに要るものだけ）
 cmd/migrate/main.go          スキーマを更新して終了する（persistence.Migrate）
 internal/presentation/       外界との入出力（discord・scheduler・notifier・mcpserver・view）。ユーザーに見える日本語はここだけ
-internal/infrastructure/     ドメインが宣言したインターフェースの実装（persistence・youtube）
+internal/infrastructure/     ドメイン・application が宣言したインターフェースの実装（persistence・youtube）
 internal/application/        ユースケース（リポジトリから集約を読み、ドメインに判断させ、保存する）
 internal/domain/             集約（またはそのまとまり）ごとのパッケージ（guild・subscription・library・notification）
 internal/env/                プロセスの環境変数
@@ -109,8 +109,15 @@ internal/mocks/              mockery が生成した mock（手で編集しな�
   （`Subscription.TakeNewVideos`、`Video.ChangePrivacy` など）を通して変えます。
   動画の詳細を取得済みかは `Video.DetailsFetched`（`ApplyDetails` が立てる）で表し、タイトルが
   空かどうかでは判断しません。
-- リポジトリと外部サービスのインターフェース（`library.YouTube`）は各集約の
-  パッケージで宣言します。
+- リポジトリと外部サービスのインターフェース（取得元の `library.Source`）は各集約の
+  パッケージで、ドメインの言葉で宣言します。`infrastructure/youtube` は YouTube との間の
+  腐敗防止層で、API の応答をドメインの値（`PlaylistMeta`・`FetchedItem`・`VideoDetails`）に
+  翻訳して返し、動画やチャンネルのエンティティは作りません（`Video.ApplyDetails`・
+  `library.ChannelsOf` がドメインで作る）。
+- 表示にしか使わない値（チャンネルのアイコン、サムネイルの URL）はドメインに置きません。
+  通知の直前に取る情報は application の出力ポート `application.LiveVideoSource`（DTO の
+  `application.LiveVideo`）で取り、サムネイルの URL は `presentation/notifier` が組み立てます。
+  判断の経緯は issue #75 にあります。
 - ドメインで起きたことは、過去形の名前のドメインイベント（`library.VideoHidden`・
   `library.MilestoneReached`・`subscription.VideosAdded`）で表します。集約のメソッドが戻り値で
   返し（集約には溜めない）、アプリケーションサービスがその集約を**保存できた後に**

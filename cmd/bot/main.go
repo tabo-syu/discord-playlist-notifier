@@ -73,6 +73,7 @@ func init() {
 func main() {
 	location := sr.Location()
 
+	// YouTube との間の腐敗防止層。library.Source と application.LiveVideoSource の両方を実装する
 	yc := youtube.NewClient(yt)
 	gr := persistence.NewGuildRepository(db)
 	sbr := persistence.NewSubscriptionRepository(db)

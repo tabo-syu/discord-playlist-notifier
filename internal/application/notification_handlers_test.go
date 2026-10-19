@@ -3,6 +3,7 @@ package application_test
 import (
 	"testing"
 
+	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/notification"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
@@ -117,13 +118,13 @@ func TestNotificationHandlersNotifyMilestones(t *testing.T) {
 				m.playlists.EXPECT().FindContaining([]library.VideoID{"a"}).Return([]*library.Playlist{
 					playlist("PL", item("PL", "1", "a", hoursAgo(10))),
 				}, nil)
-				m.youtube.EXPECT().FetchLiveVideos([]library.VideoID{"a"}).Return(nil, errMock)
+				m.live.EXPECT().FetchLiveVideos([]library.VideoID{"a"}).Return(nil, errMock)
 				m.notifier.EXPECT().NotifyMilestone(&notification.Milestone{
 					ChannelID:  "ch",
 					PlaylistID: "PL",
 					Video:      video("a", library.PrivacyPublic, 120_000, 100_000),
 					Milestone:  100_000,
-				}, map[library.VideoID]*library.LiveVideo(nil)).Return(nil)
+				}, map[library.VideoID]*application.LiveVideo(nil)).Return(nil)
 			},
 		},
 		{
@@ -178,7 +179,7 @@ func TestNotificationHandlersNotifyNewVideos(t *testing.T) {
 				},
 			},
 			setup: func(m *deps) {
-				m.youtube.EXPECT().FetchLiveVideos([]library.VideoID{"a"}).Return(map[library.VideoID]*library.LiveVideo{}, nil)
+				m.live.EXPECT().FetchLiveVideos([]library.VideoID{"a"}).Return(map[library.VideoID]*application.LiveVideo{}, nil)
 				m.notifier.EXPECT().NotifyNewVideos(&subscription.VideosAdded{
 					ChannelID:     "ch1",
 					PlaylistID:    "PL1",
@@ -186,8 +187,8 @@ func TestNotificationHandlersNotifyNewVideos(t *testing.T) {
 					Videos: []*library.PlaylistVideo{
 						{PlaylistID: "PL1", Item: item("PL1", "1", "a", hoursAgo(1)), Video: video("a", library.PrivacyPublic, 0, 0)},
 					},
-				}, map[library.VideoID]*library.LiveVideo{}).Return(errMock)
-				m.youtube.EXPECT().FetchLiveVideos([]library.VideoID{"b"}).Return(map[library.VideoID]*library.LiveVideo{}, nil)
+				}, map[library.VideoID]*application.LiveVideo{}).Return(errMock)
+				m.live.EXPECT().FetchLiveVideos([]library.VideoID{"b"}).Return(map[library.VideoID]*application.LiveVideo{}, nil)
 				m.notifier.EXPECT().NotifyNewVideos(&subscription.VideosAdded{
 					ChannelID:     "ch2",
 					PlaylistID:    "PL2",
@@ -195,7 +196,7 @@ func TestNotificationHandlersNotifyNewVideos(t *testing.T) {
 					Videos: []*library.PlaylistVideo{
 						{PlaylistID: "PL2", Item: item("PL2", "2", "b", hoursAgo(1)), Video: video("b", library.PrivacyPublic, 0, 0)},
 					},
-				}, map[library.VideoID]*library.LiveVideo{}).Return(nil)
+				}, map[library.VideoID]*application.LiveVideo{}).Return(nil)
 			},
 		},
 		{
@@ -211,7 +212,7 @@ func TestNotificationHandlersNotifyNewVideos(t *testing.T) {
 				},
 			},
 			setup: func(m *deps) {
-				m.youtube.EXPECT().FetchLiveVideos([]library.VideoID{"a"}).Return(nil, errMock)
+				m.live.EXPECT().FetchLiveVideos([]library.VideoID{"a"}).Return(nil, errMock)
 				m.notifier.EXPECT().NotifyNewVideos(&subscription.VideosAdded{
 					ChannelID:     "ch",
 					PlaylistID:    "PL",
@@ -219,7 +220,7 @@ func TestNotificationHandlersNotifyNewVideos(t *testing.T) {
 					Videos: []*library.PlaylistVideo{
 						{PlaylistID: "PL", Item: item("PL", "1", "a", hoursAgo(1)), Video: video("a", library.PrivacyPublic, 0, 0)},
 					},
-				}, map[library.VideoID]*library.LiveVideo(nil)).Return(nil)
+				}, map[library.VideoID]*application.LiveVideo(nil)).Return(nil)
 			},
 		},
 	}

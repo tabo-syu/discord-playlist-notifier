@@ -6,6 +6,7 @@ package mocks
 
 import (
 	mock "github.com/stretchr/testify/mock"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/notification"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
@@ -99,7 +100,7 @@ func (_c *MockNotifier_NotifyHiddenVideo_Call) RunAndReturn(run func(notice *not
 }
 
 // NotifyMilestone provides a mock function for the type MockNotifier
-func (_mock *MockNotifier) NotifyMilestone(notice *notification.Milestone, live map[library.VideoID]*library.LiveVideo) error {
+func (_mock *MockNotifier) NotifyMilestone(notice *notification.Milestone, live map[library.VideoID]*application.LiveVideo) error {
 	ret := _mock.Called(notice, live)
 
 	if len(ret) == 0 {
@@ -107,7 +108,7 @@ func (_mock *MockNotifier) NotifyMilestone(notice *notification.Milestone, live 
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(*notification.Milestone, map[library.VideoID]*library.LiveVideo) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(*notification.Milestone, map[library.VideoID]*application.LiveVideo) error); ok {
 		r0 = returnFunc(notice, live)
 	} else {
 		r0 = ret.Error(0)
@@ -122,20 +123,20 @@ type MockNotifier_NotifyMilestone_Call struct {
 
 // NotifyMilestone is a helper method to define mock.On call
 //   - notice *notification.Milestone
-//   - live map[library.VideoID]*library.LiveVideo
+//   - live map[library.VideoID]*application.LiveVideo
 func (_e *MockNotifier_Expecter) NotifyMilestone(notice any, live any) *MockNotifier_NotifyMilestone_Call {
 	return &MockNotifier_NotifyMilestone_Call{Call: _e.mock.On("NotifyMilestone", notice, live)}
 }
 
-func (_c *MockNotifier_NotifyMilestone_Call) Run(run func(notice *notification.Milestone, live map[library.VideoID]*library.LiveVideo)) *MockNotifier_NotifyMilestone_Call {
+func (_c *MockNotifier_NotifyMilestone_Call) Run(run func(notice *notification.Milestone, live map[library.VideoID]*application.LiveVideo)) *MockNotifier_NotifyMilestone_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 *notification.Milestone
 		if args[0] != nil {
 			arg0 = args[0].(*notification.Milestone)
 		}
-		var arg1 map[library.VideoID]*library.LiveVideo
+		var arg1 map[library.VideoID]*application.LiveVideo
 		if args[1] != nil {
-			arg1 = args[1].(map[library.VideoID]*library.LiveVideo)
+			arg1 = args[1].(map[library.VideoID]*application.LiveVideo)
 		}
 		run(
 			arg0,
@@ -150,13 +151,13 @@ func (_c *MockNotifier_NotifyMilestone_Call) Return(err error) *MockNotifier_Not
 	return _c
 }
 
-func (_c *MockNotifier_NotifyMilestone_Call) RunAndReturn(run func(notice *notification.Milestone, live map[library.VideoID]*library.LiveVideo) error) *MockNotifier_NotifyMilestone_Call {
+func (_c *MockNotifier_NotifyMilestone_Call) RunAndReturn(run func(notice *notification.Milestone, live map[library.VideoID]*application.LiveVideo) error) *MockNotifier_NotifyMilestone_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // NotifyNewVideos provides a mock function for the type MockNotifier
-func (_mock *MockNotifier) NotifyNewVideos(added *subscription.VideosAdded, live map[library.VideoID]*library.LiveVideo) error {
+func (_mock *MockNotifier) NotifyNewVideos(added *subscription.VideosAdded, live map[library.VideoID]*application.LiveVideo) error {
 	ret := _mock.Called(added, live)
 
 	if len(ret) == 0 {
@@ -164,7 +165,7 @@ func (_mock *MockNotifier) NotifyNewVideos(added *subscription.VideosAdded, live
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(*subscription.VideosAdded, map[library.VideoID]*library.LiveVideo) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(*subscription.VideosAdded, map[library.VideoID]*application.LiveVideo) error); ok {
 		r0 = returnFunc(added, live)
 	} else {
 		r0 = ret.Error(0)
@@ -179,20 +180,20 @@ type MockNotifier_NotifyNewVideos_Call struct {
 
 // NotifyNewVideos is a helper method to define mock.On call
 //   - added *subscription.VideosAdded
-//   - live map[library.VideoID]*library.LiveVideo
+//   - live map[library.VideoID]*application.LiveVideo
 func (_e *MockNotifier_Expecter) NotifyNewVideos(added any, live any) *MockNotifier_NotifyNewVideos_Call {
 	return &MockNotifier_NotifyNewVideos_Call{Call: _e.mock.On("NotifyNewVideos", added, live)}
 }
 
-func (_c *MockNotifier_NotifyNewVideos_Call) Run(run func(added *subscription.VideosAdded, live map[library.VideoID]*library.LiveVideo)) *MockNotifier_NotifyNewVideos_Call {
+func (_c *MockNotifier_NotifyNewVideos_Call) Run(run func(added *subscription.VideosAdded, live map[library.VideoID]*application.LiveVideo)) *MockNotifier_NotifyNewVideos_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 *subscription.VideosAdded
 		if args[0] != nil {
 			arg0 = args[0].(*subscription.VideosAdded)
 		}
-		var arg1 map[library.VideoID]*library.LiveVideo
+		var arg1 map[library.VideoID]*application.LiveVideo
 		if args[1] != nil {
-			arg1 = args[1].(map[library.VideoID]*library.LiveVideo)
+			arg1 = args[1].(map[library.VideoID]*application.LiveVideo)
 		}
 		run(
 			arg0,
@@ -207,13 +208,13 @@ func (_c *MockNotifier_NotifyNewVideos_Call) Return(err error) *MockNotifier_Not
 	return _c
 }
 
-func (_c *MockNotifier_NotifyNewVideos_Call) RunAndReturn(run func(added *subscription.VideosAdded, live map[library.VideoID]*library.LiveVideo) error) *MockNotifier_NotifyNewVideos_Call {
+func (_c *MockNotifier_NotifyNewVideos_Call) RunAndReturn(run func(added *subscription.VideosAdded, live map[library.VideoID]*application.LiveVideo) error) *MockNotifier_NotifyNewVideos_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // PostPick provides a mock function for the type MockNotifier
-func (_mock *MockNotifier) PostPick(sub *subscription.Subscription, picked *library.PlaylistVideo, live map[library.VideoID]*library.LiveVideo) error {
+func (_mock *MockNotifier) PostPick(sub *subscription.Subscription, picked *library.PlaylistVideo, live map[library.VideoID]*application.LiveVideo) error {
 	ret := _mock.Called(sub, picked, live)
 
 	if len(ret) == 0 {
@@ -221,7 +222,7 @@ func (_mock *MockNotifier) PostPick(sub *subscription.Subscription, picked *libr
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(*subscription.Subscription, *library.PlaylistVideo, map[library.VideoID]*library.LiveVideo) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(*subscription.Subscription, *library.PlaylistVideo, map[library.VideoID]*application.LiveVideo) error); ok {
 		r0 = returnFunc(sub, picked, live)
 	} else {
 		r0 = ret.Error(0)
@@ -237,12 +238,12 @@ type MockNotifier_PostPick_Call struct {
 // PostPick is a helper method to define mock.On call
 //   - sub *subscription.Subscription
 //   - picked *library.PlaylistVideo
-//   - live map[library.VideoID]*library.LiveVideo
+//   - live map[library.VideoID]*application.LiveVideo
 func (_e *MockNotifier_Expecter) PostPick(sub any, picked any, live any) *MockNotifier_PostPick_Call {
 	return &MockNotifier_PostPick_Call{Call: _e.mock.On("PostPick", sub, picked, live)}
 }
 
-func (_c *MockNotifier_PostPick_Call) Run(run func(sub *subscription.Subscription, picked *library.PlaylistVideo, live map[library.VideoID]*library.LiveVideo)) *MockNotifier_PostPick_Call {
+func (_c *MockNotifier_PostPick_Call) Run(run func(sub *subscription.Subscription, picked *library.PlaylistVideo, live map[library.VideoID]*application.LiveVideo)) *MockNotifier_PostPick_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 *subscription.Subscription
 		if args[0] != nil {
@@ -252,9 +253,9 @@ func (_c *MockNotifier_PostPick_Call) Run(run func(sub *subscription.Subscriptio
 		if args[1] != nil {
 			arg1 = args[1].(*library.PlaylistVideo)
 		}
-		var arg2 map[library.VideoID]*library.LiveVideo
+		var arg2 map[library.VideoID]*application.LiveVideo
 		if args[2] != nil {
-			arg2 = args[2].(map[library.VideoID]*library.LiveVideo)
+			arg2 = args[2].(map[library.VideoID]*application.LiveVideo)
 		}
 		run(
 			arg0,
@@ -270,7 +271,7 @@ func (_c *MockNotifier_PostPick_Call) Return(err error) *MockNotifier_PostPick_C
 	return _c
 }
 
-func (_c *MockNotifier_PostPick_Call) RunAndReturn(run func(sub *subscription.Subscription, picked *library.PlaylistVideo, live map[library.VideoID]*library.LiveVideo) error) *MockNotifier_PostPick_Call {
+func (_c *MockNotifier_PostPick_Call) RunAndReturn(run func(sub *subscription.Subscription, picked *library.PlaylistVideo, live map[library.VideoID]*application.LiveVideo) error) *MockNotifier_PostPick_Call {
 	_c.Call.Return(run)
 	return _c
 }
