@@ -5,7 +5,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/infrastructure/persistence"
 )
 
@@ -26,7 +25,7 @@ func TestMigrate(t *testing.T) {
 		before []string
 		want   schema
 		// Migrate の後の playlists の全ての行
-		wantPlaylists []*subscription.Subscription
+		wantPlaylists []*persistence.SubscriptionRecord
 	}{
 		{
 			name: "最新のスキーマに対して実行しても失敗しない",
@@ -35,7 +34,7 @@ func TestMigrate(t *testing.T) {
 				VideosHasPlaylistID:         false,
 				PlaylistsHasGuildForeignKey: true,
 			},
-			wantPlaylists: []*subscription.Subscription{},
+			wantPlaylists: []*persistence.SubscriptionRecord{},
 		},
 		{
 			name: "以前の形の videos テーブルを消して作り直す",
@@ -48,7 +47,7 @@ func TestMigrate(t *testing.T) {
 				VideosHasPlaylistID:         false,
 				PlaylistsHasGuildForeignKey: true,
 			},
-			wantPlaylists: []*subscription.Subscription{},
+			wantPlaylists: []*persistence.SubscriptionRecord{},
 		},
 		{
 			name: "playlists の外部キーがなければ作る",
@@ -60,7 +59,7 @@ func TestMigrate(t *testing.T) {
 				VideosHasPlaylistID:         false,
 				PlaylistsHasGuildForeignKey: true,
 			},
-			wantPlaylists: []*subscription.Subscription{},
+			wantPlaylists: []*persistence.SubscriptionRecord{},
 		},
 		{
 			name: "notified_until がなかった行は、以前の基準時刻の updated_at で埋める",
@@ -74,7 +73,7 @@ func TestMigrate(t *testing.T) {
 				VideosHasPlaylistID:         false,
 				PlaylistsHasGuildForeignKey: true,
 			},
-			wantPlaylists: []*subscription.Subscription{
+			wantPlaylists: []*persistence.SubscriptionRecord{
 				{ID: 1, CreatedAt: now, UpdatedAt: hoursAgo(6), YoutubeID: "PL", SendChannelID: "ch", Title: "PL", GuildID: 1, NotifiedUntil: hoursAgo(6)},
 			},
 		},
@@ -82,15 +81,15 @@ func TestMigrate(t *testing.T) {
 			name: "notified_until のある行は updated_at で上書きしない",
 			before: []string{
 				"INSERT INTO guilds (discord_id) VALUES ('guild')",
-				"INSERT INTO playlists (created_at, updated_at, youtube_id, send_channel_id, title, pick_interval, guild_id, notified_until) VALUES ('2026-10-18 12:00:00+00', '2026-10-18 12:00:00+00', 'PL', 'ch', 'PL', '', 1, '2026-10-18 06:00:00+00')",
+				"INSERT INTO playlists (created_at, updated_at, youtube_id, send_channel_id, title, pick_interval, guild_id, notified_until) VALUES ('2026-10-18 12:00:00+00', '2026-10-18 12:00:00+00', 'PL', 'ch', 'PL', 'weekly', 1, '2026-10-18 06:00:00+00')",
 			},
 			want: schema{
 				VideosHasYoutubeID:          true,
 				VideosHasPlaylistID:         false,
 				PlaylistsHasGuildForeignKey: true,
 			},
-			wantPlaylists: []*subscription.Subscription{
-				storedSubscription(1, 1, "PL", "PL"),
+			wantPlaylists: []*persistence.SubscriptionRecord{
+				storedSubscriptionRow(1, 1, "PL", "PL"),
 			},
 		},
 	}
@@ -105,9 +104,9 @@ func TestMigrate(t *testing.T) {
 			assert.Equal(t, tt.want, schema{
 				VideosHasYoutubeID:          db.Migrator().HasColumn("videos", "youtube_id"),
 				VideosHasPlaylistID:         db.Migrator().HasColumn("videos", "playlist_id"),
-				PlaylistsHasGuildForeignKey: db.Migrator().HasConstraint(&subscription.Subscription{}, "fk_guilds_playlists"),
+				PlaylistsHasGuildForeignKey: db.Migrator().HasConstraint(&persistence.SubscriptionRecord{}, "fk_guilds_playlists"),
 			})
-			assert.Equal(t, tt.wantPlaylists, rows[subscription.Subscription](t, db))
+			assert.Equal(t, tt.wantPlaylists, rows[persistence.SubscriptionRecord](t, db))
 		})
 	}
 }

@@ -44,6 +44,8 @@ linters:
               desc: domain は他のレイヤを import しない
             - pkg: github.com/tabo-syu/discord-playlist-notifier/internal/presentation
               desc: domain は他のレイヤを import しない
+            - pkg: gorm.io
+              desc: domain は保存の仕方を知らない。テーブルの形は infrastructure/persistence のレコードが持つ
         application:
           files:
             - "**/internal/application/**"

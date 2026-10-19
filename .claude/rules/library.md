@@ -31,7 +31,7 @@ paths:
 ## スキーマ
 
 - `subscription.Subscription` は以前 `Playlist` だったので、テーブル名は `playlists` のままです
-  （`TableName()` で固定）。
+  （`persistence` の `subscriptionRecord.TableName()` で固定）。
 - 新着動画の通知の基準時刻は、以前は `playlists.updated_at` でした。今は `notified_until` で、
   `persistence.Migrate` が空の行を毎回 `updated_at` で埋めます（何度実行しても同じ結果になる）。
 - `videos` テーブルは以前、通知した動画の履歴でした。古い形（`playlist_id` カラムがある）は、

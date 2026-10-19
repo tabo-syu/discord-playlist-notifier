@@ -16,11 +16,11 @@ func NewGuildRepository(db *gorm.DB) *guildRepository {
 
 func (r *guildRepository) Exists(id guild.DiscordID) (bool, error) {
 	var (
-		g     guild.Guild
+		rec   guildRecord
 		count int64
 	)
 
-	err := r.db.Where(guild.Guild{DiscordID: id}).Find(&g).Count(&count).Error
+	err := r.db.Where(guildRecord{DiscordID: string(id)}).Find(&rec).Count(&count).Error
 	if err != nil {
 		return false, err
 	}
@@ -28,28 +28,33 @@ func (r *guildRepository) Exists(id guild.DiscordID) (bool, error) {
 	return count > 0, err
 }
 
+// Add は保存したギルドに DB が振った ID を g に書き戻す。
 func (r *guildRepository) Add(g *guild.Guild) error {
-	result := r.db.Save(g)
+	rec := toGuildRecord(g)
+
+	result := r.db.Save(rec)
 	if err := result.Error; err != nil {
 		return err
 	}
+
+	g.ID = rec.ID
 
 	return nil
 }
 
 func (r *guildRepository) FindByDiscordID(id guild.DiscordID) (*guild.Guild, error) {
-	var g guild.Guild
+	var rec guildRecord
 
-	result := r.db.Where(&guild.Guild{DiscordID: id}).Take(&g)
+	result := r.db.Where(&guildRecord{DiscordID: string(id)}).Take(&rec)
 	if err := result.Error; err != nil {
 		return nil, err
 	}
 
-	return &g, nil
+	return rec.toDomain(), nil
 }
 
 func (r *guildRepository) Delete(g *guild.Guild) error {
-	result := r.db.Delete(g)
+	result := r.db.Delete(toGuildRecord(g))
 	if err := result.Error; err != nil {
 		return err
 	}

@@ -19,13 +19,13 @@ func TestGuildRepositoryExists(t *testing.T) {
 	}{
 		{
 			name:      "保存済み",
-			stored:    []any{guild.New("guild")},
+			stored:    []any{guildRow("guild")},
 			discordID: "guild",
 			want:      true,
 		},
 		{
 			name:      "保存していない",
-			stored:    []any{guild.New("other")},
+			stored:    []any{guildRow("other")},
 			discordID: "guild",
 			want:      false,
 		},
@@ -45,16 +45,18 @@ func TestGuildRepositoryExists(t *testing.T) {
 
 func TestGuildRepositoryAdd(t *testing.T) {
 	tests := []struct {
-		name  string
-		guild *guild.Guild
-		want  []*guild.Guild
+		name      string
+		guild     *guild.Guild
+		want      []*persistence.GuildRecord
+		wantGuild *guild.Guild
 	}{
 		{
-			name:  "ギルドを保存する",
+			name:  "ギルドを保存し、振った ID を書き戻す",
 			guild: guild.New("guild"),
-			want: []*guild.Guild{
+			want: []*persistence.GuildRecord{
 				{Model: model(1), DiscordID: "guild"},
 			},
+			wantGuild: &guild.Guild{ID: 1, DiscordID: "guild"},
 		},
 	}
 	for _, tt := range tests {
@@ -64,7 +66,8 @@ func TestGuildRepositoryAdd(t *testing.T) {
 			err := persistence.NewGuildRepository(db).Add(tt.guild)
 
 			assert.NoError(t, err)
-			assert.Equal(t, tt.want, rows[guild.Guild](t, db))
+			assert.Equal(t, tt.want, rows[persistence.GuildRecord](t, db))
+			assert.Equal(t, tt.wantGuild, tt.guild)
 		})
 	}
 }
@@ -79,14 +82,14 @@ func TestGuildRepositoryFindByDiscordID(t *testing.T) {
 	}{
 		{
 			name:      "保存済みのギルドを返す",
-			stored:    []any{guild.New("other"), guild.New("guild")},
+			stored:    []any{guildRow("other"), guildRow("guild")},
 			discordID: "guild",
-			want:      &guild.Guild{Model: model(2), DiscordID: "guild"},
+			want:      &guild.Guild{ID: 2, DiscordID: "guild"},
 		},
 		{
 			// GORM のエラーをそのまま返す
 			name:      "保存していない",
-			stored:    []any{guild.New("other")},
+			stored:    []any{guildRow("other")},
 			discordID: "guild",
 			want:      nil,
 			wantErr:   gorm.ErrRecordNotFound,
@@ -110,13 +113,13 @@ func TestGuildRepositoryDelete(t *testing.T) {
 		name   string
 		stored []any
 		guild  *guild.Guild
-		want   []*guild.Guild
+		want   []*persistence.GuildRecord
 	}{
 		{
 			name:   "指定したギルドを論理削除する",
-			stored: []any{guild.New("guild"), guild.New("other")},
-			guild:  &guild.Guild{Model: model(1), DiscordID: "guild"},
-			want: []*guild.Guild{
+			stored: []any{guildRow("guild"), guildRow("other")},
+			guild:  &guild.Guild{ID: 1, DiscordID: "guild"},
+			want: []*persistence.GuildRecord{
 				{Model: deleted(1), DiscordID: "guild"},
 				{Model: model(2), DiscordID: "other"},
 			},
@@ -130,7 +133,7 @@ func TestGuildRepositoryDelete(t *testing.T) {
 			err := persistence.NewGuildRepository(db).Delete(tt.guild)
 
 			assert.NoError(t, err)
-			assert.Equal(t, tt.want, rows[guild.Guild](t, db))
+			assert.Equal(t, tt.want, rows[persistence.GuildRecord](t, db))
 		})
 	}
 }

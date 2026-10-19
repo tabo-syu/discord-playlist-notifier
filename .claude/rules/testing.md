@@ -18,7 +18,9 @@ paths:
 - **MCP のツール** — 出力は JSON の文字列で書いて `assert.JSONEq` で比べます。日時を JST で
   返すことを確かめるため、テストデータの時刻は UTC で書きます。
 - **リポジトリ** — 1 つの DB を `newDB(t)` が毎回 `TRUNCATE ... RESTART IDENTITY` するので、
-  ID は 1 から振られ、並列にはしません。`go test -short` では飛ばします。
+  ID は 1 から振られ、並列にはしません。`go test -short` では飛ばします。DB の行の準備（`seed`）と
+  確認（`rows`）にはレコード（`export_test.go` がテストにだけ公開する `persistence.VideoRecord` など）を、
+  リポジトリが返す値にはドメインのモデルを使います。
 - **YouTube クライアント** — `httptest` の偽の API が受けたリクエストを記録するので、返した値に
   加えて `wantRequests` を比べ、50 件ごとの分割・ページング・part を確かめます。
 - **view のテキスト** — 文言を変えたら `go test ./internal/presentation/view/ -update` で

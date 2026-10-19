@@ -27,7 +27,7 @@ paths:
 
 - `After` ではなく `!Before` なのは、基準時刻ちょうどに追加された動画を含めるためです。
 - 登録したときは `subscription.New` が登録した時刻を入れ、通知したときは `MarkNotified` が進めます。
-  `UpdatedAt`（GORM が保存のたびに書き換える）は判定に使いません。
+  `playlists.updated_at`（GORM が保存のたびに書き換える）はレコードにだけあり、判定に使いません。
 - `NotifiedUntil` を過去に戻せば、その時刻以降の動画を再通知できます。
 - プレイリストへの追加時刻は `PlaylistItem.AddedAt`、動画の投稿時刻は `Video.PublishedAt` です。
 

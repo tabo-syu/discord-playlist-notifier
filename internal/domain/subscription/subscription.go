@@ -7,8 +7,6 @@ import (
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
-
-	"gorm.io/gorm"
 )
 
 // ChannelID は通知を送る Discord のテキストチャンネルの ID。
@@ -16,12 +14,9 @@ type ChannelID string
 
 // Subscription はギルドが YouTube のプレイリストの通知を受けるための設定。
 // プレイリスト自体の中身は library に属する。
-//
-// gorm.Model の UpdatedAt は保存のたびに GORM が書き換える監査用の時刻で、
-// ドメインの判断には使わない。
 type Subscription struct {
-	gorm.Model
-
+	// 保存したときにリポジトリが振る識別子
+	ID            uint
 	YoutubeID     library.PlaylistID
 	SendChannelID ChannelID
 	Title         string
@@ -34,11 +29,6 @@ type Subscription struct {
 	// 通知済みか、登録より前からあったので通知しない。ちょうどこの時刻に
 	// 追加された動画は新着に含める（IsNew を参照）。
 	NotifiedUntil time.Time
-}
-
-// テーブル名はモデルのリネーム前の名前のままにしている。
-func (Subscription) TableName() string {
-	return "playlists"
 }
 
 // New は subscribedAt に登録した通知設定を返す。登録より前からプレイリストに
