@@ -1,5 +1,5 @@
 # Git フック。clone したら `go tool task hooks` で 1 回だけ入れる。
-# 一時的に飛ばすときは LEFTHOOK=0 git commit ...
+# 人が一時的に飛ばすときは LEFTHOOK=0 git commit ...（Claude Code からは .claude/hooks で止めている）
 pre-commit:
   # 整形してから lint するので、順に実行する
   piped: true
