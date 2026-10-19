@@ -388,6 +388,8 @@ stateDiagram-v2
 2. 環境変数を設定します
 3. アプリケーションを実行します:
    ```bash
+   # スキーマを更新する（ボットと MCP サーバーは更新しないので先に実行する）
+   go run cmd/migrate/main.go
    go run cmd/bot/main.go
    # MCP サーバーは別のプロセスです（MCP_ADDR が必要）
    go run cmd/mcp/main.go
@@ -399,6 +401,7 @@ DDD のレイヤードアーキテクチャで構成しています。依存は�
 
 - `cmd/bot/`: ボットのエントリーポイント（依存の組み立て）
 - `cmd/mcp/`: MCP サーバーのエントリーポイント
+- `cmd/migrate/`: スキーマを更新して終了する
 - `internal/domain/`: ドメインモデル（集約ごとのパッケージ）、リポジトリのインターフェース、エラー
   - `guild/`: ボットが参加しているサーバー
   - `subscription/`: サーバーごとのプレイリストの通知設定

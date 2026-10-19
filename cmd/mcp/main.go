@@ -16,8 +16,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// main は読み取り専用の MCP サーバーだけを起動する。スキーマはボット
-// （cmd/bot）がマイグレーションするので、ここでは変更しない。
+// main は読み取り専用の MCP サーバーだけを起動する。スキーマは cmd/migrate が
+// 更新するので、ここでは変更しない。
 func main() {
 	location, err := time.LoadLocation(env.DB_TIMEZONE)
 	if err != nil {

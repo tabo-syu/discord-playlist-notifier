@@ -58,10 +58,6 @@ func init() {
 		log.Fatalf("Could not connect the db: %v", err)
 	}
 
-	if err = persistence.Migrate(db); err != nil {
-		log.Fatalf("Could not migrate tables: %v", err)
-	}
-
 	dc, err = discordgo.New("Bot " + env.DISCORD_TOKEN)
 	if err != nil {
 		log.Fatalf("Invalid discord token: %v", err)

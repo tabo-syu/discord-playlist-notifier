@@ -25,15 +25,16 @@ go tool task check        # build・go mod tidy のずれ・lint・test をま�
 go tool task mock         # mock を生成し直す（インターフェースを変えたとき。go tool mockery）
 go tool task hooks        # lefthook の Git フックを入れる（clone したら 1 回だけ）
 
-# スタック全体（ボット + MCP サーバー + PostgreSQL）を起動する。通常はこちらを使う
+# スタック全体（マイグレーション + ボット + MCP サーバー + PostgreSQL）を起動する。通常はこちらを使う
 cp .env.example .env   # コピー後、実際の値を記入する
 docker compose up -d
 docker compose logs -f bot mcp
 
-# ボットや MCP サーバーを直接実行する。到達可能な PostgreSQL と、シェルにエクスポートされた
+# 直接実行する。到達可能な PostgreSQL と、シェルにエクスポートされた
 # 全ての環境変数が必要（アプリは .env を読み込まない。「設定」の節を参照）
+go run cmd/migrate/main.go   # スキーマを更新して終わる。ボットと MCP サーバーはスキーマを作らないので先に実行する
 go run cmd/bot/main.go
-go run cmd/mcp/main.go   # MCP_ADDR も必要。スキーマはボットが作るので、先にボットを起動しておく
+go run cmd/mcp/main.go       # MCP_ADDR も必要
 ```
 
 golangci-lint は `Taskfile.yml` の中で `go run ...@v2.15.0` としてバージョンを固定して
@@ -79,6 +80,7 @@ domain のモデルに残しています）。
 ```
 cmd/bot/main.go                      ボットのコンポジションルート — 全ての組み立てと依存注入
 cmd/mcp/main.go                      MCP サーバーのコンポジションルート（読み取りに要るものだけを組み立てる）
+cmd/migrate/main.go                  スキーマを更新して終了する（persistence.Migrate）
         │
         ├── internal/presentation/           外界との入出力（ユーザーに見える日本語はここだけ）
         │       ├── discord/                 Discord ゲートウェイ: セッション、イベント、コマンドの登録
@@ -142,8 +144,12 @@ cmd/mcp/main.go                      MCP サーバーのコンポジションル
 依存関係を構築している場所は `cmd/bot/main.go`（ボット）と `cmd/mcp/main.go`
 （MCP サーバー）だけです。以下はボットの説明です。`init()` が 4 つの
 パッケージレベルのシングルトン（`sr` gocron、`db` GORM、`dc` discordgo、
-`yt` YouTube サービス）を構築し、`persistence.Migrate` でスキーマを更新します。
-失敗時は全て `log.Fatalf` で落とします。その後 `main()` が infrastructure →
+`yt` YouTube サービス）を構築します。スキーマの更新（`persistence.Migrate`）は
+`cmd/migrate` だけが行い、ボットと MCP サーバーは行いません。compose では
+一度だけ動く `migrate` サービスで実行し、`bot` と `mcp` は `depends_on` の
+`service_completed_successfully` でその完了を待ってから起動します（`migrate` は
+`db` の healthcheck を待ちます）。`bot` だけが再起動したときはマイグレーションは
+走りません。失敗時は全て `log.Fatalf` で落とします。その後 `main()` が infrastructure →
 application → presentation の順に組み立て、`SIGINT` を待ってブロックします。
 `LibraryService`、`NotificationService`、`PlaylistNotifier`（と MCP サーバー）には現在時刻の関数
 （`time.Now`）を渡します。
@@ -213,9 +219,7 @@ MCP サーバーを `MCP_ADDR` の `/mcp` で起動します（公式 SDK `githu
   YouTube のクライアントとして `nil` を渡しています（`QueryService` が使う読み取りの
   メソッドは YouTube を呼ばないため）。`QueryService` から YouTube を呼ぶメソッドを
   使うようにするなら、ここも変える必要があります。
-- スキーマの更新（`persistence.Migrate`）はボットだけが行います。compose の
-  `depends_on: bot` は起動の順番を決めるだけなので、ボットのマイグレーションが
-  終わる前にクエリが来ると失敗することがあります。
+- スキーマは更新しません（`cmd/migrate` が行います。「依存の組み立て」を参照）。
 
 - ツールは全て**読み取り専用**です: `list_playlists`、`find_videos`、`playlist_stats`、
   `playlist_wrapped`、`random_videos`、`video_history`。ツールや引数の説明は日本語です。
@@ -305,7 +309,7 @@ YouTube プレイリストの中身は、サーバーごとの通知設定（`su
 `Video.PublishedAt` です。
 
 `videos` テーブルは以前、通知した動画の履歴でした。古い形のテーブル
-（`playlist_id` カラムがある）は、起動時に `persistence.Migrate` が一度だけ削除します。
+（`playlist_id` カラムがある）は、`persistence.Migrate`（`cmd/migrate`）が一度だけ削除します。
 
 ## 規約
 
@@ -596,5 +600,5 @@ Discord や YouTube の挙動に関わる変更は実際の認証情報とテス
   関連付けから導出していました。集約を ID で参照するようにしたため、
   `persistence.Migrate` が明示的に作成します。
 - Dockerfile は `go run` を実行します（バイナリのビルドもマルチステージ
-  ビルドもしません）。`mcp` は同じイメージで `command:` を上書きして `cmd/mcp` を実行します。また `docker-compose.yml` はソースをコンテナに
+  ビルドもしません）。`migrate` と `mcp` は同じイメージで `command:` を上書きして `cmd/migrate`・`cmd/mcp` を実行します。また `docker-compose.yml` はソースをコンテナに
   バインドマウントします。

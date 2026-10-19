@@ -9,7 +9,8 @@ services:
     env_file:
       - .env
     depends_on:
-      - db
+      migrate:
+        condition: service_completed_successfully
 
   mcp:
     build: .
@@ -28,10 +29,22 @@ services:
       playlist-api:
         aliases:
           - playlist-notifier
-    # The bot migrates the schema; this only orders the startup.
     depends_on:
-      - db
-      - bot
+      migrate:
+        condition: service_completed_successfully
+
+  # Updates the schema once and exits before the bot and mcp start.
+  migrate:
+    build: .
+    command: [ "go", "run", "cmd/migrate/main.go" ]
+    restart: "no"
+    volumes:
+      - .:/go/src/bot
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
 
   db:
     image: "postgres:14.4-alpine"
@@ -43,6 +56,11 @@ services:
       TZ: ${DB_TIMEZONE}
     volumes:
       - "db-data:/var/lib/postgresql/data"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      interval: 2s
+      timeout: 5s
+      retries: 15
 
 volumes:
   db-data:
