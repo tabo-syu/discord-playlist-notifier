@@ -32,7 +32,7 @@ var (
 	pickSubCommand = &discordgo.ApplicationCommandOption{
 		Type:        discordgo.ApplicationCommandOptionSubCommand,
 		Name:        "pick",
-		Description: "プレイリストからランダムに選んだ一曲を、決まった間隔で投稿するか設定します。",
+		Description: "プレイリストからランダムに選んだ一本を、決まった間隔で投稿するか設定します。",
 		Options: []*discordgo.ApplicationCommandOption{
 			playlistIdOption,
 			pickIntervalOption,
@@ -58,12 +58,12 @@ func (c *PlaylistNotifier) pick(guildId string, playlistId string, choice string
 
 	switch interval {
 	case subscription.PickDaily:
-		return "毎日 12:00 に「今日の一曲」を投稿します！\n" + url
+		return "毎日 12:00 に「今日の一本」を投稿します！\n" + url
 	case subscription.PickWeekly:
-		return "毎週月曜の 12:00 に「今週の一曲」を投稿します！\n" + url
+		return "毎週月曜の 12:00 に「今週の一本」を投稿します！\n" + url
 	case subscription.PickMonthly:
-		return "毎月 1 日の 12:00 に「今月の一曲」を投稿します！\n" + url
+		return "毎月 1 日の 12:00 に「今月の一本」を投稿します！\n" + url
 	default:
-		return "一曲の投稿をやめました。\n" + url
+		return "一本の投稿をやめました。\n" + url
 	}
 }

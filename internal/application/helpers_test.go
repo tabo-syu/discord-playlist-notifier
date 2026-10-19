@@ -144,7 +144,7 @@ func meta(playlistID library.PlaylistID, title string, itemCount int64) *library
 	return &library.PlaylistMeta{YoutubeID: playlistID, Title: title, ItemCount: itemCount}
 }
 
-// expectPick は、プレイリストの唯一の曲「a」を s のピックとして投稿するときの呼び出しを期待する。
+// expectPick は、プレイリストの唯一の動画「a」を s のピックとして投稿するときの呼び出しを期待する。
 func (m *deps) expectPick(s *subscription.Subscription) {
 	m.library.EXPECT().FindItems(s.YoutubeID).Return([]*library.PlaylistItem{
 		item(s.YoutubeID, "1", "a", hoursAgo(10)),

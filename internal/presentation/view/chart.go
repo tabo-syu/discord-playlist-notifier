@@ -18,7 +18,7 @@ const (
 	CHART_HEIGHT = 520
 	// 目盛りのおおよその数
 	CHART_TICKS = 5
-	// 凡例とタイトルに出す曲名の長さ（文字数）
+	// 凡例とグラフのタイトルに出す動画のタイトルの長さ（文字数）
 	CHART_LEGEND_TITLE_LENGTH = 18
 	CHART_TITLE_LENGTH        = 40
 	CHART_TIME_FORMAT         = "1/2"
@@ -233,7 +233,7 @@ func axisFormatter(lo, hi float64) chart.ValueFormatter {
 	}
 }
 
-// truncate は曲名を n 文字までに切り詰める。
+// truncate はタイトルを n 文字までに切り詰める。
 func truncate(title string, n int) string {
 	runes := []rune(title)
 	if len(runes) <= n {

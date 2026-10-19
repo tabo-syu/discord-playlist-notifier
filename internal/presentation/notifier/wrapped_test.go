@@ -11,7 +11,7 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/notifier"
 )
 
-// まとめの本文の整形は view のゴールデンテストで確かめるので、ここでは曲のないまとめで
+// まとめの本文の整形は view のゴールデンテストで確かめるので、ここでは動画のないまとめで
 // Embed の形だけを確かめる。
 func TestPostWrapped(t *testing.T) {
 	t.Parallel()
@@ -31,7 +31,7 @@ func TestPostWrapped(t *testing.T) {
 					Color:       notifier.PURPLE,
 					Title:       "🎁 お気に入り の 2026 年まとめ",
 					URL:         "https://www.youtube.com/playlist?list=PL",
-					Description: "2026 年に追加された曲はありません。\n",
+					Description: "2026 年に追加された動画はありません。\n",
 				}).Return(&discordgo.Message{}, nil)
 			},
 		},

@@ -248,7 +248,7 @@ func TestNotificationServiceRefreshVideos(t *testing.T) {
 func TestNotificationServicePostPicks(t *testing.T) {
 	t.Parallel()
 
-	// 選ぶ順はランダムなので、各プレイリストの候補は 1 曲だけにする
+	// 選ぶ順はランダムなので、各プレイリストの候補は 1 本だけにする
 	tests := []struct {
 		name  string
 		now   time.Time
@@ -314,7 +314,7 @@ func TestNotificationServicePostPicks(t *testing.T) {
 			},
 		},
 		{
-			name: "選べる曲がなければ投稿しない",
+			name: "選べる動画がなければ投稿しない",
 			now:  date(2026, time.October, 18, 12),
 			setup: func(m *deps) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
@@ -360,7 +360,7 @@ func TestNotificationServicePostWrapped(t *testing.T) {
 		setup func(m *deps)
 	}{
 		{
-			name: "今年追加された曲があるプレイリストのまとめを投稿する",
+			name: "今年追加された動画があるプレイリストのまとめを投稿する",
 			now:  date(2026, time.December, 31, 21),
 			setup: func(m *deps) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
@@ -388,7 +388,7 @@ func TestNotificationServicePostWrapped(t *testing.T) {
 			},
 		},
 		{
-			name: "今年追加された曲がないプレイリストには投稿しない",
+			name: "今年追加された動画がないプレイリストには投稿しない",
 			now:  date(2026, time.December, 31, 21),
 			setup: func(m *deps) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{

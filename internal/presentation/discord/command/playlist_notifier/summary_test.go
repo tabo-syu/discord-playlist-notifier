@@ -28,7 +28,7 @@ func TestSummary(t *testing.T) {
 				m.playlistHas("PL1")
 				m.playlistHas("PL2")
 			},
-			want: command.Text("📊 **お気に入り**\nまだ曲の情報がありません。少し待ってからもう一度試してください。\n\n📊 **作業用**\nまだ曲の情報がありません。少し待ってからもう一度試してください。\n"),
+			want: command.Text("📊 **お気に入り**\nまだ動画の情報がありません。少し待ってからもう一度試してください。\n\n📊 **作業用**\nまだ動画の情報がありません。少し待ってからもう一度試してください。\n"),
 		},
 		{
 			name: "指定したプレイリストだけを表示する",
@@ -37,7 +37,7 @@ func TestSummary(t *testing.T) {
 				m.guildHas(sub(1, "PL1", "お気に入り"), sub(2, "PL2", "作業用"))
 				m.playlistHas("PL2")
 			},
-			want: command.Text("📊 **作業用**\nまだ曲の情報がありません。少し待ってからもう一度試してください。\n"),
+			want: command.Text("📊 **作業用**\nまだ動画の情報がありません。少し待ってからもう一度試してください。\n"),
 		},
 		{
 			name: "登録していないプレイリストを指定した",

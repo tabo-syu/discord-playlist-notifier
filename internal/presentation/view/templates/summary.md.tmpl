@@ -1,7 +1,7 @@
 {{define "summary" -}}
 📊 **{{.Title}}**
-曲数: {{number .Stats.Total}} 曲（観られる {{number .Stats.Available}} / 非公開 {{number .Stats.Private}} / 削除 {{number .Stats.Deleted}}）
-追加ペース: 今月 {{.Stats.AddedThisMonth}} 曲 / 過去 30 日 {{.Stats.AddedLast30Days}} 曲
+動画数: {{number .Stats.Total}} 本（観られる {{number .Stats.Available}} / 非公開 {{number .Stats.Private}} / 削除 {{number .Stats.Deleted}}）
+追加ペース: 今月 {{.Stats.AddedThisMonth}} 本 / 過去 30 日 {{.Stats.AddedLast30Days}} 本
 最初の追加: {{date "2006/01/02" .Stats.FirstAddedAt}}
 {{with .Stats.TopViewed}}
 **再生数ランキング**

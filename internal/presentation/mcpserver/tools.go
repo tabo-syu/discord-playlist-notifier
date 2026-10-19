@@ -38,7 +38,7 @@ const INSTRUCTIONS = `Discord の playlist-notifier ボットが通知登録し�
 - 見られるのは通知登録されているプレイリストだけで、読み取り専用です。
 - まず list_playlists でプレイリストの ID と名前を確認し、ほかのツールにはその ID を渡してください。
 - データはボットのデータベースの内容です。プレイリストの中身は 5 分ごと、再生数は 6 時間ごとに更新されるので、YouTube の最新の状態と少しずれることがあります。
-- 曲のチャンネル名・長さ・タグ・カテゴリは 6 時間ごとの更新で取得します。取得前の曲では空になります。
+- 動画のチャンネル名・長さ・タグ・カテゴリは 6 時間ごとの更新で取得します。取得前の動画では空になります。
 - 日時はボットのタイムゾーン（RFC 3339 形式）で返します。`
 
 type tools struct {
@@ -61,24 +61,24 @@ func readOnly(name, title, description string) *mcp.Tool {
 
 func addTools(s *mcp.Server, t *tools) {
 	mcp.AddTool(s, readOnly("list_playlists", "プレイリストの一覧",
-		"通知登録されている YouTube プレイリストの一覧を、曲数や最後に曲が追加された日時と一緒に返します。"),
+		"通知登録されている YouTube プレイリストの一覧を、動画数や最後に動画が追加された日時と一緒に返します。"),
 		logged("list_playlists", t.listPlaylists))
-	mcp.AddTool(s, readOnly("find_videos", "曲を探す",
-		"プレイリストの曲を、曲名・チャンネル名・タグの一部、カテゴリ、曲の長さ、追加された期間で絞り込んで返します。"+
-			"「最近追加された曲」「〇〇が入っているか」「再生数の多い曲」などを調べるのに使います。"+
-			"同じ曲が複数のプレイリストにある場合や、同じプレイリストに 2 回追加されている場合は、追加ごとに 1 件として返します。"),
+	mcp.AddTool(s, readOnly("find_videos", "動画を探す",
+		"プレイリストの動画を、タイトル・チャンネル名・タグの一部、カテゴリ、動画の長さ、追加された期間で絞り込んで返します。"+
+			"「最近追加された動画」「〇〇が入っているか」「再生数の多い動画」などを調べるのに使います。"+
+			"同じ動画が複数のプレイリストにある場合や、同じプレイリストに 2 回追加されている場合は、追加ごとに 1 件として返します。"),
 		logged("find_videos", t.findVideos))
 	mcp.AddTool(s, readOnly("playlist_stats", "プレイリストの統計",
-		"プレイリストの曲数（観られる・非公開・削除の内訳）、追加のペース、再生数ランキング、直近 6 か月の月別の追加数を返します。"),
+		"プレイリストの動画数（観られる・非公開・削除の内訳）、追加のペース、再生数ランキング、直近 6 か月の月別の追加数を返します。"),
 		logged("playlist_stats", t.playlistStats))
 	mcp.AddTool(s, readOnly("playlist_wrapped", "年間まとめ",
-		"プレイリストに 1 年間で追加された曲のまとめ（曲数、前年の曲数、一番追加した月、最初と最後の一曲、再生数ランキング）を返します。"),
+		"プレイリストに 1 年間で追加された動画のまとめ（動画数、前年の動画数、一番追加した月、最初と最後の一本、再生数ランキング）を返します。"),
 		logged("playlist_wrapped", t.playlistWrapped))
-	mcp.AddTool(s, readOnly("random_videos", "ランダムな曲",
-		"プレイリストから観られる曲をランダムに選んで返します。同じ曲は 2 回選ばれません。"),
+	mcp.AddTool(s, readOnly("random_videos", "ランダムな動画",
+		"プレイリストから観られる動画をランダムに選んで返します。同じ動画は 2 回選ばれません。"),
 		logged("random_videos", t.randomVideos))
 	mcp.AddTool(s, readOnly("video_history", "再生数などの推移",
-		"曲のタイトル・公開状態・再生数・高評価数・コメント数を、6 時間ごとに記録した履歴として古い順に返します。"+
+		"動画のタイトル・公開状態・再生数・高評価数・コメント数を、6 時間ごとに記録した履歴として古い順に返します。"+
 			"video_id は find_videos などで確認してください。"),
 		logged("video_history", t.videoHistory))
 }
@@ -118,7 +118,7 @@ type playlistOut struct {
 
 type videoOut struct {
 	VideoID       string   `json:"video_id"`
-	Title         string   `json:"title" jsonschema:"曲名。非公開・削除の曲では空のことがある"`
+	Title         string   `json:"title" jsonschema:"タイトル。非公開・削除の動画では空のことがある"`
 	URL           string   `json:"url"`
 	PlaylistID    string   `json:"playlist_id"`
 	PlaylistTitle string   `json:"playlist_title"`
@@ -128,7 +128,7 @@ type videoOut struct {
 	Status        string   `json:"status" jsonschema:"public（公開）、unlisted（限定公開）、private（非公開）、deleted（削除）のいずれか"`
 	Channel       string   `json:"channel,omitempty" jsonschema:"動画を投稿したチャンネルの名前"`
 	ChannelID     string   `json:"channel_id,omitempty" jsonschema:"チャンネルの ID。同じ名前の別のチャンネルを見分けるときに使う"`
-	DurationSec   int      `json:"duration_seconds,omitempty" jsonschema:"曲の長さ（秒）。不明なときは省略"`
+	DurationSec   int      `json:"duration_seconds,omitempty" jsonschema:"動画の長さ（秒）。不明なときは省略"`
 	Tags          []string `json:"tags" jsonschema:"投稿者が付けたタグ（最初の 10 個まで）。付いていないことも多い"`
 	Category      string   `json:"category,omitempty" jsonschema:"YouTube のカテゴリ（音楽、ゲームなど）"`
 }
@@ -267,12 +267,12 @@ type listPlaylistsIn struct{}
 type playlistOverviewOut struct {
 	playlistOut
 
-	Items        int    `json:"items" jsonschema:"曲数（同じ曲の重複も数える）"`
-	Available    int    `json:"available" jsonschema:"観られる曲の数"`
+	Items        int    `json:"items" jsonschema:"動画数（同じ動画の重複も数える）"`
+	Available    int    `json:"available" jsonschema:"観られる動画の数"`
 	Private      int    `json:"private"`
 	Deleted      int    `json:"deleted"`
 	FirstAddedAt string `json:"first_added_at,omitempty"`
-	LastAddedAt  string `json:"last_added_at,omitempty" jsonschema:"最後に曲が追加された日時"`
+	LastAddedAt  string `json:"last_added_at,omitempty" jsonschema:"最後に動画が追加された日時"`
 }
 
 type listPlaylistsOut struct {
@@ -305,16 +305,16 @@ func (t *tools) listPlaylists(_ context.Context, _ *mcp.CallToolRequest, _ listP
 
 type findVideosIn struct {
 	PlaylistID         string `json:"playlist_id,omitempty" jsonschema:"プレイリストの ID。省略するとすべてのプレイリストから探す"`
-	Title              string `json:"title,omitempty" jsonschema:"曲名に含まれる文字列（大文字・小文字は区別しない）"`
+	Title              string `json:"title,omitempty" jsonschema:"タイトルに含まれる文字列（大文字・小文字は区別しない）"`
 	Channel            string `json:"channel,omitempty" jsonschema:"チャンネル名に含まれる文字列（大文字・小文字は区別しない）"`
 	ChannelID          string `json:"channel_id,omitempty" jsonschema:"チャンネルの ID（videos の channel_id）。名前より確実に絞り込める"`
 	Tag                string `json:"tag,omitempty" jsonschema:"どれかのタグに含まれる文字列（大文字・小文字は区別しない）"`
 	Category           string `json:"category,omitempty" jsonschema:"カテゴリ名（音楽、ゲーム、エンターテイメントなど。videos の category と同じ表記）"`
-	MinDurationSec     int    `json:"min_duration_seconds,omitempty" jsonschema:"この秒数以上の長さの曲。長さが不明な曲は除く"`
-	MaxDurationSec     int    `json:"max_duration_seconds,omitempty" jsonschema:"この秒数以下の長さの曲。長さが不明な曲は除く"`
-	AddedFrom          string `json:"added_from,omitempty" jsonschema:"この日以降に追加された曲（YYYY-MM-DD、この日を含む）"`
-	AddedUntil         string `json:"added_until,omitempty" jsonschema:"この日より前に追加された曲（YYYY-MM-DD、この日を含まない）"`
-	IncludeUnavailable bool   `json:"include_unavailable,omitempty" jsonschema:"非公開・削除になった曲も含める。省略すると観られる曲だけ"`
+	MinDurationSec     int    `json:"min_duration_seconds,omitempty" jsonschema:"この秒数以上の長さの動画。長さが不明な動画は除く"`
+	MaxDurationSec     int    `json:"max_duration_seconds,omitempty" jsonschema:"この秒数以下の長さの動画。長さが不明な動画は除く"`
+	AddedFrom          string `json:"added_from,omitempty" jsonschema:"この日以降に追加された動画（YYYY-MM-DD、この日を含む）"`
+	AddedUntil         string `json:"added_until,omitempty" jsonschema:"この日より前に追加された動画（YYYY-MM-DD、この日を含まない）"`
+	IncludeUnavailable bool   `json:"include_unavailable,omitempty" jsonschema:"非公開・削除になった動画も含める。省略すると観られる動画だけ"`
 	Sort               string `json:"sort,omitempty" jsonschema:"並び順。added_desc（新しく追加された順、既定）、added_asc（古い順）、views_desc（再生数の多い順）"`
 	Limit              int    `json:"limit,omitempty" jsonschema:"返す件数（1〜100、既定 20）"`
 	Offset             int    `json:"offset,omitempty" jsonschema:"先頭から飛ばす件数（続きを取るときに使う）"`
@@ -427,7 +427,7 @@ type playlistIn struct {
 
 type playlistStatsOut struct {
 	Playlist        playlistOut      `json:"playlist"`
-	Items           int              `json:"items" jsonschema:"曲数（同じ曲の重複も数える）"`
+	Items           int              `json:"items" jsonschema:"動画数（同じ動画の重複も数える）"`
 	Available       int              `json:"available"`
 	Private         int              `json:"private"`
 	Deleted         int              `json:"deleted"`
@@ -435,7 +435,7 @@ type playlistStatsOut struct {
 	AddedLast30Days int              `json:"added_last_30_days"`
 	FirstAddedAt    string           `json:"first_added_at,omitempty"`
 	LastAddedAt     string           `json:"last_added_at,omitempty"`
-	TopViewed       []rankedVideoOut `json:"top_viewed" jsonschema:"再生数の多い観られる曲（上位 3 曲）"`
+	TopViewed       []rankedVideoOut `json:"top_viewed" jsonschema:"再生数の多い観られる動画（上位 3 本）"`
 	Monthly         []monthCountOut  `json:"monthly" jsonschema:"今月を含む直近 6 か月の月別の追加数（古い順）"`
 }
 
@@ -482,12 +482,12 @@ type playlistWrappedIn struct {
 type playlistWrappedOut struct {
 	Playlist          playlistOut      `json:"playlist"`
 	Year              int              `json:"year"`
-	Added             int              `json:"added" jsonschema:"この年に追加された曲数"`
+	Added             int              `json:"added" jsonschema:"この年に追加された動画数"`
 	PreviousYearAdded int              `json:"previous_year_added"`
 	BusiestMonth      *monthCountOut   `json:"busiest_month,omitempty" jsonschema:"一番多く追加された月"`
-	First             *videoOut        `json:"first,omitempty" jsonschema:"この年に最初に追加された観られる曲"`
-	Last              *videoOut        `json:"last,omitempty" jsonschema:"この年に最後に追加された観られる曲"`
-	TopViewed         []rankedVideoOut `json:"top_viewed" jsonschema:"この年に追加された観られる曲の再生数ランキング（上位 5 曲）"`
+	First             *videoOut        `json:"first,omitempty" jsonschema:"この年に最初に追加された観られる動画"`
+	Last              *videoOut        `json:"last,omitempty" jsonschema:"この年に最後に追加された観られる動画"`
+	TopViewed         []rankedVideoOut `json:"top_viewed" jsonschema:"この年に追加された観られる動画の再生数ランキング（上位 5 本）"`
 }
 
 func (t *tools) playlistWrapped(_ context.Context, _ *mcp.CallToolRequest, in playlistWrappedIn) (*mcp.CallToolResult, playlistWrappedOut, error) {
@@ -535,7 +535,7 @@ func (t *tools) playlistWrapped(_ context.Context, _ *mcp.CallToolRequest, in pl
 
 type randomVideosIn struct {
 	PlaylistID string `json:"playlist_id,omitempty" jsonschema:"プレイリストの ID。省略するとすべてのプレイリストから選ぶ"`
-	Count      int    `json:"count,omitempty" jsonschema:"選ぶ曲数（1〜10、既定 1）"`
+	Count      int    `json:"count,omitempty" jsonschema:"選ぶ本数（1〜10、既定 1）"`
 }
 
 type randomVideosOut struct {
@@ -588,7 +588,7 @@ type snapshotOut struct {
 
 type videoHistoryOut struct {
 	VideoID   string        `json:"video_id"`
-	Title     string        `json:"title" jsonschema:"現在の曲名"`
+	Title     string        `json:"title" jsonschema:"現在のタイトル"`
 	URL       string        `json:"url"`
 	Snapshots []snapshotOut `json:"snapshots" jsonschema:"古い順。記録は 6 時間ごとで、観られない間は記録しない"`
 }

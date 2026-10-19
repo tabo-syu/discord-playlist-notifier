@@ -1,11 +1,11 @@
 {{define "wrapped" -}}
-追加した曲: {{number .Added}} 曲（前の年 {{number .PreviousYearAdded}} 曲）
-一番追加した月: {{printf "%d" .BusiestMonth.Month.Month}} 月（{{number .BusiestMonth.Count}} 曲）
+追加した動画: {{number .Added}} 本（前の年 {{number .PreviousYearAdded}} 本）
+一番追加した月: {{printf "%d" .BusiestMonth.Month.Month}} 月（{{number .BusiestMonth.Count}} 本）
 {{if .First -}}
-最初の一曲: {{link .First.Video}}（{{date "01/02" .First.Item.AddedAt}}）
-最後の一曲: {{link .Last.Video}}（{{date "01/02" .Last.Item.AddedAt}}）
+最初の一本: {{link .First.Video}}（{{date "01/02" .First.Item.AddedAt}}）
+最後の一本: {{link .Last.Video}}（{{date "01/02" .Last.Item.AddedAt}}）
 {{end -}}
 {{with .TopViewed}}
-**この年に追加した曲の再生数ランキング**
+**この年に追加した動画の再生数ランキング**
 {{range $i, $v := .}}{{rank $i}}. {{link $v}}（{{number $v.Views}} 回）
 {{end}}{{end}}{{end}}

@@ -37,7 +37,7 @@ var (
 	trendingSubCommand = &discordgo.ApplicationCommandOption{
 		Type:        discordgo.ApplicationCommandOptionSubCommand,
 		Name:        "trending",
-		Description: "通知登録されているプレイリストで、再生数が伸びている曲とその推移をグラフで表示します。",
+		Description: "通知登録されているプレイリストで、再生数が伸びている動画とその推移をグラフで表示します。",
 		Options: []*discordgo.ApplicationCommandOption{
 			optionalPlaylistIdOption,
 			trendingDaysOption,
