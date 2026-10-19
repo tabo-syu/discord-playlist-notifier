@@ -18,7 +18,7 @@ func TestListPlaylists(t *testing.T) {
 		want  string
 	}{
 		{
-			name: "プレイリストを曲数と一緒に返す",
+			name: "プレイリストを動画数と一緒に返す",
 			setup: func(m *deps) {
 				m.watched(sub(1, "PL", "お気に入り"))
 				m.playlistHas("PL",
@@ -112,7 +112,7 @@ func TestFindVideos(t *testing.T) {
 		wantError string
 	}{
 		{
-			name: "曲の情報を、チャンネルとカテゴリの名前と一緒に返す",
+			name: "動画の情報を、チャンネルとカテゴリの名前と一緒に返す",
 			arguments: map[string]any{
 				"title": "夜に",
 			},
@@ -336,7 +336,7 @@ func TestPlaylistWrapped(t *testing.T) {
 			setup: func(m *deps) {
 				m.watched(sub(1, "PL", "お気に入り"))
 				m.playlistHas("PL", added("PL", video("a", 100), date(2026, time.March, 1, 0)))
-				// 最初と最後の曲のチャンネル
+				// 最初と最後の動画のチャンネル
 				m.names([]library.ChannelID{"", ""}, map[library.ChannelID]*library.Channel{})
 			},
 			want: `{
@@ -357,7 +357,7 @@ func TestPlaylistWrapped(t *testing.T) {
 			}`,
 		},
 		{
-			name: "追加された曲がない年は、一番多い月と最初・最後の曲を省く",
+			name: "追加された動画がない年は、一番多い月と最初・最後の動画を省く",
 			arguments: map[string]any{
 				"playlist_id": "PL",
 				"year":        2025,
@@ -403,7 +403,7 @@ func TestPlaylistWrapped(t *testing.T) {
 func TestRandomVideos(t *testing.T) {
 	t.Parallel()
 
-	// 選ぶ順はランダムなので、候補は 1 曲だけにする
+	// 選ぶ順はランダムなので、候補は 1 本だけにする
 	tests := []struct {
 		name      string
 		arguments map[string]any
@@ -412,7 +412,7 @@ func TestRandomVideos(t *testing.T) {
 		wantError string
 	}{
 		{
-			name:      "観られる曲を選ぶ",
+			name:      "観られる動画を選ぶ",
 			arguments: map[string]any{},
 			setup: func(m *deps) {
 				m.watched(sub(1, "PL", "お気に入り"))
@@ -426,7 +426,7 @@ func TestRandomVideos(t *testing.T) {
 			}]}`,
 		},
 		{
-			name: "曲数が多すぎる",
+			name: "本数が多すぎる",
 			arguments: map[string]any{
 				"count": 11,
 			},

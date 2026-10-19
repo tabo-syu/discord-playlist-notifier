@@ -24,12 +24,12 @@ func TestPostPick(t *testing.T) {
 		setup func(discord *mocks.MockSender)
 	}{
 		{
-			name: "毎日なら今日の一曲として投稿する",
+			name: "毎日なら今日の一本として投稿する",
 			sub:  sub("お気に入り", subscription.PickDaily),
 			setup: func(discord *mocks.MockSender) {
 				discord.EXPECT().ChannelMessageSendEmbed("ch", &discordgo.MessageEmbed{
 					Color:  notifier.BLUE,
-					Author: &discordgo.MessageEmbedAuthor{Name: "🎵 今日の一曲 from お気に入り"},
+					Author: &discordgo.MessageEmbedAuthor{Name: "🎬 今日の一本 from お気に入り"},
 					Title:  "a",
 					URL:    "https://www.youtube.com/watch?v=a&list=PL",
 					Fields: []*discordgo.MessageEmbedField{
@@ -41,12 +41,12 @@ func TestPostPick(t *testing.T) {
 			},
 		},
 		{
-			name: "毎週なら今週の一曲として投稿する",
+			name: "毎週なら今週の一本として投稿する",
 			sub:  sub("お気に入り", subscription.PickWeekly),
 			setup: func(discord *mocks.MockSender) {
 				discord.EXPECT().ChannelMessageSendEmbed("ch", &discordgo.MessageEmbed{
 					Color:  notifier.BLUE,
-					Author: &discordgo.MessageEmbedAuthor{Name: "🎵 今週の一曲 from お気に入り"},
+					Author: &discordgo.MessageEmbedAuthor{Name: "🎬 今週の一本 from お気に入り"},
 					Title:  "a",
 					URL:    "https://www.youtube.com/watch?v=a&list=PL",
 					Fields: []*discordgo.MessageEmbedField{
@@ -58,12 +58,12 @@ func TestPostPick(t *testing.T) {
 			},
 		},
 		{
-			name: "毎月なら今月の一曲として投稿する",
+			name: "毎月なら今月の一本として投稿する",
 			sub:  sub("お気に入り", subscription.PickMonthly),
 			setup: func(discord *mocks.MockSender) {
 				discord.EXPECT().ChannelMessageSendEmbed("ch", &discordgo.MessageEmbed{
 					Color:  notifier.BLUE,
-					Author: &discordgo.MessageEmbedAuthor{Name: "🎵 今月の一曲 from お気に入り"},
+					Author: &discordgo.MessageEmbedAuthor{Name: "🎬 今月の一本 from お気に入り"},
 					Title:  "a",
 					URL:    "https://www.youtube.com/watch?v=a&list=PL",
 					Fields: []*discordgo.MessageEmbedField{

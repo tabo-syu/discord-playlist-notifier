@@ -15,7 +15,7 @@ import (
 var summarySubCommand = &discordgo.ApplicationCommandOption{
 	Type:        discordgo.ApplicationCommandOptionSubCommand,
 	Name:        "summary",
-	Description: "通知登録されているプレイリストの曲数、追加ペース、再生数ランキングを表示します。",
+	Description: "通知登録されているプレイリストの動画数、追加ペース、再生数ランキングを表示します。",
 	Options: []*discordgo.ApplicationCommandOption{
 		optionalPlaylistIdOption,
 	},

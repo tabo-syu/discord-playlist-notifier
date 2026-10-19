@@ -12,7 +12,7 @@ import (
 func TestRandom(t *testing.T) {
 	t.Parallel()
 
-	// 選ぶ順はランダムなので、候補が 1 曲だけの中身を使う
+	// 選ぶ順はランダムなので、候補が 1 本だけの中身を使う
 	tests := []struct {
 		name  string
 		data  *discordgo.ApplicationCommandInteractionData
@@ -29,13 +29,13 @@ func TestRandom(t *testing.T) {
 			want: command.Text("🎲 ランダムに選びました！\n\n**aaaaaaaaaaa**\nhttps://www.youtube.com/watch?v=aaaaaaaaaaa&list=PL\n"),
 		},
 		{
-			name: "選べる曲がない",
+			name: "選べる動画がない",
 			data: subcommand("random"),
 			setup: func(m *deps) {
 				m.guildHas(sub(1, "PL", "PL"))
 				m.playlistHas("PL")
 			},
-			want: command.Text("選べる曲がまだありません。少し待ってからもう一度試してください。"),
+			want: command.Text("選べる動画がまだありません。少し待ってからもう一度試してください。"),
 		},
 		{
 			name: "登録したプレイリストがない",
@@ -46,13 +46,13 @@ func TestRandom(t *testing.T) {
 			want: command.Text("通知登録されているプレイリストが存在しません。"),
 		},
 		{
-			name:  "曲数が 0",
+			name:  "本数が 0",
 			data:  subcommand("random", intOption("count", 0)),
 			setup: func(m *deps) {},
 			want:  command.Text("Error: count must be between 1 and 5."),
 		},
 		{
-			name:  "曲数が 6",
+			name:  "本数が 6",
 			data:  subcommand("random", intOption("count", 6)),
 			setup: func(m *deps) {},
 			want:  command.Text("Error: count must be between 1 and 5."),

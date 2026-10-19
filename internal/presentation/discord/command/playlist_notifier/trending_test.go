@@ -34,7 +34,7 @@ func TestTrending(t *testing.T) {
 			},
 		},
 		{
-			name: "指定した日数の間に伸びた曲がない",
+			name: "指定した日数の間に伸びた動画がない",
 			data: subcommand("trending", intOption("days", 7)),
 			setup: func(m *deps) {
 				m.guildHas(sub(1, "PL", "お気に入り"))
@@ -49,7 +49,7 @@ func TestTrending(t *testing.T) {
 				}, nil)
 			},
 			want: &command.Response{
-				Content: "🔥 **お気に入り** の急上昇\n10/16〜10/17 の伸び\nこの期間に再生数が伸びた曲はありません。\n",
+				Content: "🔥 **お気に入り** の急上昇\n10/16〜10/17 の伸び\nこの期間に再生数が伸びた動画はありません。\n",
 			},
 		},
 		{

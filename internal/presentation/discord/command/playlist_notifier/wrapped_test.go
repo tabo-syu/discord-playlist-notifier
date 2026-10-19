@@ -28,7 +28,7 @@ func TestWrapped(t *testing.T) {
 				m.playlistHas("PL1")
 				m.playlistHas("PL2")
 			},
-			want: command.Text("**🎁 お気に入り の 2026 年まとめ**\n2026 年に追加された曲はありません。\n\n**🎁 作業用 の 2026 年まとめ**\n2026 年に追加された曲はありません。\n"),
+			want: command.Text("**🎁 お気に入り の 2026 年まとめ**\n2026 年に追加された動画はありません。\n\n**🎁 作業用 の 2026 年まとめ**\n2026 年に追加された動画はありません。\n"),
 		},
 		{
 			name: "指定した年をまとめる",
@@ -37,7 +37,7 @@ func TestWrapped(t *testing.T) {
 				m.guildHas(sub(1, "PL1", "お気に入り"))
 				m.playlistHas("PL1")
 			},
-			want: command.Text("**🎁 お気に入り の 2024 年まとめ**\n2024 年に追加された曲はありません。\n"),
+			want: command.Text("**🎁 お気に入り の 2024 年まとめ**\n2024 年に追加された動画はありません。\n"),
 		},
 		{
 			name: "登録したプレイリストがない",

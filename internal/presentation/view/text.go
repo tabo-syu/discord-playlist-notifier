@@ -71,7 +71,7 @@ func render(name string, data any, loc *time.Location, target Target) string {
 	return sb.String()
 }
 
-// Summary はプレイリストの曲数、追加ペース、再生数ランキングを整形する。
+// Summary はプレイリストの動画数、追加ペース、再生数ランキングを整形する。
 func Summary(title string, s *library.Stats, loc *time.Location) string {
 	if s.Total == 0 {
 		return render("summary_empty", title, loc, InMessage)
@@ -105,7 +105,7 @@ func Summary(title string, s *library.Stats, loc *time.Location) string {
 	}{title, s, bars}, loc, InMessage)
 }
 
-// Trending は再生数が伸びている曲の一覧を整形する（見出しを除く）。
+// Trending は再生数が伸びている動画の一覧を整形する（見出しを除く）。
 func Trending(t *library.Trending, loc *time.Location) string {
 	switch {
 	case !t.To.After(t.From):
@@ -131,7 +131,7 @@ func History(h *library.VideoHistory, days int) string {
 	return render("history", data, time.UTC, InMessage)
 }
 
-// Random はランダムに選んだ曲の一覧を整形する。
+// Random はランダムに選んだ動画の一覧を整形する。
 func Random(picked []*library.PlaylistVideo) string {
 	if len(picked) == 0 {
 		return render("random_empty", picked, time.UTC, InMessage)

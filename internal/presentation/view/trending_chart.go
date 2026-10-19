@@ -15,11 +15,11 @@ import (
 const (
 	// グラフの下の表の 1 行の高さ
 	TRENDING_ROW_HEIGHT = 30
-	// 表に出す曲名の長さ（文字数）
+	// 表に出す動画のタイトルの長さ（文字数）
 	TRENDING_TABLE_TITLE_LENGTH = 36
 )
 
-// trendingLine は 1 曲分の線と、値札・表に書く値。
+// trendingLine は動画 1 本分の線と、値札・表に書く値。
 type trendingLine struct {
 	video  *library.Video
 	color  drawing.Color
@@ -30,7 +30,7 @@ type trendingLine struct {
 
 // TrendingChart は各動画が最初に記録された状態から伸ばした再生数を、動画
 // ごとに 1 本の線で PNG 画像として描く。線の端に伸びの値札を付け、グラフの
-// 下に順位・曲名・伸び・今の再生数の表を描く。表の順はメッセージの順位と
+// 下に順位・タイトル・伸び・今の再生数の表を描く。表の順はメッセージの順位と
 // 一致させること。
 func TrendingChart(title string, videos []*library.TrendingVideo, loc *time.Location) ([]byte, error) {
 	var (
@@ -145,7 +145,7 @@ func trendingTags(lines []*trendingLine, from, to time.Time, top float64) chart.
 	}
 }
 
-// trendingTable はグラフの下に、線の色・順位・曲名・この期間の伸び・今の
+// trendingTable はグラフの下に、線の色・順位・タイトル・この期間の伸び・今の
 // 再生数の表を描く。凡例も兼ねる。
 func trendingTable(lines []*trendingLine) chart.Renderable {
 	return func(r chart.Renderer, canvas chart.Box, _ chart.Style) {
@@ -159,7 +159,7 @@ func trendingTable(lines []*trendingLine) chart.Renderable {
 		r.SetFont(chartFont)
 		r.SetFontSize(10)
 		r.SetFontColor(chartText.WithAlpha(150))
-		r.Text("曲", left+56, top)
+		r.Text("動画", left+56, top)
 		rightAligned("この期間の伸び", gainedRight, top)
 		rightAligned("今の再生数", right, top)
 
