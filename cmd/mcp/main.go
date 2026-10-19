@@ -17,7 +17,7 @@ import (
 )
 
 // main は読み取り専用の MCP サーバーだけを起動する。スキーマはボット
-// （cmd/server）がマイグレーションするので、ここでは変更しない。
+// （cmd/bot）がマイグレーションするので、ここでは変更しない。
 func main() {
 	location, err := time.LoadLocation(env.DB_TIMEZONE)
 	if err != nil {

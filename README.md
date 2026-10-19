@@ -388,7 +388,7 @@ stateDiagram-v2
 2. 環境変数を設定します
 3. アプリケーションを実行します:
    ```bash
-   go run cmd/server/main.go
+   go run cmd/bot/main.go
    # MCP サーバーは別のプロセスです（MCP_ADDR が必要）
    go run cmd/mcp/main.go
    ```
@@ -397,7 +397,7 @@ stateDiagram-v2
 
 DDD のレイヤードアーキテクチャで構成しています。依存は外側から内側への一方向です。
 
-- `cmd/server/`: ボットのエントリーポイント（依存の組み立て）
+- `cmd/bot/`: ボットのエントリーポイント（依存の組み立て）
 - `cmd/mcp/`: MCP サーバーのエントリーポイント
 - `internal/domain/`: ドメインモデル（集約ごとのパッケージ）、リポジトリのインターフェース、エラー
   - `guild/`: ボットが参加しているサーバー

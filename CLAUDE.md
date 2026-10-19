@@ -32,7 +32,7 @@ docker compose logs -f bot mcp
 
 # ボットや MCP サーバーを直接実行する。到達可能な PostgreSQL と、シェルにエクスポートされた
 # 全ての環境変数が必要（アプリは .env を読み込まない。「設定」の節を参照）
-go run cmd/server/main.go
+go run cmd/bot/main.go
 go run cmd/mcp/main.go   # MCP_ADDR も必要。スキーマはボットが作るので、先にボットを起動しておく
 ```
 
@@ -77,7 +77,7 @@ DDD でよく用いられるレイヤードアーキテクチャです。依存�
 domain のモデルに残しています）。
 
 ```
-cmd/server/main.go                   ボットのコンポジションルート — 全ての組み立てと依存注入
+cmd/bot/main.go                      ボットのコンポジションルート — 全ての組み立てと依存注入
 cmd/mcp/main.go                      MCP サーバーのコンポジションルート（読み取りに要るものだけを組み立てる）
         │
         ├── internal/presentation/           外界との入出力（ユーザーに見える日本語はここだけ）
@@ -139,7 +139,7 @@ cmd/mcp/main.go                      MCP サーバーのコンポジションル
 
 ### 依存の組み立て
 
-依存関係を構築している場所は `cmd/server/main.go`（ボット）と `cmd/mcp/main.go`
+依存関係を構築している場所は `cmd/bot/main.go`（ボット）と `cmd/mcp/main.go`
 （MCP サーバー）だけです。以下はボットの説明です。`init()` が 4 つの
 パッケージレベルのシングルトン（`sr` gocron、`db` GORM、`dc` discordgo、
 `yt` YouTube サービス）を構築し、`persistence.Migrate` でスキーマを更新します。
@@ -343,7 +343,7 @@ YouTube プレイリストの中身は、サーバーごとの通知設定（`su
 ### スラッシュコマンドを追加する
 
 1. `internal/presentation/discord/command/` 配下に `command.Command` を実装するパッケージを作る。
-2. `cmd/server/main.go` の `commands` スライスに追加する。router と registrar は
+2. `cmd/bot/main.go` の `commands` スライスに追加する。router と registrar は
    どちらもこのスライスから導出されるので、他に変更すべき箇所はありません。
 
 ### 永続化するフィールドを追加する
