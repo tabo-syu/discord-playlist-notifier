@@ -240,6 +240,8 @@ YouTube Data API には 1 日 10,000 ユニットの上限があります。こ�
 ## 開発
 
 コードの書き方やテストの方針など、詳しいことは [CLAUDE.md](CLAUDE.md) にまとめています。
+コードで使う言葉の意味は [用語集](docs/glossary.md)、外のシステム（YouTube・Discord・MCP のクライアント）との
+関係は [コンテキストマップ](docs/context-map.md) にあります。
 
 ### 開発環境
 
