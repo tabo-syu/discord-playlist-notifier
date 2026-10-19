@@ -258,7 +258,8 @@ func TestLibraryRepositorySaveVideos(t *testing.T) {
 		want   []*persistence.VideoRecord
 	}{
 		{
-			// id と created_at は保存済みの行のまま、updated_at は保存した時刻にする
+			// id と created_at は保存済みの行のまま、updated_at は保存した時刻にする。
+			// 保存済みの行は詳細を取得していないので、details_fetched も上書きされることを確かめる
 			name: "保存済みの動画は全てのカラムを上書きし、新しい動画は追加する",
 			videos: []*library.Video{
 				fullVideo(),
@@ -273,7 +274,7 @@ func TestLibraryRepositorySaveVideos(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			db := newDB(t)
-			seed(t, db, videoRow("full", 100))
+			seed(t, db, &persistence.VideoRecord{YoutubeID: "full", PrivacyStatus: "public"})
 
 			err := persistence.NewLibraryRepository(db).SaveVideos(tt.videos)
 
