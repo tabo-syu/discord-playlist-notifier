@@ -23,10 +23,26 @@ packages:
           filename: subscription_repository.go
   github.com/tabo-syu/discord-playlist-notifier/internal/domain/library:
     interfaces:
-      Repository:
+      PlaylistRepository:
         config:
-          structname: MockLibraryRepository
-          filename: library_repository.go
+          structname: MockPlaylistRepository
+          filename: playlist_repository.go
+      VideoRepository:
+        config:
+          structname: MockVideoRepository
+          filename: video_repository.go
+      ChannelRepository:
+        config:
+          structname: MockChannelRepository
+          filename: channel_repository.go
+      CategoryRepository:
+        config:
+          structname: MockCategoryRepository
+          filename: category_repository.go
+      VideoSnapshotRepository:
+        config:
+          structname: MockVideoSnapshotRepository
+          filename: video_snapshot_repository.go
       YouTube:
         config:
           structname: MockYouTube

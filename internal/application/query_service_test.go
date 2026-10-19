@@ -88,14 +88,16 @@ func TestQueryServiceFindVideos(t *testing.T) {
 	}
 	// 通知登録されたプレイリストの中身。通知登録されていないプレイリストは読まない
 	contents := func(m *deps) {
-		m.library.EXPECT().FindItems(library.PlaylistID("PL1"), library.PlaylistID("PL2")).Return([]*library.PlaylistItem{
+		m.playlists.EXPECT().Find(library.PlaylistID("PL1")).Return(playlist("PL1",
 			item("PL1", "1", "short", hoursAgo(5)),
 			item("PL1", "2", "long", hoursAgo(4)),
 			item("PL1", "3", "live", hoursAgo(3)),
 			item("PL1", "4", "private", hoursAgo(2)),
+		), nil)
+		m.playlists.EXPECT().Find(library.PlaylistID("PL2")).Return(playlist("PL2",
 			item("PL2", "5", "short", hoursAgo(1)),
-		}, nil)
-		m.library.EXPECT().FindVideosInPlaylists(library.PlaylistID("PL1"), library.PlaylistID("PL2")).Return(map[library.VideoID]*library.Video{
+		), nil)
+		m.videos.EXPECT().FindInPlaylists(library.PlaylistID("PL1"), library.PlaylistID("PL2")).Return(map[library.VideoID]*library.Video{
 			"short":   short(),
 			"long":    long(),
 			"live":    live(),
@@ -154,10 +156,10 @@ func TestQueryServiceFindVideos(t *testing.T) {
 			},
 			setup: func(m *deps) {
 				watched(m)
-				m.library.EXPECT().FindItems(library.PlaylistID("PL2")).Return([]*library.PlaylistItem{
+				m.playlists.EXPECT().Find(library.PlaylistID("PL2")).Return(playlist("PL2",
 					item("PL2", "5", "short", hoursAgo(1)),
-				}, nil)
-				m.library.EXPECT().FindVideosInPlaylists(library.PlaylistID("PL2")).Return(map[library.VideoID]*library.Video{
+				), nil)
+				m.videos.EXPECT().FindInPlaylists(library.PlaylistID("PL2")).Return(map[library.VideoID]*library.Video{
 					"short": short(),
 				}, nil)
 			},
@@ -202,7 +204,7 @@ func TestQueryServiceFindVideos(t *testing.T) {
 			setup: func(m *deps) {
 				watched(m)
 				contents(m)
-				m.library.EXPECT().FindChannels([]library.ChannelID{"UC1", "UC2", "UC1", "UC1"}).Return(map[library.ChannelID]*library.Channel{
+				m.channels.EXPECT().Find([]library.ChannelID{"UC1", "UC2", "UC1", "UC1"}).Return(map[library.ChannelID]*library.Channel{
 					"UC1": {YoutubeID: "UC1", Title: "Official Channel"},
 					"UC2": {YoutubeID: "UC2", Title: "Lofi Girl"},
 				}, nil)
@@ -429,10 +431,10 @@ func TestQueryServiceWrapped(t *testing.T) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil)
-				m.library.EXPECT().FindItems(library.PlaylistID("PL")).Return([]*library.PlaylistItem{
+				m.playlists.EXPECT().Find(library.PlaylistID("PL")).Return(playlist("PL",
 					item("PL", "1", "a", date(2026, time.March, 1, 0)),
-				}, nil)
-				m.library.EXPECT().FindVideosInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
+				), nil)
+				m.videos.EXPECT().FindInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
 					"a": video("a", library.PrivacyPublic, 100, 0),
 				}, nil)
 			},
@@ -493,8 +495,8 @@ func TestQueryServiceStats(t *testing.T) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil)
-				m.library.EXPECT().FindItems(library.PlaylistID("PL")).Return([]*library.PlaylistItem{}, nil)
-				m.library.EXPECT().FindVideosInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{}, nil)
+				m.playlists.EXPECT().Find(library.PlaylistID("PL")).Return(playlist("PL"), nil)
+				m.videos.EXPECT().FindInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{}, nil)
 			},
 			wantErr: nil,
 		},
@@ -540,10 +542,10 @@ func TestQueryServiceRandomVideos(t *testing.T) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil)
-				m.library.EXPECT().FindItems(library.PlaylistID("PL")).Return([]*library.PlaylistItem{
+				m.playlists.EXPECT().Find(library.PlaylistID("PL")).Return(playlist("PL",
 					item("PL", "1", "a", hoursAgo(2)),
-				}, nil)
-				m.library.EXPECT().FindVideosInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
+				), nil)
+				m.videos.EXPECT().FindInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
 					"a": video("a", library.PrivacyPublic, 0, 0),
 				}, nil)
 			},
@@ -601,13 +603,13 @@ func TestQueryServiceHistory(t *testing.T) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil)
-				m.library.EXPECT().FindItemsByVideos([]library.VideoID{"a"}).Return([]*library.PlaylistItem{
-					item("PL", "1", "a", hoursAgo(100)),
+				m.playlists.EXPECT().FindContaining([]library.VideoID{"a"}).Return([]*library.Playlist{
+					playlist("PL", item("PL", "1", "a", hoursAgo(100))),
 				}, nil)
-				m.library.EXPECT().FindVideos([]library.VideoID{"a"}).Return(map[library.VideoID]*library.Video{
+				m.videos.EXPECT().Find([]library.VideoID{"a"}).Return(map[library.VideoID]*library.Video{
 					"a": video("a", library.PrivacyPublic, 0, 0),
 				}, nil)
-				m.library.EXPECT().FindSnapshots(library.VideoID("a"), hoursAgo(48)).Return([]*library.VideoSnapshot{
+				m.snapshots.EXPECT().Find(library.VideoID("a"), hoursAgo(48)).Return([]*library.VideoSnapshot{
 					{VideoYoutubeID: "a", RecordedAt: hoursAgo(24), Views: 100},
 				}, nil)
 			},
@@ -624,8 +626,8 @@ func TestQueryServiceHistory(t *testing.T) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil)
-				m.library.EXPECT().FindItemsByVideos([]library.VideoID{"a"}).Return([]*library.PlaylistItem{
-					item("UNWATCHED", "1", "a", hoursAgo(100)),
+				m.playlists.EXPECT().FindContaining([]library.VideoID{"a"}).Return([]*library.Playlist{
+					playlist("UNWATCHED", item("UNWATCHED", "1", "a", hoursAgo(100))),
 				}, nil)
 			},
 			want:    nil,

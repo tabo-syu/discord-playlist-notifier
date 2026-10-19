@@ -131,17 +131,20 @@ func TestNotificationServiceNotifyUpdates(t *testing.T) {
 				m.youtube.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
 					"PL": meta("PL", "PL", 1),
 				}, nil)
-				m.library.EXPECT().FindItems(library.PlaylistID("PL")).Return([]*library.PlaylistItem{
+				m.playlists.EXPECT().Find(library.PlaylistID("PL")).Return(playlist("PL",
 					item("PL", "1", "a", hoursAgo(10)),
-				}, nil).Times(2)
+				), nil)
 				m.youtube.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return([]*library.FetchedItem{
 					fetched("1", "a", hoursAgo(10), library.PrivacyPrivate),
 				}, nil)
-				m.library.EXPECT().FindVideosInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
+				m.videos.EXPECT().FindInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
 					"a": video("a", library.PrivacyPublic, 0, 0),
 				}, nil)
-				m.library.EXPECT().FindVideos([]library.VideoID(nil)).Return(map[library.VideoID]*library.Video{}, nil)
-				m.library.EXPECT().ApplyItems(library.PlaylistID("PL"), []*library.PlaylistItem(nil), []*library.PlaylistItem(nil), []*library.Video{
+				m.videos.EXPECT().Find([]library.VideoID(nil)).Return(map[library.VideoID]*library.Video{}, nil)
+				m.playlists.EXPECT().Save(playlist("PL",
+					item("PL", "1", "a", hoursAgo(10)),
+				)).Return(nil)
+				m.videos.EXPECT().Save([]*library.Video{
 					video("a", library.PrivacyPrivate, 0, 0),
 				}).Return(nil)
 				m.notifier.EXPECT().NotifyHiddenVideo(&notification.HiddenVideo{
@@ -174,7 +177,7 @@ func TestNotificationServiceNotifyUpdates(t *testing.T) {
 
 			m := newDeps(t)
 			tt.setup(m)
-			s := application.NewNotificationService(m.subscriptions, application.NewLibraryService(m.youtube, m.library, jst, clock), m.notifier, jst, clock)
+			s := application.NewNotificationService(m.subscriptions, newLibraryService(m, clock), m.notifier, jst, clock)
 
 			s.NotifyUpdates()
 		})
@@ -191,21 +194,21 @@ func TestNotificationServiceRefreshVideos(t *testing.T) {
 		{
 			name: "新しい節目に達した動画を、それを含むプレイリストのチャンネルに通知する",
 			setup: func(m *deps) {
-				m.library.EXPECT().FindListedVideos().Return(map[library.VideoID]*library.Video{
+				m.videos.EXPECT().FindListed().Return(map[library.VideoID]*library.Video{
 					"a": video("a", library.PrivacyPublic, 90_000, 0),
 				}, nil)
 				m.youtube.EXPECT().FetchVideos([]library.VideoID{"a"}).Return([]*library.Video{
 					{YoutubeID: "a", Title: "a", Views: 120_000},
 				}, []*library.Channel{}, nil)
-				m.library.EXPECT().SaveChannels([]*library.Channel{}).Return(nil)
-				m.library.EXPECT().SaveVideos(mock.Anything).Return(nil)
-				m.library.EXPECT().AddSnapshots(mock.Anything).Return(nil)
+				m.channels.EXPECT().Save([]*library.Channel{}).Return(nil)
+				m.videos.EXPECT().Save(mock.Anything).Return(nil)
+				m.snapshots.EXPECT().Add(mock.Anything).Return(nil)
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
 					sub(1, "PL1", "ch1", "PL1", lastNotified),
 					sub(2, "PL2", "ch2", "PL2", lastNotified),
 				}, nil)
-				m.library.EXPECT().FindItemsByVideos([]library.VideoID{"a"}).Return([]*library.PlaylistItem{
-					item("PL1", "1", "a", hoursAgo(10)),
+				m.playlists.EXPECT().FindContaining([]library.VideoID{"a"}).Return([]*library.Playlist{
+					playlist("PL1", item("PL1", "1", "a", hoursAgo(10))),
 				}, nil)
 				m.youtube.EXPECT().FetchLiveVideos([]library.VideoID{"a"}).Return(map[library.VideoID]*library.LiveVideo{}, nil)
 				m.notifier.EXPECT().NotifyMilestone(&notification.Milestone{
@@ -219,15 +222,15 @@ func TestNotificationServiceRefreshVideos(t *testing.T) {
 		{
 			name: "節目に達した動画がなければ、通知設定を読まない",
 			setup: func(m *deps) {
-				m.library.EXPECT().FindListedVideos().Return(map[library.VideoID]*library.Video{
+				m.videos.EXPECT().FindListed().Return(map[library.VideoID]*library.Video{
 					"a": video("a", library.PrivacyPublic, 110_000, 100_000),
 				}, nil)
 				m.youtube.EXPECT().FetchVideos([]library.VideoID{"a"}).Return([]*library.Video{
 					{YoutubeID: "a", Title: "a", Views: 120_000},
 				}, []*library.Channel{}, nil)
-				m.library.EXPECT().SaveChannels([]*library.Channel{}).Return(nil)
-				m.library.EXPECT().SaveVideos(mock.Anything).Return(nil)
-				m.library.EXPECT().AddSnapshots(mock.Anything).Return(nil)
+				m.channels.EXPECT().Save([]*library.Channel{}).Return(nil)
+				m.videos.EXPECT().Save(mock.Anything).Return(nil)
+				m.snapshots.EXPECT().Add(mock.Anything).Return(nil)
 			},
 		},
 	}
@@ -237,7 +240,7 @@ func TestNotificationServiceRefreshVideos(t *testing.T) {
 
 			m := newDeps(t)
 			tt.setup(m)
-			s := application.NewNotificationService(m.subscriptions, application.NewLibraryService(m.youtube, m.library, jst, clock), m.notifier, jst, clock)
+			s := application.NewNotificationService(m.subscriptions, newLibraryService(m, clock), m.notifier, jst, clock)
 
 			s.RefreshVideos()
 		})
@@ -319,10 +322,10 @@ func TestNotificationServicePostPicks(t *testing.T) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
 					picking(1, "PL", subscription.PickDaily),
 				}, nil)
-				m.library.EXPECT().FindItems(library.PlaylistID("PL")).Return([]*library.PlaylistItem{
+				m.playlists.EXPECT().Find(library.PlaylistID("PL")).Return(playlist("PL",
 					item("PL", "1", "a", hoursAgo(10)),
-				}, nil)
-				m.library.EXPECT().FindVideosInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
+				), nil)
+				m.videos.EXPECT().FindInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
 					"a": video("a", library.PrivacyPrivate, 0, 0),
 				}, nil)
 			},
@@ -343,7 +346,7 @@ func TestNotificationServicePostPicks(t *testing.T) {
 			tt.setup(m)
 
 			fixed := func() time.Time { return tt.now }
-			s := application.NewNotificationService(m.subscriptions, application.NewLibraryService(m.youtube, m.library, jst, fixed), m.notifier, jst, fixed)
+			s := application.NewNotificationService(m.subscriptions, newLibraryService(m, fixed), m.notifier, jst, fixed)
 
 			s.PostPicks()
 		})
@@ -365,10 +368,10 @@ func TestNotificationServicePostWrapped(t *testing.T) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil)
-				m.library.EXPECT().FindItems(library.PlaylistID("PL")).Return([]*library.PlaylistItem{
+				m.playlists.EXPECT().Find(library.PlaylistID("PL")).Return(playlist("PL",
 					item("PL", "1", "a", date(2026, time.March, 1, 0)),
-				}, nil)
-				m.library.EXPECT().FindVideosInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
+				), nil)
+				m.videos.EXPECT().FindInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
 					"a": video("a", library.PrivacyPublic, 100, 0),
 				}, nil)
 				m.notifier.EXPECT().PostWrapped(sub(1, "PL", "ch", "PL", lastNotified), &library.Wrapped{
@@ -393,10 +396,10 @@ func TestNotificationServicePostWrapped(t *testing.T) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil)
-				m.library.EXPECT().FindItems(library.PlaylistID("PL")).Return([]*library.PlaylistItem{
+				m.playlists.EXPECT().Find(library.PlaylistID("PL")).Return(playlist("PL",
 					item("PL", "1", "a", date(2025, time.March, 1, 0)),
-				}, nil)
-				m.library.EXPECT().FindVideosInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
+				), nil)
+				m.videos.EXPECT().FindInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
 					"a": video("a", library.PrivacyPublic, 100, 0),
 				}, nil)
 			},
@@ -409,10 +412,10 @@ func TestNotificationServicePostWrapped(t *testing.T) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil)
-				m.library.EXPECT().FindItems(library.PlaylistID("PL")).Return([]*library.PlaylistItem{
+				m.playlists.EXPECT().Find(library.PlaylistID("PL")).Return(playlist("PL",
 					item("PL", "1", "a", date(2026, time.March, 1, 0)),
-				}, nil)
-				m.library.EXPECT().FindVideosInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
+				), nil)
+				m.videos.EXPECT().FindInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
 					"a": video("a", library.PrivacyPublic, 100, 0),
 				}, nil)
 			},
@@ -433,7 +436,7 @@ func TestNotificationServicePostWrapped(t *testing.T) {
 			tt.setup(m)
 
 			fixed := func() time.Time { return tt.now }
-			s := application.NewNotificationService(m.subscriptions, application.NewLibraryService(m.youtube, m.library, jst, fixed), m.notifier, jst, fixed)
+			s := application.NewNotificationService(m.subscriptions, newLibraryService(m, fixed), m.notifier, jst, fixed)
 
 			s.PostWrapped()
 		})

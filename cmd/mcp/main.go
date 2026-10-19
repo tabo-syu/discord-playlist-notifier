@@ -40,12 +40,16 @@ func main() {
 	}
 
 	sbr := persistence.NewSubscriptionRepository(db)
-	lr := persistence.NewLibraryRepository(db)
+	pr := persistence.NewPlaylistRepository(db)
+	vr := persistence.NewVideoRepository(db)
+	cr := persistence.NewChannelRepository(db)
+	car := persistence.NewCategoryRepository(db)
+	vsr := persistence.NewVideoSnapshotRepository(db)
 
 	// QueryService は保存済みの中身しか読まず YouTube を呼ばないので、YouTube のクライアントは渡さない
-	ls := application.NewLibraryService(nil, lr, location, time.Now)
+	ls := application.NewLibraryService(nil, pr, vr, cr, car, vsr, location, time.Now)
 
-	server := mcpserver.NewServer(env.MCP_ADDR, application.NewQueryService(sbr, ls, lr), location, time.Now)
+	server := mcpserver.NewServer(env.MCP_ADDR, application.NewQueryService(sbr, ls, car, cr), location, time.Now)
 	if err = server.Serve(); err != nil {
 		log.Fatalf("Could not start the MCP server: %v", err)
 	}

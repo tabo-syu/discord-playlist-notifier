@@ -179,7 +179,7 @@ func TestFindVideos(t *testing.T) {
 				"category": "アニメ",
 			},
 			setup: func(m *deps) {
-				m.library.EXPECT().FindCategories().Return(categories(), nil)
+				m.categories.EXPECT().FindAll().Return(categories(), nil)
 			},
 			want:      `null`,
 			wantError: `category は次のどれかを指定してください: ゲーム、音楽（指定された値: "アニメ"）`,
@@ -526,13 +526,13 @@ func TestVideoHistory(t *testing.T) {
 			},
 			setup: func(m *deps) {
 				m.watched(sub(1, "PL", "お気に入り"))
-				m.library.EXPECT().FindItemsByVideos([]library.VideoID{"dQw4w9WgXcQ"}).Return([]*library.PlaylistItem{
-					item("PL", "1", "dQw4w9WgXcQ", date(2026, time.March, 1, 0)),
+				m.playlists.EXPECT().FindContaining([]library.VideoID{"dQw4w9WgXcQ"}).Return([]*library.Playlist{
+					playlist("PL", item("PL", "1", "dQw4w9WgXcQ", date(2026, time.March, 1, 0))),
 				}, nil)
-				m.library.EXPECT().FindVideos([]library.VideoID{"dQw4w9WgXcQ"}).Return(map[library.VideoID]*library.Video{
+				m.videos.EXPECT().Find([]library.VideoID{"dQw4w9WgXcQ"}).Return(map[library.VideoID]*library.Video{
 					"dQw4w9WgXcQ": video("dQw4w9WgXcQ", 200),
 				}, nil)
-				m.library.EXPECT().FindSnapshots(library.VideoID("dQw4w9WgXcQ"), now.AddDate(0, 0, -30)).Return([]*library.VideoSnapshot{
+				m.snapshots.EXPECT().Find(library.VideoID("dQw4w9WgXcQ"), now.AddDate(0, 0, -30)).Return([]*library.VideoSnapshot{
 					{VideoYoutubeID: "dQw4w9WgXcQ", RecordedAt: date(2026, time.October, 10, 0), Title: "dQw4w9WgXcQ", PrivacyStatus: library.PrivacyPublic, Views: 100, Likes: 10, Comments: 1},
 					{VideoYoutubeID: "dQw4w9WgXcQ", RecordedAt: date(2026, time.October, 18, 0), Title: "dQw4w9WgXcQ", PrivacyStatus: library.PrivacyPublic, Views: 200, Likes: 20, Comments: 2},
 				}, nil)
@@ -553,13 +553,13 @@ func TestVideoHistory(t *testing.T) {
 			},
 			setup: func(m *deps) {
 				m.watched(sub(1, "PL", "お気に入り"))
-				m.library.EXPECT().FindItemsByVideos([]library.VideoID{"dQw4w9WgXcQ"}).Return([]*library.PlaylistItem{
-					item("PL", "1", "dQw4w9WgXcQ", date(2026, time.March, 1, 0)),
+				m.playlists.EXPECT().FindContaining([]library.VideoID{"dQw4w9WgXcQ"}).Return([]*library.Playlist{
+					playlist("PL", item("PL", "1", "dQw4w9WgXcQ", date(2026, time.March, 1, 0))),
 				}, nil)
-				m.library.EXPECT().FindVideos([]library.VideoID{"dQw4w9WgXcQ"}).Return(map[library.VideoID]*library.Video{
+				m.videos.EXPECT().Find([]library.VideoID{"dQw4w9WgXcQ"}).Return(map[library.VideoID]*library.Video{
 					"dQw4w9WgXcQ": video("dQw4w9WgXcQ", 200),
 				}, nil)
-				m.library.EXPECT().FindSnapshots(library.VideoID("dQw4w9WgXcQ"), now.AddDate(0, 0, -1)).Return([]*library.VideoSnapshot{}, nil)
+				m.snapshots.EXPECT().Find(library.VideoID("dQw4w9WgXcQ"), now.AddDate(0, 0, -1)).Return([]*library.VideoSnapshot{}, nil)
 			},
 			want: `{
 				"video_id": "dQw4w9WgXcQ", "title": "dQw4w9WgXcQ", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
@@ -573,7 +573,7 @@ func TestVideoHistory(t *testing.T) {
 			},
 			setup: func(m *deps) {
 				m.watched(sub(1, "PL", "お気に入り"))
-				m.library.EXPECT().FindItemsByVideos([]library.VideoID{"notWatched0"}).Return([]*library.PlaylistItem{}, nil)
+				m.playlists.EXPECT().FindContaining([]library.VideoID{"notWatched0"}).Return([]*library.Playlist{}, nil)
 			},
 			want:      `null`,
 			wantError: "登録されているプレイリストに、その動画は見つかりません。find_videos で video_id を確認してください。",
@@ -585,13 +585,13 @@ func TestVideoHistory(t *testing.T) {
 			},
 			setup: func(m *deps) {
 				m.watched(sub(1, "PL", "お気に入り"))
-				m.library.EXPECT().FindItemsByVideos([]library.VideoID{"dQw4w9WgXcQ"}).Return([]*library.PlaylistItem{
-					item("PL", "1", "dQw4w9WgXcQ", date(2026, time.March, 1, 0)),
+				m.playlists.EXPECT().FindContaining([]library.VideoID{"dQw4w9WgXcQ"}).Return([]*library.Playlist{
+					playlist("PL", item("PL", "1", "dQw4w9WgXcQ", date(2026, time.March, 1, 0))),
 				}, nil)
-				m.library.EXPECT().FindVideos([]library.VideoID{"dQw4w9WgXcQ"}).Return(map[library.VideoID]*library.Video{
+				m.videos.EXPECT().Find([]library.VideoID{"dQw4w9WgXcQ"}).Return(map[library.VideoID]*library.Video{
 					"dQw4w9WgXcQ": video("dQw4w9WgXcQ", 200),
 				}, nil)
-				m.library.EXPECT().FindSnapshots(library.VideoID("dQw4w9WgXcQ"), now.AddDate(0, 0, -30)).Return([]*library.VideoSnapshot{}, nil)
+				m.snapshots.EXPECT().Find(library.VideoID("dQw4w9WgXcQ"), now.AddDate(0, 0, -30)).Return([]*library.VideoSnapshot{}, nil)
 			},
 			want: `{
 				"video_id": "dQw4w9WgXcQ", "title": "dQw4w9WgXcQ", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",

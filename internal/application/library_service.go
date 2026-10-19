@@ -4,6 +4,7 @@ import (
 	"log"
 	"maps"
 	"slices"
+	"sort"
 	"sync"
 	"time"
 
@@ -21,8 +22,12 @@ type syncState struct {
 
 // LibraryService は通知対象のプレイリストの中身を DB に保持する。
 type LibraryService struct {
-	youtube library.YouTube
-	library library.Repository
+	youtube    library.YouTube
+	playlists  library.PlaylistRepository
+	videos     library.VideoRepository
+	channels   library.ChannelRepository
+	categories library.CategoryRepository
+	snapshots  library.VideoSnapshotRepository
 	// 日付を月や年で区切るのに使うタイムゾーン
 	location *time.Location
 
@@ -33,8 +38,27 @@ type LibraryService struct {
 	now func() time.Time
 }
 
-func NewLibraryService(y library.YouTube, l library.Repository, loc *time.Location, now func() time.Time) *LibraryService {
-	return &LibraryService{youtube: y, library: l, location: loc, state: map[library.PlaylistID]syncState{}, now: now}
+func NewLibraryService(
+	y library.YouTube,
+	p library.PlaylistRepository,
+	v library.VideoRepository,
+	c library.ChannelRepository,
+	cat library.CategoryRepository,
+	vs library.VideoSnapshotRepository,
+	loc *time.Location,
+	now func() time.Time,
+) *LibraryService {
+	return &LibraryService{
+		youtube:    y,
+		playlists:  p,
+		videos:     v,
+		channels:   c,
+		categories: cat,
+		snapshots:  vs,
+		location:   loc,
+		state:      map[library.PlaylistID]syncState{},
+		now:        now,
+	}
 }
 
 // Sync は指定したプレイリストの保存済みの中身を最新にして返す。
@@ -55,7 +79,7 @@ func (s *LibraryService) Sync(playlistIDs []library.PlaylistID) (map[library.Pla
 	for _, id := range ids {
 		meta, ok := metas[id]
 		if !ok {
-			snapshots[id] = &library.Snapshot{YoutubeID: id, Deleted: true}
+			snapshots[id] = &library.Snapshot{Playlist: &library.Playlist{YoutubeID: id}, Deleted: true}
 
 			continue
 		}
@@ -80,7 +104,7 @@ func (s *LibraryService) RefreshVideos() ([]*library.Video, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	stored, err := s.library.FindListedVideos()
+	stored, err := s.videos.FindListed()
 	if err != nil {
 		return nil, err
 	}
@@ -98,7 +122,7 @@ func (s *LibraryService) RefreshVideos() ([]*library.Video, error) {
 		return nil, err
 	}
 	// チャンネルは動画の検索にしか使わない
-	if err := s.library.SaveChannels(channels); err != nil {
+	if err := s.channels.Save(channels); err != nil {
 		log.Println("Could not save channels cause:", err)
 	}
 
@@ -122,11 +146,11 @@ func (s *LibraryService) RefreshVideos() ([]*library.Video, error) {
 		snapshots = append(snapshots, library.NewVideoSnapshot(video, now))
 	}
 
-	if err := s.library.SaveVideos(toSave); err != nil {
+	if err := s.videos.Save(toSave); err != nil {
 		return nil, err
 	}
 	// 履歴は節目の判定に使わないので、記録に失敗しても節目は通知する
-	if err := s.library.AddSnapshots(snapshots); err != nil {
+	if err := s.snapshots.Add(snapshots); err != nil {
 		log.Println("Could not record video snapshots cause:", err)
 	}
 
@@ -145,7 +169,7 @@ func (s *LibraryService) RefreshCategories() {
 		return
 	}
 
-	if err := s.library.SaveCategories(categories); err != nil {
+	if err := s.categories.Save(categories); err != nil {
 		log.Println("Could not save video categories cause:", err)
 
 		return
@@ -173,7 +197,7 @@ func (s *LibraryService) History(playlistIDs []library.PlaylistID, id library.Vi
 		return nil, library.ErrVideoNotFound
 	}
 
-	videos, err := s.library.FindVideos([]library.VideoID{id})
+	videos, err := s.videos.Find([]library.VideoID{id})
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +207,7 @@ func (s *LibraryService) History(playlistIDs []library.PlaylistID, id library.Vi
 		return nil, library.ErrVideoNotFound
 	}
 
-	snapshots, err := s.library.FindSnapshots(id, since)
+	snapshots, err := s.snapshots.Find(id, since)
 	if err != nil {
 		return nil, err
 	}
@@ -192,15 +216,21 @@ func (s *LibraryService) History(playlistIDs []library.PlaylistID, id library.Vi
 }
 
 // PlaylistsContaining は指定した動画ごとに、それを含むプレイリストを返す。
+// 同じ動画が 1 つのプレイリストに 2 回入っていても、プレイリストは 1 回だけ返す。
 func (s *LibraryService) PlaylistsContaining(videoIDs []library.VideoID) (map[library.VideoID][]library.PlaylistID, error) {
-	items, err := s.library.FindItemsByVideos(videoIDs)
+	playlists, err := s.playlists.FindContaining(videoIDs)
 	if err != nil {
 		return nil, err
 	}
 
 	result := map[library.VideoID][]library.PlaylistID{}
-	for _, item := range items {
-		result[item.VideoYoutubeID] = append(result[item.VideoYoutubeID], item.PlaylistYoutubeID)
+
+	for _, p := range playlists {
+		for _, id := range videoIDs {
+			if p.Contains(id) {
+				result[id] = append(result[id], p.YoutubeID)
+			}
+		}
 	}
 
 	return result, nil
@@ -209,12 +239,24 @@ func (s *LibraryService) PlaylistsContaining(videoIDs []library.VideoID) (map[li
 // Contents は指定したプレイリストの保存済みのアイテムを、追加された時刻の順に
 // 動画と一緒に返す。
 func (s *LibraryService) Contents(playlistIDs []library.PlaylistID) ([]*library.PlaylistVideo, error) {
-	items, err := s.library.FindItems(unique(playlistIDs)...)
-	if err != nil {
-		return nil, err
-	}
+	ids := unique(playlistIDs)
 
-	videos, err := s.library.FindVideosInPlaylists(unique(playlistIDs)...)
+	var items []*library.PlaylistItem
+
+	for _, id := range ids {
+		p, err := s.playlists.Find(id)
+		if err != nil {
+			return nil, err
+		}
+
+		items = append(items, p.Items...)
+	}
+	// 各プレイリストのアイテムは追加された時刻の順なので、まとめて並べ直す
+	sort.SliceStable(items, func(i, j int) bool {
+		return items[i].AddedAt.Before(items[j].AddedAt)
+	})
+
+	videos, err := s.videos.FindInPlaylists(ids...)
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +288,7 @@ func (s *LibraryService) RandomVideos(playlistIDs []library.PlaylistID, n int) (
 // Trending は since 以降に記録された状態のうちで再生数が最も伸びたプレイリストの動画を、
 // その状態と一緒に返す。
 func (s *LibraryService) Trending(playlistID library.PlaylistID, since time.Time) (*library.Trending, error) {
-	videos, err := s.library.FindVideosInPlaylists(playlistID)
+	videos, err := s.videos.FindInPlaylists(playlistID)
 	if err != nil {
 		return nil, err
 	}
@@ -256,19 +298,19 @@ func (s *LibraryService) Trending(playlistID library.PlaylistID, since time.Time
 		ids = append(ids, id)
 	}
 
-	earliest, err := s.library.FindEarliestSnapshots(ids, since)
+	earliest, err := s.snapshots.FindEarliest(ids, since)
 	if err != nil {
 		return nil, err
 	}
 
-	latest, err := s.library.FindLatestSnapshots(ids, since)
+	latest, err := s.snapshots.FindLatest(ids, since)
 	if err != nil {
 		return nil, err
 	}
 
 	trending := library.ComputeTrending(videos, earliest, latest, library.TRENDING_TOP)
 	for _, v := range trending.Videos {
-		if v.Snapshots, err = s.library.FindSnapshots(v.Video.YoutubeID, since); err != nil {
+		if v.Snapshots, err = s.snapshots.Find(v.Video.YoutubeID, since); err != nil {
 			return nil, err
 		}
 	}
@@ -299,8 +341,14 @@ func (s *LibraryService) Wrapped(playlistID library.PlaylistID, year int) (*libr
 // syncPlaylist は、アイテム数が変わったか前回の全件取得から
 // FULL_SYNC_INTERVAL より経っているときだけアイテムを取得し、
 // 動画の詳細はまだ持っていない動画の分だけ取得する。
+//
+// プレイリストと動画は別の集約なので、別々に保存する。プレイリストを先に保存し、
+// 動画の保存に失敗したらエラーを返す。その回は通知せず、全件取得の状態も更新しない
+// ので、次の同期で公開状態の変化と新しい動画をもう一度検知できる。逆の順だと、
+// 動画の公開状態を保存した後にプレイリストの保存に失敗したとき、次の同期では
+// 公開状態がもう変わっていて、非公開になったことを通知できない。
 func (s *LibraryService) syncPlaylist(meta *library.PlaylistMeta) (*library.Snapshot, error) {
-	stored, err := s.library.FindItems(meta.YoutubeID)
+	playlist, err := s.playlists.Find(meta.YoutubeID)
 	if err != nil {
 		return nil, err
 	}
@@ -309,7 +357,7 @@ func (s *LibraryService) syncPlaylist(meta *library.PlaylistMeta) (*library.Snap
 
 	now := s.now()
 	if synced && state.itemCount == meta.ItemCount && now.Sub(state.fullSyncAt) < FULL_SYNC_INTERVAL {
-		return s.snapshot(meta, stored)
+		return s.snapshot(meta, playlist)
 	}
 
 	fetched, err := s.youtube.FetchPlaylistItems(meta.YoutubeID)
@@ -317,7 +365,7 @@ func (s *LibraryService) syncPlaylist(meta *library.PlaylistMeta) (*library.Snap
 		return nil, err
 	}
 
-	videos, err := s.library.FindVideosInPlaylists(meta.YoutubeID)
+	videos, err := s.videos.FindInPlaylists(meta.YoutubeID)
 	if err != nil {
 		return nil, err
 	}
@@ -330,14 +378,16 @@ func (s *LibraryService) syncPlaylist(meta *library.PlaylistMeta) (*library.Snap
 		}
 	}
 
-	others, err := s.library.FindVideos(unique(missing))
+	others, err := s.videos.Find(unique(missing))
 	if err != nil {
 		return nil, err
 	}
 
 	maps.Copy(videos, others)
 
-	changes := library.Reconcile(meta.YoutubeID, stored, fetched, videos)
+	added, removed := playlist.Reconcile(fetched)
+
+	changes := library.SyncVideos(fetched, videos)
 	if len(changes.NeedDetails) > 0 {
 		var (
 			details  []*library.Video
@@ -351,35 +401,34 @@ func (s *LibraryService) syncPlaylist(meta *library.PlaylistMeta) (*library.Snap
 
 		changes.ApplyDetails(details)
 		// チャンネルは動画の検索にしか使わない
-		if err = s.library.SaveChannels(channels); err != nil {
+		if err = s.channels.Save(channels); err != nil {
 			log.Println("Could not save channels cause:", err)
 		}
 	}
 
-	if err = s.library.ApplyItems(meta.YoutubeID, changes.Added, changes.Removed, changes.ChangedVideos()); err != nil {
+	if err = s.playlists.Save(playlist); err != nil {
+		return nil, err
+	}
+
+	if err = s.videos.Save(changes.ChangedVideos()); err != nil {
 		return nil, err
 	}
 
 	s.state[meta.YoutubeID] = syncState{itemCount: meta.ItemCount, fullSyncAt: now}
-	if len(changes.Added) > 0 || len(changes.Removed) > 0 {
-		log.Println("Synced playlist:", meta.YoutubeID, "added:", len(changes.Added), "removed:", len(changes.Removed))
+	if len(added) > 0 || len(removed) > 0 {
+		log.Println("Synced playlist:", meta.YoutubeID, "added:", len(added), "removed:", len(removed))
 	}
 
-	items, err := s.library.FindItems(meta.YoutubeID)
-	if err != nil {
-		return nil, err
-	}
-
-	return &library.Snapshot{YoutubeID: meta.YoutubeID, Title: meta.Title, Items: items, Videos: changes.Videos, Hidden: changes.Hidden}, nil
+	return &library.Snapshot{Playlist: playlist, Title: meta.Title, Videos: changes.Videos, Hidden: changes.Hidden}, nil
 }
 
-func (s *LibraryService) snapshot(meta *library.PlaylistMeta, items []*library.PlaylistItem) (*library.Snapshot, error) {
-	videos, err := s.library.FindVideosInPlaylists(meta.YoutubeID)
+func (s *LibraryService) snapshot(meta *library.PlaylistMeta, playlist *library.Playlist) (*library.Snapshot, error) {
+	videos, err := s.videos.FindInPlaylists(meta.YoutubeID)
 	if err != nil {
 		return nil, err
 	}
 
-	return &library.Snapshot{YoutubeID: meta.YoutubeID, Title: meta.Title, Items: items, Videos: videos}, nil
+	return &library.Snapshot{Playlist: playlist, Title: meta.Title, Videos: videos}, nil
 }
 
 func unique[T comparable](ids []T) []T {

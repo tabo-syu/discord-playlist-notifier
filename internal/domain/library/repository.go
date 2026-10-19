@@ -2,39 +2,60 @@ package library
 
 import "time"
 
-// Repository は通知対象の YouTube プレイリストの中身を保存する。
-type Repository interface {
-	// FindItems は指定したプレイリストのアイテムを、追加された時刻の順に返す。
-	FindItems(playlistIDs ...PlaylistID) ([]*PlaylistItem, error)
-	FindVideos(ids []VideoID) (map[VideoID]*Video, error)
-	// FindVideosInPlaylists は指定したプレイリストの全アイテムの動画を返す。
-	FindVideosInPlaylists(playlistIDs ...PlaylistID) (map[VideoID]*Video, error)
-	// FindListedVideos はいずれかのプレイリストに含まれる全ての動画を返す。
-	FindListedVideos() (map[VideoID]*Video, error)
-	// FindItemsByVideos は指定した動画を含む全プレイリストのアイテムを返す。
-	FindItemsByVideos(ids []VideoID) ([]*PlaylistItem, error)
-	// ApplyItems はプレイリストの保存済みのアイテムを指定したものに置き換え、
-	// 動画を保存する。1 つのトランザクションで行う。
-	ApplyItems(playlistID PlaylistID, added []*PlaylistItem, removed []*PlaylistItem, videos []*Video) error
-	// SaveVideos は指定した動画の全カラムを上書きする。
-	SaveVideos(videos []*Video) error
-	// SaveChannels は指定したチャンネルを追加するか、名前を更新する。
-	SaveChannels(channels []*Channel) error
-	// FindChannels は指定した ID のうち保存済みのチャンネルを返す。
-	FindChannels(ids []ChannelID) (map[ChannelID]*Channel, error)
-	// SaveCategories は指定したカテゴリを追加するか、更新する。
-	SaveCategories(categories []*Category) error
-	// FindCategories は保存済みの全てのカテゴリを返す。
-	FindCategories() (map[CategoryID]*Category, error)
-	// AddSnapshots は指定した動画の状態を履歴に追記する。
-	AddSnapshots(snapshots []*VideoSnapshot) error
-	// FindSnapshots は since 以降に記録された動画の状態を、
-	// 古い順に返す。
-	FindSnapshots(id VideoID, since time.Time) ([]*VideoSnapshot, error)
-	// FindEarliestSnapshots は指定した動画ごとに、since 以降に記録された最初の
+// リポジトリは集約ごとに 1 つ置く。集約同士は ID で参照するので、別の集約の ID を
+// 検索の条件として受け取るメソッドはあるが、別の集約を保存するメソッドはない。
+
+// PlaylistRepository は Playlist 集約を保存する。
+type PlaylistRepository interface {
+	// Find はプレイリストを、保存済みのアイテムと一緒に返す。アイテムをまだ保存して
+	// いなければ、アイテムのないプレイリストを返す。
+	Find(id PlaylistID) (*Playlist, error)
+	// FindContaining は指定した動画のどれかを含むプレイリストを、全てのアイテムと
+	// 一緒に返す。
+	FindContaining(videoIDs []VideoID) ([]*Playlist, error)
+	// Save は保存済みのアイテムを、プレイリストのアイテムに置き換える。
+	Save(p *Playlist) error
+}
+
+// VideoRepository は Video 集約を保存する。
+type VideoRepository interface {
+	Find(ids []VideoID) (map[VideoID]*Video, error)
+	// FindInPlaylists は指定したプレイリストの全アイテムの動画を返す。
+	FindInPlaylists(playlistIDs ...PlaylistID) (map[VideoID]*Video, error)
+	// FindListed はいずれかのプレイリストに含まれる全ての動画を返す。
+	FindListed() (map[VideoID]*Video, error)
+	// Save は指定した動画の全カラムを上書きする。動画同士に不変条件はないので、
+	// DB への往復を減らすためにまとめて保存する。
+	Save(videos []*Video) error
+}
+
+// ChannelRepository は Channel 集約を保存する。
+type ChannelRepository interface {
+	// Find は指定した ID のうち保存済みのチャンネルを返す。
+	Find(ids []ChannelID) (map[ChannelID]*Channel, error)
+	// Save は指定したチャンネルを追加するか、名前を更新する。
+	Save(channels []*Channel) error
+}
+
+// CategoryRepository は Category 集約を保存する。
+type CategoryRepository interface {
+	// FindAll は保存済みの全てのカテゴリを返す。
+	FindAll() (map[CategoryID]*Category, error)
+	// Save は指定したカテゴリを追加するか、更新する。
+	Save(categories []*Category) error
+}
+
+// VideoSnapshotRepository は動画の状態の履歴を保存する。履歴は追記するだけで
+// 書き換えない。
+type VideoSnapshotRepository interface {
+	// Add は指定した動画の状態を履歴に追記する。
+	Add(snapshots []*VideoSnapshot) error
+	// Find は since 以降に記録された動画の状態を、古い順に返す。
+	Find(id VideoID, since time.Time) ([]*VideoSnapshot, error)
+	// FindEarliest は指定した動画ごとに、since 以降に記録された最初の
 	// 状態を返す。該当する状態がない動画は結果に含まれない。
-	FindEarliestSnapshots(ids []VideoID, since time.Time) (map[VideoID]*VideoSnapshot, error)
-	// FindLatestSnapshots は指定した動画ごとに、since 以降に記録された最後の
+	FindEarliest(ids []VideoID, since time.Time) (map[VideoID]*VideoSnapshot, error)
+	// FindLatest は指定した動画ごとに、since 以降に記録された最後の
 	// 状態を返す。該当する状態がない動画は結果に含まれない。
-	FindLatestSnapshots(ids []VideoID, since time.Time) (map[VideoID]*VideoSnapshot, error)
+	FindLatest(ids []VideoID, since time.Time) (map[VideoID]*VideoSnapshot, error)
 }

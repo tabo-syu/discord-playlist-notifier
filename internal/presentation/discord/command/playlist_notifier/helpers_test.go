@@ -46,7 +46,11 @@ var errMock = errors.New("mock error")
 type deps struct {
 	guilds        *mocks.MockGuildRepository
 	subscriptions *mocks.MockSubscriptionRepository
-	library       *mocks.MockLibraryRepository
+	playlists     *mocks.MockPlaylistRepository
+	videos        *mocks.MockVideoRepository
+	channels      *mocks.MockChannelRepository
+	categories    *mocks.MockCategoryRepository
+	snapshots     *mocks.MockVideoSnapshotRepository
 	youtube       *mocks.MockYouTube
 }
 
@@ -56,7 +60,11 @@ func newDeps(t *testing.T) *deps {
 	return &deps{
 		guilds:        mocks.NewMockGuildRepository(t),
 		subscriptions: mocks.NewMockSubscriptionRepository(t),
-		library:       mocks.NewMockLibraryRepository(t),
+		playlists:     mocks.NewMockPlaylistRepository(t),
+		videos:        mocks.NewMockVideoRepository(t),
+		channels:      mocks.NewMockChannelRepository(t),
+		categories:    mocks.NewMockCategoryRepository(t),
+		snapshots:     mocks.NewMockVideoSnapshotRepository(t),
 		youtube:       mocks.NewMockYouTube(t),
 	}
 }
@@ -65,7 +73,7 @@ func newDeps(t *testing.T) *deps {
 func newCommand(m *deps) *playlist_notifier.PlaylistNotifier {
 	return playlist_notifier.NewPlaylistNotifier(
 		application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds, clock),
-		application.NewLibraryService(m.youtube, m.library, jst, clock),
+		application.NewLibraryService(m.youtube, m.playlists, m.videos, m.channels, m.categories, m.snapshots, jst, clock),
 		jst,
 		clock,
 	)
@@ -92,8 +100,8 @@ func (m *deps) playlistHas(playlistID library.PlaylistID, contents ...*library.P
 		videos[c.Video.YoutubeID] = c.Video
 	}
 
-	m.library.EXPECT().FindItems(playlistID).Return(items, nil)
-	m.library.EXPECT().FindVideosInPlaylists(playlistID).Return(videos, nil)
+	m.playlists.EXPECT().Find(playlistID).Return(playlist(playlistID, items...), nil)
+	m.videos.EXPECT().FindInPlaylists(playlistID).Return(videos, nil)
 }
 
 // subcommand はサブコマンド name を options 付きで呼んだときの入力を返す。
@@ -125,6 +133,11 @@ func sub(id uint, playlistID library.PlaylistID, title string) *subscription.Sub
 		Title:         title,
 		GuildID:       1,
 	}
+}
+
+// playlist は items を持つプレイリストを返す。
+func playlist(playlistID library.PlaylistID, items ...*library.PlaylistItem) *library.Playlist {
+	return &library.Playlist{YoutubeID: playlistID, Items: items}
 }
 
 // item は保存したプレイリストのアイテムを返す。
