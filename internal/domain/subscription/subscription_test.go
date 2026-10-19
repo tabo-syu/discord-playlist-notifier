@@ -40,8 +40,7 @@ func TestIsNew(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			s := &subscription.Subscription{}
-			s.MarkNotified(notifiedAt)
+			s := &subscription.Subscription{NotifiedUntil: notifiedAt}
 
 			got := s.IsNew(&library.PlaylistItem{AddedAt: tt.addedAt})
 

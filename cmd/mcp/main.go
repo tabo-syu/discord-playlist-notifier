@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/env"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/infrastructure/persistence"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/mcpserver"
@@ -46,10 +47,10 @@ func main() {
 	car := persistence.NewCategoryRepository(db)
 	vsr := persistence.NewVideoSnapshotRepository(db)
 
-	// QueryService は保存済みの中身しか読まず YouTube を呼ばないので、YouTube のクライアントは渡さない
-	ls := application.NewLibraryService(nil, pr, vr, cr, car, vsr, location, time.Now)
+	// QueryService は保存済みの中身しか読まず YouTube を呼ばないので、YouTube のクライアントは作らない
+	qs := application.NewQueryService(sbr, library.NewCatalog(pr, vr), vsr, car, cr, location, time.Now)
 
-	server := mcpserver.NewServer(env.MCP_ADDR, application.NewQueryService(sbr, ls, car, cr), location, time.Now)
+	server := mcpserver.NewServer(env.MCP_ADDR, qs, location, time.Now)
 	if err = server.Serve(); err != nil {
 		log.Fatalf("Could not start the MCP server: %v", err)
 	}

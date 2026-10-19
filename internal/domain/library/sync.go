@@ -14,6 +14,30 @@ type PlaylistMeta struct {
 	ItemCount int64
 }
 
+// プレイリストのアイテム数が変わっていなくても、この間隔が経てばアイテムを
+// 取得し直す。動画の除外や公開状態の変化と同時に起きた追加を拾うため。
+const FULL_SYNC_INTERVAL = time.Hour
+
+// FullSync は、プレイリストのアイテムを最後に全件取得したときの記録。アイテムの
+// 取得はプレイリストの大きさに比例してクォータを使うので、変わっていなさそうな
+// ときは省く。ゼロ値は、まだ全件取得していないことを表す。
+type FullSync struct {
+	itemCount int64
+	at        time.Time
+}
+
+// NewFullSync は、meta のプレイリストのアイテムを at に全件取得したことを記録する。
+func NewFullSync(meta *PlaylistMeta, at time.Time) FullSync {
+	return FullSync{itemCount: meta.ItemCount, at: at}
+}
+
+// Due は、今回の同期でアイテムを全件取得し直すべきかを返す。まだ全件取得して
+// いないか、前回からアイテム数が変わったか、FULL_SYNC_INTERVAL が経ったときに
+// 真になる。
+func (f FullSync) Due(meta *PlaylistMeta, now time.Time) bool {
+	return f.at.IsZero() || f.itemCount != meta.ItemCount || now.Sub(f.at) >= FULL_SYNC_INTERVAL
+}
+
 // FetchedItem は YouTube から取得したプレイリストのアイテム 1 件。
 type FetchedItem struct {
 	ItemID        ItemID

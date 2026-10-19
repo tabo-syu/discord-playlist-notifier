@@ -16,13 +16,26 @@ import (
 // YouTube のクォータは使わない。どのギルドも登録していないプレイリストは見せない。
 type QueryService struct {
 	subscriptions subscription.Repository
-	library       *LibraryService
+	catalog       *library.Catalog
+	snapshots     library.VideoSnapshotRepository
 	categories    library.CategoryRepository
 	channels      library.ChannelRepository
+	// 日付を月や年で区切るのに使うタイムゾーン
+	location *time.Location
+	// 現在時刻。テストで固定できるように外から渡す
+	now func() time.Time
 }
 
-func NewQueryService(s subscription.Repository, l *LibraryService, cat library.CategoryRepository, c library.ChannelRepository) *QueryService {
-	return &QueryService{s, l, cat, c}
+func NewQueryService(
+	s subscription.Repository,
+	c *library.Catalog,
+	vs library.VideoSnapshotRepository,
+	cat library.CategoryRepository,
+	ch library.ChannelRepository,
+	loc *time.Location,
+	now func() time.Time,
+) *QueryService {
+	return &QueryService{s, c, vs, cat, ch, loc, now}
 }
 
 // WatchedPlaylist は 1 つ以上のギルドが通知登録しているプレイリスト。
@@ -121,12 +134,12 @@ func (s *QueryService) Overviews() ([]*PlaylistOverview, error) {
 	overviews := []*PlaylistOverview{}
 
 	for _, p := range playlists {
-		stats, err := s.library.Stats(p.ID)
+		contents, err := s.catalog.Contents([]library.PlaylistID{p.ID})
 		if err != nil {
 			return nil, err
 		}
 
-		overviews = append(overviews, &PlaylistOverview{WatchedPlaylist: *p, Stats: stats})
+		overviews = append(overviews, &PlaylistOverview{WatchedPlaylist: *p, Stats: library.ComputeStats(contents, s.now(), s.location)})
 	}
 
 	return overviews, nil
@@ -160,7 +173,7 @@ func (s *QueryService) FindVideos(q VideoQuery) (*VideoPage, error) {
 		return &VideoPage{Videos: []*library.PlaylistVideo{}}, nil
 	}
 
-	contents, err := s.library.Contents(ids)
+	contents, err := s.catalog.Contents(ids)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +241,12 @@ func (s *QueryService) Stats(id library.PlaylistID) (*library.Stats, error) {
 		return nil, err
 	}
 
-	return s.library.Stats(id)
+	contents, err := s.catalog.Contents([]library.PlaylistID{id})
+	if err != nil {
+		return nil, err
+	}
+
+	return library.ComputeStats(contents, s.now(), s.location), nil
 }
 
 // Wrapped はその年に通知対象のプレイリストへ追加されたアイテムを集計する。
@@ -237,18 +255,33 @@ func (s *QueryService) Wrapped(id library.PlaylistID, year int) (*library.Wrappe
 		return nil, err
 	}
 
-	return s.library.Wrapped(id, year)
+	contents, err := s.catalog.Contents([]library.PlaylistID{id})
+	if err != nil {
+		return nil, err
+	}
+
+	return library.ComputeWrapped(contents, year, s.location), nil
 }
 
 // History は通知対象のプレイリストにある動画の、since 以降に記録された状態を
 // 返す。なければ library.ErrVideoNotFound を返す。
 func (s *QueryService) History(id library.VideoID, since time.Time) (*library.VideoHistory, error) {
-	ids, err := s.scope("")
+	scope, err := s.scope("")
 	if err != nil {
 		return nil, err
 	}
 
-	return s.library.History(ids, id, since)
+	video, err := s.catalog.FindVideo(scope, id)
+	if err != nil {
+		return nil, err
+	}
+
+	snapshots, err := s.snapshots.Find(id, since)
+	if err != nil {
+		return nil, err
+	}
+
+	return &library.VideoHistory{Video: video, Snapshots: snapshots}, nil
 }
 
 // Categories は保存済みの全ての動画カテゴリを返す。
@@ -273,7 +306,12 @@ func (s *QueryService) RandomVideos(id library.PlaylistID, n int) ([]*library.Pl
 		return []*library.PlaylistVideo{}, nil
 	}
 
-	return s.library.RandomVideos(ids, n)
+	contents, err := s.catalog.Contents(ids)
+	if err != nil {
+		return nil, err
+	}
+
+	return library.PickRandom(contents, n), nil
 }
 
 // scope は指定したプレイリストを返す。id が空なら通知対象の全プレイリストを返す。

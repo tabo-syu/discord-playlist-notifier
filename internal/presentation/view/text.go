@@ -147,7 +147,7 @@ func WrappedTitle(playlistTitle string, year int) string {
 
 // Wrapped は年間のまとめの本文（見出しを除く）を整形する。
 func Wrapped(w *library.Wrapped, loc *time.Location, target Target) string {
-	if w.Added == 0 {
+	if w.Empty() {
 		return render("wrapped_empty", w, loc, target)
 	}
 

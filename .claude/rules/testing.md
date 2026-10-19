@@ -101,7 +101,9 @@ setup: func(m *deps) {
   `[]*library.Video(nil)`）。mock は型も含めて比べます。
 - 回数は `.Times(n)` / `.Once()`、順序は `.NotBefore(...)`、順序の決まらない引数は
   `sameElements(want)`、呼ばれなくてもよい期待（ケース間で共有する準備）は `.Maybe()` です。
-- 何度も同じ組み合わせで期待する呼び出しは `m.expectUnchangedSync(...)` のような `deps` の
+- 何度も同じ組み合わせで期待する呼び出しは `m.expectPick(...)` のような `deps` の
   メソッドにまとめ、何を期待するかをコメントに書きます。
 - mock が返した値をサービスが書き換えるときは、その値をケースごとに新しく作ります。
 - 何も返さないメソッドは `setup` の期待だけで確かめ、ループの中に `assert` を書きません。
+  ただし、ドメインイベントを発行するメソッド（`LibraryService.Sync`・`RefreshVideos`）は、発行が
+  戻り値の代わりなので、`record(events)` で記録したイベントを `want`（`*published`）に書いて比べます。

@@ -68,8 +68,7 @@ func newDeps(t *testing.T) *deps {
 func connect(t *testing.T, m *deps) *mcp.ClientSession {
 	t.Helper()
 
-	library := application.NewLibraryService(mocks.NewMockYouTube(t), m.playlists, m.videos, m.channels, m.categories, m.snapshots, jst, clock)
-	query := application.NewQueryService(m.subscriptions, library, m.categories, m.channels)
+	query := application.NewQueryService(m.subscriptions, library.NewCatalog(m.playlists, m.videos), m.snapshots, m.categories, m.channels, jst, clock)
 	ts := httptest.NewServer(mcpserver.NewServer("", query, jst, clock).Handler())
 	t.Cleanup(ts.Close)
 

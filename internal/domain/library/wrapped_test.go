@@ -137,3 +137,40 @@ func TestComputeWrapped(t *testing.T) {
 		})
 	}
 }
+
+func TestWrappedEmpty(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		wrapped *library.Wrapped
+		want    bool
+	}{
+		{
+			name: "その年に追加がなければ、前の年に追加があってもまとめるものがない",
+			wrapped: &library.Wrapped{
+				Year:              2026,
+				Added:             0,
+				PreviousYearAdded: 3,
+			},
+			want: true,
+		},
+		{
+			name: "その年に 1 つでも追加があれば、まとめるものがある",
+			wrapped: &library.Wrapped{
+				Year:  2026,
+				Added: 1,
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := tt.wrapped.Empty()
+
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

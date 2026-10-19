@@ -16,12 +16,13 @@ import (
 // 失敗は返す相手がいないのでログに出す。
 type NotificationHandlers struct {
 	subscriptions subscription.Repository
-	library       *LibraryService
+	catalog       *library.Catalog
+	youtube       library.YouTube
 	notifier      Notifier
 }
 
-func NewNotificationHandlers(s subscription.Repository, l *LibraryService, n Notifier) *NotificationHandlers {
-	return &NotificationHandlers{s, l, n}
+func NewNotificationHandlers(s subscription.Repository, c *library.Catalog, y library.YouTube, n Notifier) *NotificationHandlers {
+	return &NotificationHandlers{s, c, y, n}
 }
 
 // NotifyHiddenVideos は見られなくなった動画を、それを含むプレイリストのチャンネルに
@@ -64,7 +65,7 @@ func (h *NotificationHandlers) NotifyMilestones(events []*library.MilestoneReach
 	}
 
 	// チャンネルは保存していないのでここで取得する。失敗したらチャンネルなしで送る。
-	live, err := h.library.LiveVideos(videoIDs)
+	live, err := h.youtube.FetchLiveVideos(videoIDs)
 	if err != nil {
 		log.Println("Could not fetch channels for milestones cause:", err)
 	}
@@ -88,7 +89,7 @@ func (h *NotificationHandlers) NotifyNewVideos(events []*subscription.VideosAdde
 			videoIDs = append(videoIDs, v.Video.YoutubeID)
 		}
 
-		live, err := h.library.LiveVideos(videoIDs)
+		live, err := h.youtube.FetchLiveVideos(videoIDs)
 		if err != nil {
 			log.Println("Could not fetch channels for playlist:", e.PlaylistID, "cause:", err)
 		}
@@ -109,7 +110,7 @@ func (h *NotificationHandlers) recipients(videoIDs []library.VideoID) ([]*subscr
 		return nil, nil, err
 	}
 
-	containing, err := h.library.PlaylistsContaining(videoIDs)
+	containing, err := h.catalog.PlaylistsContaining(videoIDs)
 	if err != nil {
 		return nil, nil, err
 	}

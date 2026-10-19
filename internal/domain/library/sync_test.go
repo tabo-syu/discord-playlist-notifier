@@ -2,6 +2,7 @@ package library_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 
@@ -106,6 +107,59 @@ func TestVideoSyncApplyDetails(t *testing.T) {
 
 			assert.Equal(t, tt.want, got.Videos)
 			assert.ElementsMatch(t, tt.wantChanged, got.ChangedVideos())
+		})
+	}
+}
+
+func TestFullSyncDue(t *testing.T) {
+	t.Parallel()
+
+	// 前回の全件取得は syncedAt に、アイテムが 1 件のときにした
+	last := library.NewFullSync(&library.PlaylistMeta{YoutubeID: "PL", ItemCount: 1}, syncedAt)
+
+	tests := []struct {
+		name     string
+		fullSync library.FullSync
+		meta     *library.PlaylistMeta
+		now      time.Time
+		want     bool
+	}{
+		{
+			name:     "まだ全件取得していなければ取得する",
+			fullSync: library.FullSync{},
+			meta:     &library.PlaylistMeta{YoutubeID: "PL", ItemCount: 1},
+			now:      syncedAt,
+			want:     true,
+		},
+		{
+			name:     "アイテム数が同じで FULL_SYNC_INTERVAL が経っていなければ取得しない",
+			fullSync: last,
+			meta:     &library.PlaylistMeta{YoutubeID: "PL", ItemCount: 1},
+			now:      syncedAt.Add(library.FULL_SYNC_INTERVAL - time.Nanosecond),
+			want:     false,
+		},
+		{
+			name:     "FULL_SYNC_INTERVAL がちょうど経ったら取得する",
+			fullSync: last,
+			meta:     &library.PlaylistMeta{YoutubeID: "PL", ItemCount: 1},
+			now:      syncedAt.Add(library.FULL_SYNC_INTERVAL),
+			want:     true,
+		},
+		{
+			name:     "アイテム数が変わったら、間隔が経っていなくても取得する",
+			fullSync: last,
+			meta:     &library.PlaylistMeta{YoutubeID: "PL", ItemCount: 2},
+			now:      syncedAt.Add(time.Minute),
+			want:     true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := tt.fullSync.Due(tt.meta, tt.now)
+
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

@@ -17,16 +17,20 @@ paths:
 - 動画の公開状態はアイテムの `status.privacyStatus` から取ります。`videos.list` は非公開・
   削除済みの動画を返さないためです。
 - `Sync` は `FULL_SYNC_INTERVAL` 以内でアイテム数が変わらなければ全件取得を省き、`videos.list` は
-  詳細を持っていない動画の分だけ呼びます。全件取得の状態はメモリにあるので、再起動直後は全件
-  取得します。
+  詳細を持っていない動画の分だけ呼びます。全件取得するかは値オブジェクト `library.FullSync` の
+  `Due` が決め、`LibraryService` はその記録をメモリの map に置くだけです。再起動直後は全件取得します。
 - `Sync` と `RefreshVideos` は同じ `videos` を書き換えるので、`LibraryService` の mutex で
-  直列化しています。
+  直列化しています。イベントの発行はロックを外した後です。
+- 保存済みの中身を読むのはドメインサービスの `library.Catalog` です（`Contents`・
+  `PlaylistsContaining`・`FindVideo`）。`LibraryService`・`NotificationService`・`NotificationHandlers`・
+  `QueryService` が共有し、互いを呼びません。`FindVideo` は「指定した範囲のプレイリストにあり、
+  詳細を取得済みの動画」だけを返し、それ以外は `ErrVideoNotFound` にします（履歴の認可）。
 - 同期の突き合わせは 2 つに分かれます。アイテムは `Playlist.Reconcile`（集約のメソッド）、
   動画の公開状態と詳細を取る動画の選択は `library.SyncVideos`（複数の `Video` をまとめて見る
   ドメインサービス）です。`SyncVideos` は `Video.ChangePrivacy` が返した `VideoHidden` を集め、
-  `LibraryService.Sync` は動画を保存できたプレイリストの分だけそれを返します。
+  `LibraryService.Sync` は動画を保存できたプレイリストの分だけそれを発行します。
 - 同期では `PlaylistRepository.Save` を `VideoRepository.Save` より先に呼びます。動画の保存に
-  失敗してもその回はエラーになり（`VideoHidden` も返さない）、次の全件取得で公開状態の変化と
+  失敗してもその回はエラーになり（`VideoHidden` も発行しない）、次の全件取得で公開状態の変化と
   新しい動画をもう一度検知します。逆の順にすると、非公開になった通知が失われることがあります。
   同じ回に同期した別のプレイリストにも同じ動画があって、そちらで公開状態を保存できたときは、
   そちらの `VideoHidden` で通知します。通知先は DB に保存したアイテムで決めるので、失敗した
