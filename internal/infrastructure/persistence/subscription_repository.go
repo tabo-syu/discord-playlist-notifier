@@ -62,7 +62,7 @@ func (r *subscriptionRepository) Add(s *subscription.Subscription) error {
 
 	rec := toSubscriptionRecord(s)
 
-	result := r.db.Save(rec)
+	result := r.db.Create(rec)
 	if err := result.Error; err != nil {
 		return err
 	}

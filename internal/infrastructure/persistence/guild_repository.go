@@ -28,11 +28,12 @@ func (r *guildRepository) Exists(id guild.DiscordID) (bool, error) {
 	return count > 0, err
 }
 
-// Add は保存したギルドに DB が振った ID を g に書き戻す。
+// Add は保存したギルドに DB が振った ID を g に書き戻す。レコードは created_at などを
+// 持たないので、ID のあるレコードを Save して既存の行を上書きしないよう、常に INSERT する。
 func (r *guildRepository) Add(g *guild.Guild) error {
 	rec := toGuildRecord(g)
 
-	result := r.db.Save(rec)
+	result := r.db.Create(rec)
 	if err := result.Error; err != nil {
 		return err
 	}
