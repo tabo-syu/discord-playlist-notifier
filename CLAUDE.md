@@ -77,6 +77,10 @@ internal/mocks/              mockery が生成した mock（手で編集しな�
 
 ### ドメインモデル
 
+- 言葉（ユビキタス言語）は `docs/glossary.md`、境界づけられたコンテキスト（ボット全体で 1 つ）と
+  外のシステムとの関係は `docs/context-map.md` にあります。名前を付ける・変えるときは用語集の言葉と
+  名前の付け方の決まりに従い、新しい言葉を使うときは同じ PR で用語集に足します。「チャンネル」は
+  YouTube のチャンネルだけを指し、Discord のほうは「テキストチャンネル」と呼びます。
 - 集約は互いに ID でのみ参照します（`Subscription.GuildID`、`Subscription.YoutubeID`）。
   GORM の関連付けは使いません。
 - `library` パッケージには集約が 5 つあります。`Playlist`（ルートが `Items` を持つ）・`Video`・
