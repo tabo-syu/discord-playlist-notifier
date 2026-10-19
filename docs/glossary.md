@@ -14,10 +14,12 @@
 
 ## 名前の付け方の決まり
 
-1. **集約のルート自身の識別子は、発行元の名前にする**（`Video.YoutubeID`、`Guild.DiscordID`）。
-   ID は YouTube や Discord が発行したものをそのまま使う（順応者）ことを表します。
-2. **他の集約への参照は「参照先の名前 + ID」にする**（`Subscription.GuildID`）。
-   値オブジェクトの型の名前（`library.PlaylistID` など）とそろえます。
+1. **外（YouTube・Discord）が発行した、自分自身の識別子は、発行元の名前にする**（`Video.YoutubeID`、
+   `Guild.DiscordID`）。ID は YouTube や Discord が発行したものをそのまま使う（順応者）ことを表します。
+   保存したときにリポジトリが振る識別子は `ID` です（`Guild.ID`、`Subscription.ID`）。
+2. **他の集約を指すフィールドは「参照先の名前 + ID」にする**（`Subscription.GuildID`、
+   `FetchedItem.VideoID`）。エンティティでない値（`FetchedItem`・`VideoDetails` など）が集約を指すときも
+   同じです。参照先の識別子が値オブジェクトなら、その型の名前（`library.PlaylistID` など）とそろいます。
 3. **1 つの言葉は 1 つの意味にする**。2 つの意味を持ってしまった言葉は、片方に別の名前を付けます。
 4. **DB のテーブルとカラムの名前は変えない**。ドメインの名前を変えるときは、
    `infrastructure/persistence/records.go` の変換の関数で対応させます（[DB の名前との対応](#db-の名前との対応)）。
@@ -70,7 +72,7 @@
 | 投稿された時刻 | `Video.PublishedAt` | 動画そのものが YouTube に投稿された時刻 |
 | 中身 | `library.PlaylistVideo`・`Catalog.Contents` | アイテムと、その動画の組の並び |
 | カタログ | `library.Catalog` | 保存済みの中身を、プレイリストと動画の 2 つの集約をまたいで読むドメインサービス。見せてよい範囲（指定したプレイリストにある、詳細を取得済みの動画）を決める |
-| 動画の記録（スナップショット） | `library.VideoSnapshot` | ある時点の動画の状態（タイトル・公開状態・再生数・高評価数・コメント数）。更新のたびに全ての動画について追記し、書き換えない |
+| 動画の記録（スナップショット） | `library.VideoSnapshot` | ある時点の動画の状態（タイトル・公開状態・再生数・高評価数・コメント数）。更新のたびに、観られる動画のうち YouTube が詳細を返したものについて追記し、書き換えない。見られなくなった動画は記録しない |
 
 ## 同期と更新
 
@@ -81,8 +83,9 @@
 | メタ情報 | `library.PlaylistMeta` | プレイリストのタイトルとアイテム数。全件取得するかの判断に使う |
 | 取得したアイテム | `library.FetchedItem` | YouTube から取得したアイテム 1 件（公開状態を含む） |
 | 突き合わせ | `Playlist.Reconcile`・`library.SyncVideos` | 保存済みのアイテムと動画を、取得したものに合わせること。アイテムはアイテムの ID で比べる |
-| 同期の結果 | `library.Snapshot`※・`library.PlaylistSynced` | 同期したプレイリストの、アイテム・YouTube 上のタイトル・YouTube から消えたか・動画。`PlaylistSynced` はそれを運ぶドメインイベント |
-| 更新 | `LibraryService.RefreshVideos` | 6 時間ごとに、全ての動画の詳細と再生数を取り直し、動画の記録を追記し、節目を調べること |
+| 同期したプレイリスト | `library.Snapshot`※ | 同期した直後のプレイリストの、アイテム・YouTube 上のタイトル・YouTube から消えたか・動画 |
+| 同期の結果 | `library.PlaylistSynced` | プレイリストを同期し終えたことを表すドメインイベント。同期したプレイリストを運ぶ。YouTube から消えていたプレイリストでも出す |
+| 更新 | `LibraryService.RefreshVideos` | 6 時間ごとに、観られる動画の詳細と再生数を取り直し、動画の記録を追記し、節目を調べること。詳細をまだ持っていない動画と見られなくなった動画は対象外で、それらの詳細は同期が取る |
 | カテゴリの更新 | `LibraryService.RefreshCategories` | 起動時と 1 日ごとに、カテゴリの名前を取り直すこと |
 | ドメインイベント | `library.VideoHidden`・`MilestoneReached`・`PlaylistSynced`、`subscription.VideosAdded` | ドメインで起きたこと。名前は過去形で、それを起こした集約を保存できた後に配る |
 
@@ -111,6 +114,7 @@
 | コマンド `history`、MCP `video_history` | 推移 |
 | コマンド `random`、MCP `random_videos` | 中身からランダムに選ぶ（ピックとは別。投稿はしない） |
 | コマンド `wrapped`、MCP `playlist_wrapped` | 年間のまとめ |
+| コマンド `source` | （ドメインの言葉ではない）このボットのソースコードへのリンク |
 | MCP `list_playlists` | 通知対象のプレイリスト（と統計）の一覧 |
 | MCP `find_videos` | 通知対象のプレイリストの中身を絞り込む |
 
@@ -136,8 +140,8 @@
 
 - **チャンネル**：YouTube のチャンネル（`library.Channel`）だけを指します。Discord のほうは
   「テキストチャンネル」と呼びます。
-- **スナップショット**：動画の記録（`VideoSnapshot`）だけを指します。同期の結果は
-  「同期したプレイリスト」と呼びます。
+- **スナップショット**：動画の記録（`VideoSnapshot`）だけを指します。同期した直後のプレイリストの中身は
+  「同期したプレイリスト」、それを運ぶイベントは「同期の結果」（`PlaylistSynced`）と呼びます。
 - **プレイリスト**：YouTube のプレイリストのことで、コードでは `library.Playlist` です。
   ギルドごとの設定は「通知設定」で、テーブル名の `playlists` はこちらなので注意します。
 - **視聴できる・観られる・見られなくなる**：視聴できる（`Watchable`）は公開状態だけの話、観られる
@@ -163,9 +167,10 @@
 | `PlaylistItem.VideoYoutubeID` | `PlaylistItem.VideoID` | 2 |
 | `Video.ChannelYoutubeID` | `Video.ChannelID` | 2 |
 | `VideoSnapshot.VideoYoutubeID` | `VideoSnapshot.VideoID` | 2 |
+| `PlaylistMeta.YoutubeID` | `PlaylistMeta.PlaylistID` | 2（エンティティでない値が指す ID。`VideoDetails.VideoID` とそろう） |
 | `subscription.ChannelID`（型） | `subscription.TextChannelID` | 3（チャンネル） |
-| `Subscription.SendChannelID`、`VideosAdded`・`notification.HiddenVideo`・`notification.Milestone` の `ChannelID` | `TextChannelID` | 3（チャンネル） |
-| `library.Snapshot` | `library.SyncedPlaylist` | 3（スナップショット） |
+| `Subscription.SendChannelID`、`VideosAdded`・`notification.HiddenVideo`・`notification.Milestone` の `ChannelID` | `TextChannelID`（引数名・変数名と、Discord のチャンネルを指すコメントの「チャンネル」も「テキストチャンネル」に） | 3（チャンネル） |
+| `library.Snapshot` | `library.SyncedPlaylist`（`LibraryService.snapshot`、変数名、コメントの「スナップショット」も） | 3（スナップショット） |
 | `Subscription.Title` | `Subscription.PlaylistTitle` | 何のタイトルかを名前で表す |
 | `application.WatchedPlaylist` | `application.SubscribedPlaylist` | 3（`Watchable` と紛らわしい） |
 

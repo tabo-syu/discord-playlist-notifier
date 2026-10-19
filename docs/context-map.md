@@ -45,7 +45,7 @@ flowchart LR
 
 | 相手 | 向き | 関係 | どこで | 内容 |
 |---|---|---|---|---|
-| YouTube Data API | 上流 | 腐敗防止層 | `infrastructure/youtube`（`library.Source` を実装） | API の応答を、ドメインの値（`PlaylistMeta`・`FetchedItem`・`VideoDetails`・`Category`）に翻訳して返す。エンティティは作らない。表示にしか使わない値（チャンネルのアイコン）は `application.LiveVideoSource` で取る（#75） |
+| YouTube Data API | 上流 | 腐敗防止層 | `infrastructure/youtube`（`library.Source` と `application.LiveVideoSource` を実装） | API の応答を、ドメインの値（`PlaylistMeta`・`FetchedItem`・`VideoDetails`）に翻訳して返し、動画やチャンネルのエンティティは作らない。`Category` だけは、YouTube のデータを写すだけでこのボットが持つ状態がない参照データなので、そのまま作って返す。通知の直前に取る表示用の値（チャンネルの名前とアイコン、最新の再生数）はドメインではなく `application.LiveVideoSource` で取る（#75） |
 | 〃 | 〃 | 順応者 | `library.PlaylistID`・`VideoID`・`ChannelID`・`CategoryID`・`ItemID` | ID は YouTube が発行したものをそのまま識別子に使う。このボットにとっても「YouTube の ID」が自然な言葉だから（#75） |
 | Discord | 上流 | 順応者 | `presentation/discord`・`presentation/notifier`、`guild.DiscordID`・`subscription.ChannelID` | ギルド・テキストチャンネル・スラッシュコマンドという Discord の概念をそのまま言葉にする。`discordgo` の型は presentation の外に出さず、ID だけを値オブジェクトにして渡す |
 | MCP のクライアント | 下流 | 公開ホストサービス・公表された言語 | `presentation/mcpserver` | 読み取り専用のツール（`list_playlists` など）を公開する。入出力は snake_case の JSON で、`mcpserver` の型（`videoOut` など）が持つ。ドメインの名前を変えても出力は変わらない |
@@ -91,6 +91,6 @@ flowchart LR
 分けるときはこれらを翻訳するか、公表された言語として固定することになります。
 
 - プレイリストの ID（`library.PlaylistID`）。通知設定が参照している
-- 同期の結果（`library.Snapshot`、#92 で `SyncedPlaylist`）と、それを運ぶイベント `PlaylistSynced`
+- 同期したプレイリスト（`library.Snapshot`、#92 で `SyncedPlaylist`）と、それを運ぶイベント `PlaylistSynced`
 - 動画のイベント（`VideoHidden`・`MilestoneReached`）と、通知の Embed に出す動画（`library.Video`）
 - 「動画を含むプレイリスト」（`Catalog.PlaylistsContaining`）と、中身（`PlaylistVideo`）
