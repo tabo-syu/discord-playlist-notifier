@@ -6,10 +6,7 @@ import "time"
 // 動画ごとに 1 つ持つ。詳細（タイトル、再生数など）は動画が非公開・削除に
 // なっても表示できるように残す。
 type Video struct {
-	ID            uint `gorm:"primarykey"`
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	YoutubeID     VideoID `gorm:"uniqueIndex"`
+	YoutubeID     VideoID
 	Title         string
 	Views         ViewCount
 	PrivacyStatus PrivacyStatus
@@ -22,16 +19,12 @@ type Video struct {
 	Likes    uint64
 	Comments uint64
 	// 動画を投稿したチャンネル。詳細を取得するまでは空
-	ChannelYoutubeID ChannelID `gorm:"index"`
+	ChannelYoutubeID ChannelID
 	// まだ取得していないとき、または動画がライブ配信中・配信予定のときはゼロ
 	Duration time.Duration
 	// 投稿者が設定したタグ。空のことが多い
-	Tags       []string `gorm:"serializer:json"`
+	Tags       []string
 	CategoryID CategoryID
-}
-
-func (Video) TableName() string {
-	return "videos"
 }
 
 // HasDetails は動画の詳細を一度でも取得したかを返す。

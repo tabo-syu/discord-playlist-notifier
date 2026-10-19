@@ -14,7 +14,7 @@ import (
 
 // guilds は通知設定が参照するギルドを返す。ギルド 1 は「guild」、ギルド 2 は「other」。
 func guilds() []any {
-	return []any{guild.New("guild"), guild.New("other")}
+	return []any{guildRow("guild"), guildRow("other")}
 }
 
 func TestSubscriptionRepositoryExists(t *testing.T) {
@@ -27,21 +27,21 @@ func TestSubscriptionRepositoryExists(t *testing.T) {
 	}{
 		{
 			name:       "ギルドが登録している",
-			stored:     []any{newSubscription(1, "PL", "PL")},
+			stored:     []any{subscriptionRow(1, "PL", "PL")},
 			guildID:    "guild",
 			playlistID: "PL",
 			want:       true,
 		},
 		{
 			name:       "別のギルドだけが登録している",
-			stored:     []any{newSubscription(2, "PL", "PL")},
+			stored:     []any{subscriptionRow(2, "PL", "PL")},
 			guildID:    "guild",
 			playlistID: "PL",
 			want:       false,
 		},
 		{
 			name:       "ギルドを保存していない",
-			stored:     []any{newSubscription(1, "PL", "PL")},
+			stored:     []any{subscriptionRow(1, "PL", "PL")},
 			guildID:    "unknown",
 			playlistID: "PL",
 			want:       false,
@@ -70,7 +70,7 @@ func TestSubscriptionRepositoryFindAll(t *testing.T) {
 	}{
 		{
 			name:   "全てのギルドの通知設定を返す",
-			stored: []any{newSubscription(1, "PL1", "PL1"), newSubscription(2, "PL2", "PL2")},
+			stored: []any{subscriptionRow(1, "PL1", "PL1"), subscriptionRow(2, "PL2", "PL2")},
 			want: []*subscription.Subscription{
 				storedSubscription(1, 1, "PL1", "PL1"),
 				storedSubscription(2, 2, "PL2", "PL2"),
@@ -78,7 +78,7 @@ func TestSubscriptionRepositoryFindAll(t *testing.T) {
 		},
 		{
 			name:   "論理削除した通知設定は返さない",
-			stored: []any{deletedSubscription(1, "PL1", "PL1"), newSubscription(2, "PL2", "PL2")},
+			stored: []any{deletedSubscriptionRow(1, "PL1", "PL1"), subscriptionRow(2, "PL2", "PL2")},
 			want: []*subscription.Subscription{
 				storedSubscription(2, 2, "PL2", "PL2"),
 			},
@@ -114,7 +114,7 @@ func TestSubscriptionRepositoryFindByGuild(t *testing.T) {
 	}{
 		{
 			name:    "ギルドの通知設定だけを返す",
-			stored:  []any{newSubscription(1, "PL1", "PL1"), newSubscription(2, "PL2", "PL2"), newSubscription(1, "PL3", "PL3")},
+			stored:  []any{subscriptionRow(1, "PL1", "PL1"), subscriptionRow(2, "PL2", "PL2"), subscriptionRow(1, "PL3", "PL3")},
 			guildID: "guild",
 			want: []*subscription.Subscription{
 				storedSubscription(1, 1, "PL1", "PL1"),
@@ -123,14 +123,14 @@ func TestSubscriptionRepositoryFindByGuild(t *testing.T) {
 		},
 		{
 			name:    "ギルドに通知設定がなければ ErrDBRecordNotFound を返す",
-			stored:  []any{newSubscription(2, "PL2", "PL2")},
+			stored:  []any{subscriptionRow(2, "PL2", "PL2")},
 			guildID: "guild",
 			want:    nil,
 			wantErr: domain.ErrDBRecordNotFound,
 		},
 		{
 			name:    "ギルドを保存していなければ ErrDBRecordNotFound を返す",
-			stored:  []any{newSubscription(1, "PL1", "PL1")},
+			stored:  []any{subscriptionRow(1, "PL1", "PL1")},
 			guildID: "unknown",
 			want:    nil,
 			wantErr: domain.ErrDBRecordNotFound,
@@ -152,23 +152,26 @@ func TestSubscriptionRepositoryFindByGuild(t *testing.T) {
 
 func TestSubscriptionRepositoryAdd(t *testing.T) {
 	tests := []struct {
-		name         string
-		subscription *subscription.Subscription
-		want         []*subscription.Subscription
-		wantErr      error
+		name             string
+		subscription     *subscription.Subscription
+		want             []*persistence.SubscriptionRecord
+		wantSubscription *subscription.Subscription
+		wantErr          error
 	}{
 		{
-			name:         "通知設定を保存する",
-			subscription: &subscription.Subscription{YoutubeID: "PL", SendChannelID: "ch", Title: "PL", GuildID: 1, NotifiedUntil: hoursAgo(6)},
-			want: []*subscription.Subscription{
-				{Model: model(1), YoutubeID: "PL", SendChannelID: "ch", Title: "PL", GuildID: 1, NotifiedUntil: hoursAgo(6)},
+			name:         "通知設定を保存し、振った ID を書き戻す",
+			subscription: &subscription.Subscription{YoutubeID: "PL", SendChannelID: "ch", Title: "PL", PickInterval: subscription.PickWeekly, GuildID: 1, NotifiedUntil: hoursAgo(6)},
+			want: []*persistence.SubscriptionRecord{
+				storedSubscriptionRow(1, 1, "PL", "PL"),
 			},
+			wantSubscription: storedSubscription(1, 1, "PL", "PL"),
 		},
 		{
-			name:         "ID のある通知設定は保存しない",
-			subscription: &subscription.Subscription{ID: 5, YoutubeID: "PL", SendChannelID: "ch", Title: "PL", GuildID: 1},
-			want:         []*subscription.Subscription{},
-			wantErr:      domain.ErrDBRecordAlreadyCreated,
+			name:             "ID のある通知設定は保存しない",
+			subscription:     &subscription.Subscription{ID: 5, YoutubeID: "PL", SendChannelID: "ch", Title: "PL", GuildID: 1},
+			want:             []*persistence.SubscriptionRecord{},
+			wantSubscription: &subscription.Subscription{ID: 5, YoutubeID: "PL", SendChannelID: "ch", Title: "PL", GuildID: 1},
+			wantErr:          domain.ErrDBRecordAlreadyCreated,
 		},
 	}
 	for _, tt := range tests {
@@ -179,7 +182,8 @@ func TestSubscriptionRepositoryAdd(t *testing.T) {
 			err := persistence.NewSubscriptionRepository(db).Add(tt.subscription)
 
 			assert.ErrorIs(t, err, tt.wantErr)
-			assert.Equal(t, tt.want, rows[subscription.Subscription](t, db))
+			assert.Equal(t, tt.want, rows[persistence.SubscriptionRecord](t, db))
+			assert.Equal(t, tt.wantSubscription, tt.subscription)
 		})
 	}
 }
@@ -189,16 +193,17 @@ func TestSubscriptionRepositoryUpdate(t *testing.T) {
 		name         string
 		stored       []any
 		subscription *subscription.Subscription
-		want         []*subscription.Subscription
+		want         []*persistence.SubscriptionRecord
 		wantErr      error
 	}{
 		{
-			// GORM は UpdatedAt を保存した時刻で上書きするが、新着動画の
-			// 通知の基準時刻（NotifiedUntil）には触れない
-			name:   "全てのフィールドを保存し、UpdatedAt だけは保存した時刻にする",
-			stored: []any{newSubscription(1, "PL", "PL")},
+			// 作った時刻は残し、updated_at は GORM が保存した時刻にする
+			name: "全てのフィールドを保存し、created_at は変えない",
+			stored: []any{
+				&persistence.SubscriptionRecord{CreatedAt: hoursAgo(12), UpdatedAt: hoursAgo(12), YoutubeID: "PL", SendChannelID: "old", Title: "PL", GuildID: 1, NotifiedUntil: hoursAgo(6)},
+			},
 			subscription: &subscription.Subscription{
-				ID: 1, CreatedAt: now, UpdatedAt: hoursAgo(1),
+				ID:            1,
 				YoutubeID:     "PL",
 				SendChannelID: "ch",
 				Title:         "新しいタイトル",
@@ -206,26 +211,26 @@ func TestSubscriptionRepositoryUpdate(t *testing.T) {
 				GuildID:       1,
 				NotifiedUntil: hoursAgo(1),
 			},
-			want: []*subscription.Subscription{
-				{Model: model(1), YoutubeID: "PL", SendChannelID: "ch", Title: "新しいタイトル", PickInterval: subscription.PickDaily, GuildID: 1, NotifiedUntil: hoursAgo(1)},
+			want: []*persistence.SubscriptionRecord{
+				{ID: 1, CreatedAt: hoursAgo(12), UpdatedAt: now, YoutubeID: "PL", SendChannelID: "ch", Title: "新しいタイトル", PickInterval: "daily", GuildID: 1, NotifiedUntil: hoursAgo(1)},
 			},
 		},
 		{
 			name:         "ID のない通知設定は保存しない",
-			stored:       []any{newSubscription(1, "PL", "PL")},
+			stored:       []any{subscriptionRow(1, "PL", "PL")},
 			subscription: &subscription.Subscription{YoutubeID: "PL", SendChannelID: "ch", Title: "新しいタイトル", GuildID: 1},
-			want: []*subscription.Subscription{
-				storedSubscription(1, 1, "PL", "PL"),
+			want: []*persistence.SubscriptionRecord{
+				storedSubscriptionRow(1, 1, "PL", "PL"),
 			},
 			wantErr: domain.ErrDBRecordNotFound,
 		},
 		{
 			// 読んだ後に解除された通知設定を、保存し直して元に戻さない
 			name:         "論理削除した通知設定は保存しない",
-			stored:       []any{deletedSubscription(1, "PL", "PL")},
+			stored:       []any{deletedSubscriptionRow(1, "PL", "PL")},
 			subscription: storedSubscription(1, 1, "PL", "新しいタイトル"),
-			want: []*subscription.Subscription{
-				{Model: deleted(1), YoutubeID: "PL", SendChannelID: "ch", Title: "PL", GuildID: 1, NotifiedUntil: hoursAgo(6)},
+			want: []*persistence.SubscriptionRecord{
+				{Model: deleted(1), YoutubeID: "PL", SendChannelID: "ch", Title: "PL", PickInterval: "weekly", GuildID: 1, NotifiedUntil: hoursAgo(6)},
 			},
 			wantErr: domain.ErrDBRecordNotFound,
 		},
@@ -239,7 +244,7 @@ func TestSubscriptionRepositoryUpdate(t *testing.T) {
 			err := persistence.NewSubscriptionRepository(db).Update(tt.subscription)
 
 			assert.ErrorIs(t, err, tt.wantErr)
-			assert.Equal(t, tt.want, rows[subscription.Subscription](t, db))
+			assert.Equal(t, tt.want, rows[persistence.SubscriptionRecord](t, db))
 		})
 	}
 }
@@ -248,7 +253,7 @@ func TestSubscriptionRepositoryDeleteAll(t *testing.T) {
 	tests := []struct {
 		name          string
 		subscriptions []*subscription.Subscription
-		want          []*subscription.Subscription
+		want          []*persistence.SubscriptionRecord
 		wantErr       error
 	}{
 		{
@@ -256,9 +261,9 @@ func TestSubscriptionRepositoryDeleteAll(t *testing.T) {
 			subscriptions: []*subscription.Subscription{
 				storedSubscription(1, 1, "PL1", "PL1"),
 			},
-			want: []*subscription.Subscription{
-				{Model: deleted(1), YoutubeID: "PL1", SendChannelID: "ch", Title: "PL1", GuildID: 1, NotifiedUntil: hoursAgo(6)},
-				storedSubscription(2, 1, "PL2", "PL2"),
+			want: []*persistence.SubscriptionRecord{
+				{Model: deleted(1), YoutubeID: "PL1", SendChannelID: "ch", Title: "PL1", PickInterval: "weekly", GuildID: 1, NotifiedUntil: hoursAgo(6)},
+				storedSubscriptionRow(2, 1, "PL2", "PL2"),
 			},
 		},
 		{
@@ -267,9 +272,9 @@ func TestSubscriptionRepositoryDeleteAll(t *testing.T) {
 				storedSubscription(1, 1, "PL1", "PL1"),
 				{YoutubeID: "PL2"},
 			},
-			want: []*subscription.Subscription{
-				storedSubscription(1, 1, "PL1", "PL1"),
-				storedSubscription(2, 1, "PL2", "PL2"),
+			want: []*persistence.SubscriptionRecord{
+				storedSubscriptionRow(1, 1, "PL1", "PL1"),
+				storedSubscriptionRow(2, 1, "PL2", "PL2"),
 			},
 			wantErr: domain.ErrDBRecordNotFound,
 		},
@@ -278,12 +283,12 @@ func TestSubscriptionRepositoryDeleteAll(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			db := newDB(t)
 			seed(t, db, guilds()...)
-			seed(t, db, newSubscription(1, "PL1", "PL1"), newSubscription(1, "PL2", "PL2"))
+			seed(t, db, subscriptionRow(1, "PL1", "PL1"), subscriptionRow(1, "PL2", "PL2"))
 
 			err := persistence.NewSubscriptionRepository(db).DeleteAll(tt.subscriptions)
 
 			assert.ErrorIs(t, err, tt.wantErr)
-			assert.Equal(t, tt.want, rows[subscription.Subscription](t, db))
+			assert.Equal(t, tt.want, rows[persistence.SubscriptionRecord](t, db))
 		})
 	}
 }

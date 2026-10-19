@@ -165,69 +165,133 @@ func deleted(id uint) gorm.Model {
 	return gorm.Model{ID: id, CreatedAt: now, UpdatedAt: now, DeletedAt: gorm.DeletedAt{Time: now, Valid: true}}
 }
 
-// newSubscription は保存する前の、ギルド guildID の通知設定を返す。新着動画の
-// 通知の基準時刻（NotifiedUntil）は 6 時間前にする。
-func newSubscription(guildID uint, playlistID library.PlaylistID, title string) *subscription.Subscription {
-	return &subscription.Subscription{
+// guildRow は保存する前のギルドの行を返す。
+func guildRow(discordID string) *persistence.GuildRecord {
+	return &persistence.GuildRecord{DiscordID: discordID}
+}
+
+// subscriptionRow は保存する前の、ギルド guildID の通知設定の行を返す。新着動画の
+// 通知の基準時刻（notified_until）は 6 時間前、ピックは毎週にする。
+func subscriptionRow(guildID uint, playlistID, title string) *persistence.SubscriptionRecord {
+	return &persistence.SubscriptionRecord{
 		YoutubeID:     playlistID,
 		SendChannelID: "ch",
 		Title:         title,
+		PickInterval:  "weekly",
 		GuildID:       guildID,
 		NotifiedUntil: hoursAgo(6),
 	}
 }
 
-// storedSubscription は newSubscription で作って ID id で保存した通知設定を返す。
+// storedSubscriptionRow は subscriptionRow で作って ID id で保存した行を返す。
+func storedSubscriptionRow(id, guildID uint, playlistID, title string) *persistence.SubscriptionRecord {
+	r := subscriptionRow(guildID, playlistID, title)
+	r.Model = model(id)
+
+	return r
+}
+
+// deletedSubscriptionRow は保存する前の、論理削除した通知設定の行を返す。
+func deletedSubscriptionRow(guildID uint, playlistID, title string) *persistence.SubscriptionRecord {
+	r := subscriptionRow(guildID, playlistID, title)
+	r.DeletedAt = gorm.DeletedAt{Time: now, Valid: true}
+
+	return r
+}
+
+// storedSubscription は storedSubscriptionRow の行をリポジトリが読んだときの通知設定を返す。
 func storedSubscription(id, guildID uint, playlistID library.PlaylistID, title string) *subscription.Subscription {
-	s := newSubscription(guildID, playlistID, title)
-	s.Model = model(id)
-
-	return s
+	return &subscription.Subscription{
+		ID:            id,
+		YoutubeID:     playlistID,
+		SendChannelID: "ch",
+		Title:         title,
+		PickInterval:  subscription.PickWeekly,
+		GuildID:       guildID,
+		NotifiedUntil: hoursAgo(6),
+	}
 }
 
-// deletedSubscription は保存する前の、論理削除した通知設定を返す。
-func deletedSubscription(guildID uint, playlistID library.PlaylistID, title string) *subscription.Subscription {
-	s := newSubscription(guildID, playlistID, title)
-	s.DeletedAt = gorm.DeletedAt{Time: now, Valid: true}
-
-	return s
-}
-
-// newItem は保存する前のプレイリストのアイテムを返す。
-func newItem(playlistID library.PlaylistID, itemID library.ItemID, videoID library.VideoID, addedAt time.Time) *library.PlaylistItem {
+// item はプレイリストのアイテムを返す。
+func item(playlistID library.PlaylistID, itemID library.ItemID, videoID library.VideoID, addedAt time.Time) *library.PlaylistItem {
 	return &library.PlaylistItem{PlaylistYoutubeID: playlistID, ItemID: itemID, VideoYoutubeID: videoID, AddedAt: addedAt}
 }
 
-// storedItem は newItem で作って ID id で保存したアイテムを返す。
-func storedItem(id uint, playlistID library.PlaylistID, itemID library.ItemID, videoID library.VideoID, addedAt time.Time) *library.PlaylistItem {
-	i := newItem(playlistID, itemID, videoID, addedAt)
-	i.ID, i.CreatedAt, i.UpdatedAt = id, now, now
-
-	return i
+// itemRow は保存する前の、item と同じアイテムの行を返す。
+func itemRow(playlistID, itemID, videoID string, addedAt time.Time) *persistence.PlaylistItemRecord {
+	return &persistence.PlaylistItemRecord{PlaylistYoutubeID: playlistID, ItemID: itemID, VideoYoutubeID: videoID, AddedAt: addedAt}
 }
 
-// newVideo は保存する前の公開の動画を返す。タイトルは ID と同じにする。
-func newVideo(youtubeID library.VideoID, views library.ViewCount) *library.Video {
+// storedItemRow は行 r を ID id で now に保存した行を返す。
+func storedItemRow(id uint, r *persistence.PlaylistItemRecord) *persistence.PlaylistItemRecord {
+	r.ID, r.CreatedAt, r.UpdatedAt = id, now, now
+
+	return r
+}
+
+// video は公開の動画を返す。タイトルは ID と同じにする。
+func video(youtubeID library.VideoID, views library.ViewCount) *library.Video {
 	return &library.Video{YoutubeID: youtubeID, Title: string(youtubeID), PrivacyStatus: library.PrivacyPublic, Views: views}
 }
 
-// storedVideo は newVideo で作って ID id で保存した動画を返す。
-func storedVideo(id uint, youtubeID library.VideoID, views library.ViewCount) *library.Video {
-	v := newVideo(youtubeID, views)
-	v.ID, v.CreatedAt, v.UpdatedAt = id, now, now
-
-	return v
+// videoRow は保存する前の、video と同じ動画の行を返す。
+func videoRow(youtubeID string, views uint64) *persistence.VideoRecord {
+	return &persistence.VideoRecord{YoutubeID: youtubeID, Title: youtubeID, PrivacyStatus: "public", Views: views}
 }
 
-// newSnapshot は保存する前の、hoursAgo(hours) に記録した動画の状態を返す。
-func newSnapshot(videoID library.VideoID, hours int, views library.ViewCount) *library.VideoSnapshot {
-	return &library.VideoSnapshot{VideoYoutubeID: videoID, RecordedAt: hoursAgo(hours), Views: views}
+// storedVideoRow は行 r を ID id で now に保存した行を返す。
+func storedVideoRow(id uint, r *persistence.VideoRecord) *persistence.VideoRecord {
+	r.ID, r.CreatedAt, r.UpdatedAt = id, now, now
+
+	return r
 }
 
-// storedSnapshot は newSnapshot で作って ID id で保存した状態を返す。
-func storedSnapshot(id uint, videoID library.VideoID, hours int, views library.ViewCount) *library.VideoSnapshot {
-	s := newSnapshot(videoID, hours, views)
-	s.ID = id
+// fullVideo は全てのフィールドに値のある動画を返す。変換で写し忘れたフィールドを見つけるのに使う。
+func fullVideo() *library.Video {
+	milestone := library.ViewCount(100_000)
 
-	return s
+	return &library.Video{
+		YoutubeID:        "full",
+		Title:            "全部入り",
+		Views:            120_000,
+		PrivacyStatus:    library.PrivacyUnlisted,
+		PublishedAt:      hoursAgo(24),
+		ViewMilestone:    &milestone,
+		Likes:            300,
+		Comments:         40,
+		ChannelYoutubeID: "UC1",
+		Duration:         3 * time.Minute,
+		Tags:             []string{"tag"},
+		CategoryID:       "10",
+	}
+}
+
+// fullVideoRow は保存する前の、fullVideo と同じ動画の行を返す。
+func fullVideoRow() *persistence.VideoRecord {
+	milestone := uint64(100_000)
+
+	return &persistence.VideoRecord{
+		YoutubeID:        "full",
+		Title:            "全部入り",
+		Views:            120_000,
+		PrivacyStatus:    "unlisted",
+		PublishedAt:      hoursAgo(24),
+		ViewMilestone:    &milestone,
+		Likes:            300,
+		Comments:         40,
+		ChannelYoutubeID: "UC1",
+		Duration:         3 * time.Minute,
+		Tags:             []string{"tag"},
+		CategoryID:       "10",
+	}
+}
+
+// snapshot は hoursAgo(hours) に記録した、公開の動画の状態を返す。タイトルは動画の ID と同じにする。
+func snapshot(videoID library.VideoID, hours int, views library.ViewCount) *library.VideoSnapshot {
+	return &library.VideoSnapshot{VideoYoutubeID: videoID, RecordedAt: hoursAgo(hours), Title: string(videoID), PrivacyStatus: library.PrivacyPublic, Views: views, Likes: 2, Comments: 1}
+}
+
+// snapshotRow は保存する前の、snapshot と同じ状態の行を返す。
+func snapshotRow(videoID string, hours int, views uint64) *persistence.VideoSnapshotRecord {
+	return &persistence.VideoSnapshotRecord{VideoYoutubeID: videoID, RecordedAt: hoursAgo(hours), Title: videoID, PrivacyStatus: "public", Views: views, Likes: 2, Comments: 1}
 }

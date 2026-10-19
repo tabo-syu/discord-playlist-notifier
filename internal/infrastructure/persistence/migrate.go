@@ -4,10 +4,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
-
 	"gorm.io/gorm"
 )
 
@@ -24,7 +20,7 @@ func Migrate(db *gorm.DB) error {
 		log.Println("Dropped the old videos table")
 	}
 
-	if err := db.AutoMigrate(&guild.Guild{}, &subscription.Subscription{}, &library.PlaylistItem{}, &library.Video{}, &library.Channel{}, &library.Category{}, &library.VideoSnapshot{}); err != nil {
+	if err := db.AutoMigrate(&guildRecord{}, &subscriptionRecord{}, &playlistItemRecord{}, &videoRecord{}, &channelRecord{}, &categoryRecord{}, &videoSnapshotRecord{}); err != nil {
 		return err
 	}
 
@@ -42,7 +38,7 @@ func Migrate(db *gorm.DB) error {
 
 	// 集約は互いを ID でのみ参照するので、GORM は Guild.Playlists の関連付けから
 	// 作っていた外部キーをもう導出しない。
-	if !db.Migrator().HasConstraint(&subscription.Subscription{}, "fk_guilds_playlists") {
+	if !db.Migrator().HasConstraint(&subscriptionRecord{}, "fk_guilds_playlists") {
 		err := db.Exec("ALTER TABLE playlists ADD CONSTRAINT fk_guilds_playlists FOREIGN KEY (guild_id) REFERENCES guilds(id)").Error
 		if err != nil {
 			return fmt.Errorf("could not add the foreign key of playlists: %w", err)

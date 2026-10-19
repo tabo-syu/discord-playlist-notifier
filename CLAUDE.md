@@ -48,7 +48,7 @@ cp .env.example .env && docker compose up -d && docker compose logs -f bot mcp
 ## アーキテクチャ
 
 DDD のレイヤードアーキテクチャです。依存は外側から内側への一方向で、depguard が
-強制します（`domain` は他のレイヤを、`application` は `infrastructure` と `presentation` を
+強制します（`domain` は他のレイヤと GORM を、`application` は `infrastructure` と `presentation` を
 import しない。`internal/mocks` はテストからだけ import する）。
 
 ```
@@ -77,7 +77,12 @@ internal/mocks/              mockery が生成した mock（手で編集しな�
   GORM の関連付けは使いません。
 - ID や状態は値オブジェクト（`guild.DiscordID`、`library.VideoID` など）です。文字列との
   変換は境界（コマンドハンドラ、`infrastructure`）で行います。
-- フィールドは GORM のために公開していますが、状態は直接代入せず、メソッド
+- ドメインのモデルは保存の仕方を知りません。テーブルの行の形（`gorm.Model`、タグ、
+  `TableName()`）は `infrastructure/persistence/records.go` のレコードが持ち、リポジトリが
+  ドメインのモデルとの間で変換します。代理キーの `ID` をドメインに残しているのは、集約の
+  識別子として使う `Guild` と `Subscription` だけで、`library` のモデルは YouTube の ID で識別します。
+  監査用の時刻（`created_at`・`updated_at`）と論理削除（`deleted_at`）はレコードにだけあります。
+- フィールドは公開していますが、状態は直接代入せず、メソッド
   （`Subscription.MarkNotified`、`Video.ChangePrivacy` など）を通して変えます。
 - リポジトリと外部サービスのインターフェース（`library.YouTube`）は各集約の
   パッケージで宣言します。
@@ -124,9 +129,13 @@ internal/mocks/              mockery が生成した mock（手で編集しな�
 
 ### 永続化するフィールドを追加する
 
-`internal/domain/` の構造体に追加すれば、`cmd/migrate` が `persistence.Migrate` の `AutoMigrate` で
-カラムを足します。マイグレーションファイルはありません。新しいモデルは `Migrate` に
-追加し、`TableName()` を定義します。既存の行に値を入れる必要があるときは、AutoMigrate の後に
+`internal/domain/` の構造体と、`infrastructure/persistence/records.go` のレコード、その間の
+変換の関数（`toXRecord`・`toDomain`）の 3 か所に追加すれば、`cmd/migrate` が
+`persistence.Migrate` の `AutoMigrate` でカラムを足します。レコードのフィールドは値オブジェクト
+ではなく基本の型（`string`・`uint64` など）にし、インデックスなどのタグもレコードに付けます。
+写し忘れは、全てのフィールドに値を入れて保存・読み戻すリポジトリのテスト（`fullVideo` など）で
+見つけます。マイグレーションファイルはありません。新しいテーブルはレコードを `Migrate` に
+追加し、レコードに `TableName()` を定義します。既存の行に値を入れる必要があるときは、AutoMigrate の後に
 何度実行しても同じ結果になる UPDATE を `Migrate` に書きます（`notified_until` の例）。リネームと削除は AutoMigrate がしないので、DB に
 手で行う必要があることをユーザーに伝えます。
 

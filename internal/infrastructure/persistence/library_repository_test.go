@@ -19,16 +19,16 @@ func TestLibraryRepositoryFindItems(t *testing.T) {
 		{
 			name: "指定したプレイリストのアイテムを、追加された順に返す",
 			stored: []any{
-				newItem("PL1", "1", "a", hoursAgo(2)),
-				newItem("PL2", "2", "b", hoursAgo(1)),
-				newItem("PL1", "3", "c", hoursAgo(3)),
-				newItem("OTHER", "4", "d", hoursAgo(4)),
+				itemRow("PL1", "1", "a", hoursAgo(2)),
+				itemRow("PL2", "2", "b", hoursAgo(1)),
+				itemRow("PL1", "3", "c", hoursAgo(3)),
+				itemRow("OTHER", "4", "d", hoursAgo(4)),
 			},
 			playlistIDs: []library.PlaylistID{"PL1", "PL2"},
 			want: []*library.PlaylistItem{
-				storedItem(3, "PL1", "3", "c", hoursAgo(3)),
-				storedItem(1, "PL1", "1", "a", hoursAgo(2)),
-				storedItem(2, "PL2", "2", "b", hoursAgo(1)),
+				item("PL1", "3", "c", hoursAgo(3)),
+				item("PL1", "1", "a", hoursAgo(2)),
+				item("PL2", "2", "b", hoursAgo(1)),
 			},
 		},
 		{
@@ -60,8 +60,15 @@ func TestLibraryRepositoryFindVideos(t *testing.T) {
 			name: "指定した動画を返す",
 			ids:  []library.VideoID{"a", "c", "unknown"},
 			want: map[library.VideoID]*library.Video{
-				"a": storedVideo(1, "a", 100),
-				"c": storedVideo(3, "c", 300),
+				"a": video("a", 100),
+				"c": video("c", 300),
+			},
+		},
+		{
+			name: "行の全てのカラムを動画に写す",
+			ids:  []library.VideoID{"full"},
+			want: map[library.VideoID]*library.Video{
+				"full": fullVideo(),
 			},
 		},
 		{
@@ -73,7 +80,7 @@ func TestLibraryRepositoryFindVideos(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			db := newDB(t)
-			seed(t, db, newVideo("a", 100), newVideo("b", 200), newVideo("c", 300))
+			seed(t, db, videoRow("a", 100), videoRow("b", 200), videoRow("c", 300), fullVideoRow())
 
 			got, err := persistence.NewLibraryRepository(db).FindVideos(tt.ids)
 
@@ -93,8 +100,8 @@ func TestLibraryRepositoryFindItemsByVideos(t *testing.T) {
 			name: "指定した動画を含む全てのプレイリストのアイテムを返す",
 			ids:  []library.VideoID{"a"},
 			want: []*library.PlaylistItem{
-				storedItem(1, "PL1", "1", "a", hoursAgo(2)),
-				storedItem(3, "PL2", "3", "a", hoursAgo(1)),
+				item("PL1", "1", "a", hoursAgo(2)),
+				item("PL2", "3", "a", hoursAgo(1)),
 			},
 		},
 		{
@@ -106,7 +113,7 @@ func TestLibraryRepositoryFindItemsByVideos(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			db := newDB(t)
-			seed(t, db, newItem("PL1", "1", "a", hoursAgo(2)), newItem("PL1", "2", "b", hoursAgo(2)), newItem("PL2", "3", "a", hoursAgo(1)))
+			seed(t, db, itemRow("PL1", "1", "a", hoursAgo(2)), itemRow("PL1", "2", "b", hoursAgo(2)), itemRow("PL2", "3", "a", hoursAgo(1)))
 
 			got, err := persistence.NewLibraryRepository(db).FindItemsByVideos(tt.ids)
 
@@ -127,8 +134,8 @@ func TestLibraryRepositoryFindVideosInPlaylists(t *testing.T) {
 			name:        "指定したプレイリストのアイテムの動画を返す",
 			playlistIDs: []library.PlaylistID{"PL1", "PL2"},
 			want: map[library.VideoID]*library.Video{
-				"a": storedVideo(1, "a", 100),
-				"b": storedVideo(2, "b", 200),
+				"a": video("a", 100),
+				"b": video("b", 200),
 			},
 		},
 		{
@@ -141,8 +148,8 @@ func TestLibraryRepositoryFindVideosInPlaylists(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			db := newDB(t)
 			seed(t, db,
-				newVideo("a", 100), newVideo("b", 200), newVideo("c", 300), newVideo("orphan", 400),
-				newItem("PL1", "1", "a", hoursAgo(1)), newItem("PL2", "2", "b", hoursAgo(1)), newItem("OTHER", "3", "c", hoursAgo(1)),
+				videoRow("a", 100), videoRow("b", 200), videoRow("c", 300), videoRow("orphan", 400),
+				itemRow("PL1", "1", "a", hoursAgo(1)), itemRow("PL2", "2", "b", hoursAgo(1)), itemRow("OTHER", "3", "c", hoursAgo(1)),
 			)
 
 			got, err := persistence.NewLibraryRepository(db).FindVideosInPlaylists(tt.playlistIDs...)
@@ -161,8 +168,8 @@ func TestLibraryRepositoryFindListedVideos(t *testing.T) {
 		{
 			name: "どれかのプレイリストにある動画だけを返す",
 			want: map[library.VideoID]*library.Video{
-				"a": storedVideo(1, "a", 100),
-				"b": storedVideo(2, "b", 200),
+				"a": video("a", 100),
+				"b": video("b", 200),
 			},
 		},
 	}
@@ -170,8 +177,8 @@ func TestLibraryRepositoryFindListedVideos(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			db := newDB(t)
 			seed(t, db,
-				newVideo("a", 100), newVideo("b", 200), newVideo("orphan", 300),
-				newItem("PL1", "1", "a", hoursAgo(1)), newItem("PL2", "2", "b", hoursAgo(1)), newItem("PL2", "3", "a", hoursAgo(1)),
+				videoRow("a", 100), videoRow("b", 200), videoRow("orphan", 300),
+				itemRow("PL1", "1", "a", hoursAgo(1)), itemRow("PL2", "2", "b", hoursAgo(1)), itemRow("PL2", "3", "a", hoursAgo(1)),
 			)
 
 			got, err := persistence.NewLibraryRepository(db).FindListedVideos()
@@ -188,40 +195,42 @@ func TestLibraryRepositoryApplyItems(t *testing.T) {
 		added      []*library.PlaylistItem
 		removed    []*library.PlaylistItem
 		videos     []*library.Video
-		wantItems  []*library.PlaylistItem
-		wantVideos []*library.Video
+		wantItems  []*persistence.PlaylistItemRecord
+		wantVideos []*persistence.VideoRecord
 	}{
 		{
+			// 外れたアイテムは YouTube のアイテム ID で消す
 			name: "アイテムを足して除き、動画を保存する",
 			added: []*library.PlaylistItem{
-				newItem("PL", "3", "c", hoursAgo(1)),
+				item("PL", "3", "c", hoursAgo(1)),
 			},
 			removed: []*library.PlaylistItem{
-				storedItem(2, "PL", "2", "b", hoursAgo(2)),
+				item("PL", "2", "b", hoursAgo(2)),
 			},
 			videos: []*library.Video{
-				storedVideo(1, "a", 150),
-				newVideo("c", 300),
+				video("a", 150),
+				video("c", 300),
 			},
-			wantItems: []*library.PlaylistItem{
-				storedItem(1, "PL", "1", "a", hoursAgo(3)),
-				storedItem(3, "PL", "3", "c", hoursAgo(1)),
+			wantItems: []*persistence.PlaylistItemRecord{
+				storedItemRow(1, itemRow("PL", "1", "a", hoursAgo(3))),
+				storedItemRow(3, itemRow("PL", "3", "c", hoursAgo(1))),
 			},
-			wantVideos: []*library.Video{
-				storedVideo(1, "a", 150),
-				storedVideo(2, "b", 200),
-				storedVideo(3, "c", 300),
+			// 競合した a の INSERT も ID を 1 つ使うので、c の ID は 4 になる
+			wantVideos: []*persistence.VideoRecord{
+				storedVideoRow(1, videoRow("a", 150)),
+				storedVideoRow(2, videoRow("b", 200)),
+				storedVideoRow(4, videoRow("c", 300)),
 			},
 		},
 		{
 			name: "何も変わらなければ何もしない",
-			wantItems: []*library.PlaylistItem{
-				storedItem(1, "PL", "1", "a", hoursAgo(3)),
-				storedItem(2, "PL", "2", "b", hoursAgo(2)),
+			wantItems: []*persistence.PlaylistItemRecord{
+				storedItemRow(1, itemRow("PL", "1", "a", hoursAgo(3))),
+				storedItemRow(2, itemRow("PL", "2", "b", hoursAgo(2))),
 			},
-			wantVideos: []*library.Video{
-				storedVideo(1, "a", 100),
-				storedVideo(2, "b", 200),
+			wantVideos: []*persistence.VideoRecord{
+				storedVideoRow(1, videoRow("a", 100)),
+				storedVideoRow(2, videoRow("b", 200)),
 			},
 		},
 	}
@@ -229,48 +238,47 @@ func TestLibraryRepositoryApplyItems(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			db := newDB(t)
 			seed(t, db,
-				newItem("PL", "1", "a", hoursAgo(3)), newItem("PL", "2", "b", hoursAgo(2)),
-				newVideo("a", 100), newVideo("b", 200),
+				itemRow("PL", "1", "a", hoursAgo(3)), itemRow("PL", "2", "b", hoursAgo(2)),
+				videoRow("a", 100), videoRow("b", 200),
 			)
 
 			err := persistence.NewLibraryRepository(db).ApplyItems("PL", tt.added, tt.removed, tt.videos)
 
 			assert.NoError(t, err)
-			assert.Equal(t, tt.wantItems, rows[library.PlaylistItem](t, db))
-			assert.Equal(t, tt.wantVideos, rows[library.Video](t, db))
+			assert.Equal(t, tt.wantItems, rows[persistence.PlaylistItemRecord](t, db))
+			assert.Equal(t, tt.wantVideos, rows[persistence.VideoRecord](t, db))
 		})
 	}
 }
 
 func TestLibraryRepositorySaveVideos(t *testing.T) {
-	milestone := library.ViewCount(100_000)
-
 	tests := []struct {
 		name   string
 		videos []*library.Video
-		want   []*library.Video
+		want   []*persistence.VideoRecord
 	}{
 		{
+			// id と created_at は保存済みの行のまま、updated_at は保存した時刻にする
 			name: "保存済みの動画は全てのカラムを上書きし、新しい動画は追加する",
 			videos: []*library.Video{
-				{YoutubeID: "a", Title: "新しいタイトル", PrivacyStatus: library.PrivacyUnlisted, Views: 120_000, ViewMilestone: &milestone, Tags: []string{"tag"}, CategoryID: "10", ChannelYoutubeID: "UC1"},
-				newVideo("b", 200),
+				fullVideo(),
+				video("b", 200),
 			},
-			want: []*library.Video{
-				{ID: 1, CreatedAt: now, UpdatedAt: now, YoutubeID: "a", Title: "新しいタイトル", PrivacyStatus: library.PrivacyUnlisted, Views: 120_000, ViewMilestone: &milestone, Tags: []string{"tag"}, CategoryID: "10", ChannelYoutubeID: "UC1"},
-				storedVideo(3, "b", 200),
+			want: []*persistence.VideoRecord{
+				storedVideoRow(1, fullVideoRow()),
+				storedVideoRow(3, videoRow("b", 200)),
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			db := newDB(t)
-			seed(t, db, newVideo("a", 100))
+			seed(t, db, videoRow("full", 100))
 
 			err := persistence.NewLibraryRepository(db).SaveVideos(tt.videos)
 
 			assert.NoError(t, err)
-			assert.Equal(t, tt.want, rows[library.Video](t, db))
+			assert.Equal(t, tt.want, rows[persistence.VideoRecord](t, db))
 		})
 	}
 }
@@ -283,8 +291,8 @@ func TestLibraryRepositoryFindSnapshots(t *testing.T) {
 		{
 			name: "指定した時刻以降に記録した動画の状態を、古い順に返す",
 			want: []*library.VideoSnapshot{
-				storedSnapshot(3, "a", 48, 200),
-				storedSnapshot(1, "a", 12, 300),
+				snapshot("a", 48, 200),
+				snapshot("a", 12, 300),
 			},
 		},
 	}
@@ -293,10 +301,10 @@ func TestLibraryRepositoryFindSnapshots(t *testing.T) {
 			db := newDB(t)
 			repo := persistence.NewLibraryRepository(db)
 			assert.NoError(t, repo.AddSnapshots([]*library.VideoSnapshot{
-				newSnapshot("a", 12, 300),
-				newSnapshot("a", 72, 100),
-				newSnapshot("a", 48, 200),
-				newSnapshot("b", 12, 999),
+				snapshot("a", 12, 300),
+				snapshot("a", 72, 100),
+				snapshot("a", 48, 200),
+				snapshot("b", 12, 999),
 			}))
 
 			got, err := repo.FindSnapshots("a", hoursAgo(48))
@@ -318,12 +326,12 @@ func TestLibraryRepositoryFindBoundarySnapshots(t *testing.T) {
 			name: "動画ごとに、指定した時刻以降で最初と最後の状態を返す",
 			ids:  []library.VideoID{"a", "b", "none"},
 			wantEarliest: map[library.VideoID]*library.VideoSnapshot{
-				"a": storedSnapshot(2, "a", 48, 200),
-				"b": storedSnapshot(4, "b", 24, 10),
+				"a": snapshot("a", 48, 200),
+				"b": snapshot("b", 24, 10),
 			},
 			wantLatest: map[library.VideoID]*library.VideoSnapshot{
-				"a": storedSnapshot(3, "a", 12, 300),
-				"b": storedSnapshot(4, "b", 24, 10),
+				"a": snapshot("a", 12, 300),
+				"b": snapshot("b", 24, 10),
 			},
 		},
 		{
@@ -336,7 +344,7 @@ func TestLibraryRepositoryFindBoundarySnapshots(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			db := newDB(t)
-			seed(t, db, newSnapshot("a", 72, 100), newSnapshot("a", 48, 200), newSnapshot("a", 12, 300), newSnapshot("b", 24, 10))
+			seed(t, db, snapshotRow("a", 72, 100), snapshotRow("a", 48, 200), snapshotRow("a", 12, 300), snapshotRow("b", 24, 10))
 			repo := persistence.NewLibraryRepository(db)
 
 			earliest, earliestErr := repo.FindEarliestSnapshots(tt.ids, hoursAgo(48))
@@ -363,15 +371,15 @@ func TestLibraryRepositorySaveChannels(t *testing.T) {
 				{YoutubeID: "UC2", Title: "UC2"},
 			},
 			want: map[library.ChannelID]*library.Channel{
-				"UC1": {ID: 1, CreatedAt: now, UpdatedAt: now, YoutubeID: "UC1", Title: "新しい名前"},
-				"UC2": {ID: 3, CreatedAt: now, UpdatedAt: now, YoutubeID: "UC2", Title: "UC2"},
+				"UC1": {YoutubeID: "UC1", Title: "新しい名前"},
+				"UC2": {YoutubeID: "UC2", Title: "UC2"},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			db := newDB(t)
-			seed(t, db, &library.Channel{YoutubeID: "UC1", Title: "古い名前"})
+			seed(t, db, &persistence.ChannelRecord{YoutubeID: "UC1", Title: "古い名前"})
 			repo := persistence.NewLibraryRepository(db)
 
 			err := repo.SaveChannels(tt.channels)
@@ -397,15 +405,15 @@ func TestLibraryRepositorySaveCategories(t *testing.T) {
 				{YoutubeID: "20", Title: "ゲーム", Assignable: true},
 			},
 			want: map[library.CategoryID]*library.Category{
-				"10": {ID: 1, CreatedAt: now, UpdatedAt: now, YoutubeID: "10", Title: "音楽", Assignable: false},
-				"20": {ID: 3, CreatedAt: now, UpdatedAt: now, YoutubeID: "20", Title: "ゲーム", Assignable: true},
+				"10": {YoutubeID: "10", Title: "音楽", Assignable: false},
+				"20": {YoutubeID: "20", Title: "ゲーム", Assignable: true},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			db := newDB(t)
-			seed(t, db, &library.Category{YoutubeID: "10", Title: "Music", Assignable: true})
+			seed(t, db, &persistence.CategoryRecord{YoutubeID: "10", Title: "Music", Assignable: true})
 			repo := persistence.NewLibraryRepository(db)
 
 			err := repo.SaveCategories(tt.categories)

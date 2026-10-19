@@ -18,14 +18,14 @@ func NewLibraryRepository(db *gorm.DB) *libraryRepository {
 }
 
 func (r *libraryRepository) FindItems(playlistIDs ...library.PlaylistID) ([]*library.PlaylistItem, error) {
-	var items []*library.PlaylistItem
+	var recs []*playlistItemRecord
 
-	err := r.db.Where("playlist_youtube_id IN ?", playlistIDs).Order("added_at").Find(&items).Error
+	err := r.db.Where("playlist_youtube_id IN ?", playlistIDs).Order("added_at").Find(&recs).Error
 	if err != nil {
 		return nil, err
 	}
 
-	return items, nil
+	return mapSlice(recs, (*playlistItemRecord).toDomain), nil
 }
 
 func (r *libraryRepository) FindVideos(ids []library.VideoID) (map[library.VideoID]*library.Video, error) {
@@ -34,54 +34,60 @@ func (r *libraryRepository) FindVideos(ids []library.VideoID) (map[library.Video
 		return videos, nil
 	}
 
-	var rows []*library.Video
-	if err := r.db.Where("youtube_id IN ?", ids).Find(&rows).Error; err != nil {
+	var recs []*videoRecord
+	if err := r.db.Where("youtube_id IN ?", ids).Find(&recs).Error; err != nil {
 		return nil, err
 	}
 
-	for _, v := range rows {
-		videos[v.YoutubeID] = v
+	for _, rec := range recs {
+		videos[library.VideoID(rec.YoutubeID)] = rec.toDomain()
 	}
 
 	return videos, nil
 }
 
 func (r *libraryRepository) FindItemsByVideos(ids []library.VideoID) ([]*library.PlaylistItem, error) {
-	var items []*library.PlaylistItem
 	if len(ids) == 0 {
-		return items, nil
+		return nil, nil
 	}
 
-	if err := r.db.Where("video_youtube_id IN ?", ids).Find(&items).Error; err != nil {
+	var recs []*playlistItemRecord
+	if err := r.db.Where("video_youtube_id IN ?", ids).Find(&recs).Error; err != nil {
 		return nil, err
 	}
 
-	return items, nil
+	return mapSlice(recs, (*playlistItemRecord).toDomain), nil
 }
 
 // サブクエリで絞り込むことで、何千もの ID を IN 句で送らずに済む。
 func (r *libraryRepository) FindVideosInPlaylists(playlistIDs ...library.PlaylistID) (map[library.VideoID]*library.Video, error) {
-	listed := r.db.Model(&library.PlaylistItem{}).Select("video_youtube_id").Where("playlist_youtube_id IN ?", playlistIDs)
+	listed := r.db.Model(&playlistItemRecord{}).Select("video_youtube_id").Where("playlist_youtube_id IN ?", playlistIDs)
 
 	return r.findVideosIn(listed)
 }
 
 func (r *libraryRepository) FindListedVideos() (map[library.VideoID]*library.Video, error) {
-	listed := r.db.Model(&library.PlaylistItem{}).Select("video_youtube_id")
+	listed := r.db.Model(&playlistItemRecord{}).Select("video_youtube_id")
 
 	return r.findVideosIn(listed)
 }
 
+// ApplyItems は外れたアイテムを、YouTube のアイテム ID（一意）で削除する。
 func (r *libraryRepository) ApplyItems(playlistID library.PlaylistID, added []*library.PlaylistItem, removed []*library.PlaylistItem, videos []*library.Video) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		if len(removed) > 0 {
-			if err := tx.Delete(&removed).Error; err != nil {
+			itemIDs := make([]string, 0, len(removed))
+			for _, i := range removed {
+				itemIDs = append(itemIDs, string(i.ItemID))
+			}
+
+			if err := tx.Where("item_id IN ?", itemIDs).Delete(&playlistItemRecord{}).Error; err != nil {
 				return err
 			}
 		}
 
 		if len(added) > 0 {
-			if err := tx.CreateInBatches(added, 500).Error; err != nil {
+			if err := tx.CreateInBatches(mapSlice(added, toPlaylistItemRecord), 500).Error; err != nil {
 				return err
 			}
 		}
@@ -99,18 +105,18 @@ func (r *libraryRepository) AddSnapshots(snapshots []*library.VideoSnapshot) err
 		return nil
 	}
 
-	return r.db.CreateInBatches(snapshots, 500).Error
+	return r.db.CreateInBatches(mapSlice(snapshots, toVideoSnapshotRecord), 500).Error
 }
 
 func (r *libraryRepository) FindSnapshots(id library.VideoID, since time.Time) ([]*library.VideoSnapshot, error) {
-	var snapshots []*library.VideoSnapshot
+	var recs []*videoSnapshotRecord
 
-	err := r.db.Where("video_youtube_id = ? AND recorded_at >= ?", id, since).Order("recorded_at").Find(&snapshots).Error
+	err := r.db.Where("video_youtube_id = ? AND recorded_at >= ?", id, since).Order("recorded_at").Find(&recs).Error
 	if err != nil {
 		return nil, err
 	}
 
-	return snapshots, nil
+	return mapSlice(recs, (*videoSnapshotRecord).toDomain), nil
 }
 
 func (r *libraryRepository) FindEarliestSnapshots(ids []library.VideoID, since time.Time) (map[library.VideoID]*library.VideoSnapshot, error) {
@@ -129,7 +135,7 @@ func (r *libraryRepository) SaveChannels(channels []*library.Channel) error {
 	return r.db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "youtube_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{"title", "updated_at"}),
-	}).CreateInBatches(channels, 500).Error
+	}).CreateInBatches(mapSlice(channels, toChannelRecord), 500).Error
 }
 
 func (r *libraryRepository) FindChannels(ids []library.ChannelID) (map[library.ChannelID]*library.Channel, error) {
@@ -138,13 +144,13 @@ func (r *libraryRepository) FindChannels(ids []library.ChannelID) (map[library.C
 		return channels, nil
 	}
 
-	var rows []*library.Channel
-	if err := r.db.Where("youtube_id IN ?", ids).Find(&rows).Error; err != nil {
+	var recs []*channelRecord
+	if err := r.db.Where("youtube_id IN ?", ids).Find(&recs).Error; err != nil {
 		return nil, err
 	}
 
-	for _, c := range rows {
-		channels[c.YoutubeID] = c
+	for _, rec := range recs {
+		channels[library.ChannelID(rec.YoutubeID)] = rec.toDomain()
 	}
 
 	return channels, nil
@@ -158,32 +164,32 @@ func (r *libraryRepository) SaveCategories(categories []*library.Category) error
 	return r.db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "youtube_id"}},
 		DoUpdates: clause.AssignmentColumns([]string{"title", "assignable", "updated_at"}),
-	}).Create(categories).Error
+	}).Create(mapSlice(categories, toCategoryRecord)).Error
 }
 
 func (r *libraryRepository) FindCategories() (map[library.CategoryID]*library.Category, error) {
-	var rows []*library.Category
-	if err := r.db.Find(&rows).Error; err != nil {
+	var recs []*categoryRecord
+	if err := r.db.Find(&recs).Error; err != nil {
 		return nil, err
 	}
 
 	categories := map[library.CategoryID]*library.Category{}
-	for _, c := range rows {
-		categories[c.YoutubeID] = c
+	for _, rec := range recs {
+		categories[library.CategoryID(rec.YoutubeID)] = rec.toDomain()
 	}
 
 	return categories, nil
 }
 
 func (r *libraryRepository) findVideosIn(ids *gorm.DB) (map[library.VideoID]*library.Video, error) {
-	var rows []*library.Video
-	if err := r.db.Where("youtube_id IN (?)", ids).Find(&rows).Error; err != nil {
+	var recs []*videoRecord
+	if err := r.db.Where("youtube_id IN (?)", ids).Find(&recs).Error; err != nil {
 		return nil, err
 	}
 
 	videos := map[library.VideoID]*library.Video{}
-	for _, v := range rows {
-		videos[v.YoutubeID] = v
+	for _, rec := range recs {
+		videos[library.VideoID(rec.YoutubeID)] = rec.toDomain()
 	}
 
 	return videos, nil
@@ -197,25 +203,26 @@ func (r *libraryRepository) findBoundarySnapshots(ids []library.VideoID, since t
 		return snapshots, nil
 	}
 
-	var rows []*library.VideoSnapshot
+	var recs []*videoSnapshotRecord
 
 	err := r.db.Select("DISTINCT ON (video_youtube_id) *").
 		Where("video_youtube_id IN ? AND recorded_at >= ?", ids, since).
 		Order("video_youtube_id, " + order).
-		Find(&rows).Error
+		Find(&recs).Error
 	if err != nil {
 		return nil, err
 	}
 
-	for _, s := range rows {
-		snapshots[s.VideoYoutubeID] = s
+	for _, rec := range recs {
+		snapshots[library.VideoID(rec.VideoYoutubeID)] = rec.toDomain()
 	}
 
 	return snapshots, nil
 }
 
 // 呼び出し側は完全な行（既存の値に新しい値をマージしたもの）を渡すので、
-// 競合時には全カラムを上書きする。
+// 競合時には全カラムを上書きする。ただし GORM は UpdateAll でも id と created_at を
+// 上書きしないので、ドメインのモデルが持たないこの 2 つは既存の値のまま残る。
 func saveVideos(db *gorm.DB, videos []*library.Video) error {
 	if len(videos) == 0 {
 		return nil
@@ -224,5 +231,5 @@ func saveVideos(db *gorm.DB, videos []*library.Video) error {
 	return db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "youtube_id"}},
 		UpdateAll: true,
-	}).CreateInBatches(videos, 500).Error
+	}).CreateInBatches(mapSlice(videos, toVideoRecord), 500).Error
 }
