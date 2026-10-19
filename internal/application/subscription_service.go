@@ -2,6 +2,7 @@ package application
 
 import (
 	"errors"
+	"time"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
@@ -13,10 +14,12 @@ type SubscriptionService struct {
 	youtube       library.YouTube
 	subscriptions subscription.Repository
 	guilds        guild.Repository
+	// 現在時刻。テストで固定できるように外から渡す
+	now func() time.Time
 }
 
-func NewSubscriptionService(y library.YouTube, s subscription.Repository, g guild.Repository) *SubscriptionService {
-	return &SubscriptionService{y, s, g}
+func NewSubscriptionService(y library.YouTube, s subscription.Repository, g guild.Repository, now func() time.Time) *SubscriptionService {
+	return &SubscriptionService{y, s, g, now}
 }
 
 func (s *SubscriptionService) FindByGuild(guildID guild.DiscordID) ([]*subscription.Subscription, error) {
@@ -48,7 +51,7 @@ func (s *SubscriptionService) Subscribe(guildID guild.DiscordID, channelID subsc
 		return err
 	}
 
-	return s.subscriptions.Add(subscription.New(g, channelID, playlist.YoutubeID, playlist.Title))
+	return s.subscriptions.Add(subscription.New(g, channelID, playlist.YoutubeID, playlist.Title, s.now()))
 }
 
 // Unsubscribe はギルドへのプレイリストの通知をやめる。
@@ -88,7 +91,7 @@ func (s *SubscriptionService) SetPickInterval(guildID guild.DiscordID, playlistI
 		if sub.YoutubeID == playlistID {
 			sub.ChangePickInterval(interval)
 
-			return s.subscriptions.UpdatePickInterval(sub)
+			return s.subscriptions.Update(sub)
 		}
 	}
 

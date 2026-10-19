@@ -28,6 +28,18 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 
+	// 新着動画の通知の基準時刻は、以前は updated_at だった。AutoMigrate が足した
+	// notified_until を空のままにすると全ての動画を新着とみなすので、updated_at で埋める。
+	// 途中で落ちても次の実行で埋まるように、カラムの有無にかかわらず毎回実行する。
+	result := db.Exec("UPDATE playlists SET notified_until = updated_at WHERE notified_until IS NULL")
+	if err := result.Error; err != nil {
+		return fmt.Errorf("could not fill notified_until of playlists: %w", err)
+	}
+
+	if result.RowsAffected > 0 {
+		log.Println("Filled notified_until of playlists:", result.RowsAffected)
+	}
+
 	// 集約は互いを ID でのみ参照するので、GORM は Guild.Playlists の関連付けから
 	// 作っていた外部キーをもう導出しない。
 	if !db.Migrator().HasConstraint(&subscription.Subscription{}, "fk_guilds_playlists") {

@@ -86,7 +86,7 @@ func TestComputeWrapped(t *testing.T) {
 ```go
 setup: func(m *deps) {
 	m.subscriptions.EXPECT().FindByGuild(guild.DiscordID("guild")).Return(subs, nil)
-	m.subscriptions.EXPECT().UpdatePickInterval(picking(subscription.PickDaily)).Return(nil)
+	m.subscriptions.EXPECT().Update(picking(subscription.PickDaily)).Return(nil)
 },
 ```
 

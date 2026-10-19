@@ -65,7 +65,7 @@ func newDeps(t *testing.T) *deps {
 // newCommand は mock で組み立てた本物のサービスでコマンドを作る。
 func newCommand(m *deps) *playlist_notifier.PlaylistNotifier {
 	return playlist_notifier.NewPlaylistNotifier(
-		application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds),
+		application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds, clock),
 		application.NewLibraryService(m.youtube, m.library, jst, clock),
 		jst,
 		clock,
@@ -120,7 +120,7 @@ func intOption(name string, value int) *discordgo.ApplicationCommandInteractionD
 // sub はギルド 1 の通知設定を返す。
 func sub(id uint, playlistID library.PlaylistID, title string) *subscription.Subscription {
 	return &subscription.Subscription{
-		ID: id, UpdatedAt: hoursAgo(6),
+		ID: id, NotifiedUntil: hoursAgo(6),
 		YoutubeID:     playlistID,
 		SendChannelID: "ch",
 		Title:         title,
@@ -146,7 +146,7 @@ func video(id library.VideoID) *library.Video {
 // picking は sub(1, "PL", "PL") のピックの間隔を interval にしたものを返す。
 func picking(interval subscription.PickInterval) *subscription.Subscription {
 	return &subscription.Subscription{
-		ID: 1, UpdatedAt: hoursAgo(6),
+		ID: 1, NotifiedUntil: hoursAgo(6),
 		YoutubeID:     "PL",
 		SendChannelID: "ch",
 		Title:         "PL",

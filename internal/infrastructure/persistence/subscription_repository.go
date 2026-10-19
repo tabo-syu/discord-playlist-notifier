@@ -80,15 +80,6 @@ func (r *subscriptionRepository) Update(s *subscription.Subscription) error {
 	return nil
 }
 
-// UpdatedAt に触れないように、Save ではなく UpdateColumn を使う。
-func (r *subscriptionRepository) UpdatePickInterval(s *subscription.Subscription) error {
-	if s.ID == 0 {
-		return domain.ErrDBRecordNotFound
-	}
-
-	return r.db.Model(s).UpdateColumn("pick_interval", s.PickInterval).Error
-}
-
 func (r *subscriptionRepository) DeleteAll(subscriptions []*subscription.Subscription) error {
 	var ids []uint
 

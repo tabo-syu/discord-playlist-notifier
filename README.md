@@ -313,13 +313,13 @@ erDiagram
     }
     playlists {
         bigint id PK
-        timestamptz updated_at "新着判定の基準時刻"
         timestamptz deleted_at "論理削除"
         text youtube_id "プレイリスト ID"
         text send_channel_id
         text title
         bigint guild_id FK
         text pick_interval
+        timestamptz notified_until "新着判定の基準時刻"
     }
     playlist_items {
         bigint id PK
@@ -378,7 +378,7 @@ erDiagram
 | `/playlist-notifier add` | コマンド | | 作成 | | |
 | `/playlist-notifier delete` | コマンド | | 論理削除 | | |
 | `/playlist-notifier pick` | コマンド | | `pick_interval` を更新 | | |
-| `NotifyUpdates`（新着の通知） | 5 分 | | `updated_at`・`title` を更新 | 追加・物理削除 | 作成・公開状態と詳細を更新 |
+| `NotifyUpdates`（新着の通知） | 5 分 | | `notified_until`・`title` を更新 | 追加・物理削除 | 作成・公開状態と詳細を更新 |
 | `RefreshVideos`（再生数の更新） | 6 時間 | | | | 詳細・節目を更新（`video_snapshots` に追記） |
 | `PostPicks` / `PostWrapped` | 毎日 / 年末 | | | | （読むだけ） |
 | `RefreshCategories`（カテゴリ名の更新） | 起動時と 1 日 | | | | （`categories` を上書き） |
@@ -404,18 +404,18 @@ stateDiagram-v2
 
 ```mermaid
 stateDiagram-v2
-    [*] --> 有効: /playlist-notifier add（updated_at = 登録時刻）
-    有効 --> 有効: 新着を通知（updated_at = 通知時刻、title を追従）
-    有効 --> 有効: /playlist-notifier pick（updated_at は変えない）
+    [*] --> 有効: /playlist-notifier add（notified_until = 登録時刻）
+    有効 --> 有効: 新着を通知（notified_until = 通知時刻、title を追従）
+    有効 --> 有効: /playlist-notifier pick（notified_until は変えない）
     有効 --> 論理削除: /playlist-notifier delete、GuildDelete
     論理削除 --> [*]: 消えない
 ```
 
 - **作成**: `add` で、YouTube でプレイリストの存在とタイトルを確かめてから作ります。同じサーバーに同じプレイリストは 1 つだけです。
-- **`updated_at` は新着判定の基準時刻**です。プレイリストへの追加時刻（`playlist_items.added_at`）がこれ以降のアイテムを新着とみなします。
+- **`notified_until` は新着判定の基準時刻**です。プレイリストへの追加時刻（`playlist_items.added_at`）がこれ以降のアイテムを新着とみなします。
   - 登録した時点が基準になるので、**登録前からあった動画は通知しません**。
   - 新着を通知するとき、Discord に送る**前に**現在時刻へ進めます。送信に失敗すると通知は失われますが、二重には送りません。
-  - `pick_interval` の変更は `UpdateColumn` で行い、`updated_at` を動かしません。
+  - `updated_at` は GORM が保存のたびに書き換える監査用の時刻で、新着の判定には使いません（以前は `updated_at` が基準時刻でした。`cmd/migrate` が、`notified_until` が空の行を `updated_at` で埋めます）。
   - 手で過去に戻すと、その時刻以降の動画を再通知できます。
 - **削除**: 論理削除です。プレイリストの中身（`playlist_items`、`videos`）は他のサーバーと共有しているので消しません。
 
@@ -493,7 +493,7 @@ stateDiagram-v2
 | 通知の直前の再生数 | 同上（DB の値より新しい） |
 | サムネイル | 動画 ID から URL を作れる |
 | 全件取得の状態（アイテム数・時刻） | メモリ上だけ。再起動で消える |
-| 通知した動画の履歴 | 持たない。`playlists.updated_at` との比較だけで新着を判定する |
+| 通知した動画の履歴 | 持たない。`playlists.notified_until` との比較だけで新着を判定する |
 
 #### 消えずに増え続けるもの
 

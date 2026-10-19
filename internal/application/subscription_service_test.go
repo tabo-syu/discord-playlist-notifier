@@ -21,7 +21,7 @@ func TestSubscriptionServiceSubscribe(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name: "YouTube のタイトルで登録する",
+			name: "YouTube のタイトルで登録し、登録した時刻を新着動画の基準時刻にする",
 			setup: func(m *deps) {
 				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(&library.PlaylistMeta{YoutubeID: "PL", Title: "タイトル"}, nil)
 				m.subscriptions.EXPECT().Exists(guild.DiscordID("guild"), library.PlaylistID("PL")).Return(false, nil)
@@ -31,6 +31,7 @@ func TestSubscriptionServiceSubscribe(t *testing.T) {
 					SendChannelID: "ch",
 					Title:         "タイトル",
 					GuildID:       1,
+					NotifiedUntil: now,
 				}).Return(nil)
 			},
 			wantErr: nil,
@@ -64,7 +65,7 @@ func TestSubscriptionServiceSubscribe(t *testing.T) {
 
 			m := newDeps(t)
 			tt.setup(m)
-			s := application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds)
+			s := application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds, clock)
 
 			err := s.Subscribe("guild", "ch", "PL")
 
@@ -112,7 +113,7 @@ func TestSubscriptionServiceUnsubscribe(t *testing.T) {
 
 			m := newDeps(t)
 			tt.setup(m)
-			s := application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds)
+			s := application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds, clock)
 
 			err := s.Unsubscribe("guild", tt.playlistID)
 
@@ -131,13 +132,13 @@ func TestSubscriptionServiceSetPickInterval(t *testing.T) {
 		wantErr    error
 	}{
 		{
-			name:       "ピックの間隔だけを保存する",
+			name:       "ピックの間隔を変えて保存し、新着動画の基準時刻は変えない",
 			playlistID: "PL",
 			setup: func(m *deps) {
 				m.subscriptions.EXPECT().FindByGuild(guild.DiscordID("guild")).Return([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil)
-				m.subscriptions.EXPECT().UpdatePickInterval(picking(1, "PL", subscription.PickWeekly)).Return(nil)
+				m.subscriptions.EXPECT().Update(picking(1, "PL", subscription.PickWeekly)).Return(nil)
 			},
 			wantErr: nil,
 		},
@@ -158,7 +159,7 @@ func TestSubscriptionServiceSetPickInterval(t *testing.T) {
 
 			m := newDeps(t)
 			tt.setup(m)
-			s := application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds)
+			s := application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds, clock)
 
 			err := s.SetPickInterval("guild", tt.playlistID, subscription.PickWeekly)
 

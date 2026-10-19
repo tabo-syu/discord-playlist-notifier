@@ -24,7 +24,7 @@ func TestPick(t *testing.T) {
 			data: subcommand("pick", stringOption("playlist-id", "PL"), stringOption("interval", "daily")),
 			setup: func(m *deps) {
 				m.guildHas(picking(subscription.PickNone))
-				m.subscriptions.EXPECT().UpdatePickInterval(picking(subscription.PickDaily)).Return(nil)
+				m.subscriptions.EXPECT().Update(picking(subscription.PickDaily)).Return(nil)
 			},
 			want: command.Text("毎日 12:00 に「今日の一本」を投稿します！\nhttps://www.youtube.com/playlist?list=PL"),
 		},
@@ -33,7 +33,7 @@ func TestPick(t *testing.T) {
 			data: subcommand("pick", stringOption("playlist-id", "PL"), stringOption("interval", "weekly")),
 			setup: func(m *deps) {
 				m.guildHas(picking(subscription.PickNone))
-				m.subscriptions.EXPECT().UpdatePickInterval(picking(subscription.PickWeekly)).Return(nil)
+				m.subscriptions.EXPECT().Update(picking(subscription.PickWeekly)).Return(nil)
 			},
 			want: command.Text("毎週月曜の 12:00 に「今週の一本」を投稿します！\nhttps://www.youtube.com/playlist?list=PL"),
 		},
@@ -42,7 +42,7 @@ func TestPick(t *testing.T) {
 			data: subcommand("pick", stringOption("playlist-id", "PL"), stringOption("interval", "monthly")),
 			setup: func(m *deps) {
 				m.guildHas(picking(subscription.PickNone))
-				m.subscriptions.EXPECT().UpdatePickInterval(picking(subscription.PickMonthly)).Return(nil)
+				m.subscriptions.EXPECT().Update(picking(subscription.PickMonthly)).Return(nil)
 			},
 			want: command.Text("毎月 1 日の 12:00 に「今月の一本」を投稿します！\nhttps://www.youtube.com/playlist?list=PL"),
 		},
@@ -51,7 +51,7 @@ func TestPick(t *testing.T) {
 			data: subcommand("pick", stringOption("playlist-id", "PL"), stringOption("interval", "off")),
 			setup: func(m *deps) {
 				m.guildHas(picking(subscription.PickDaily))
-				m.subscriptions.EXPECT().UpdatePickInterval(picking(subscription.PickNone)).Return(nil)
+				m.subscriptions.EXPECT().Update(picking(subscription.PickNone)).Return(nil)
 			},
 			want: command.Text("一本の投稿をやめました。\nhttps://www.youtube.com/playlist?list=PL"),
 		},

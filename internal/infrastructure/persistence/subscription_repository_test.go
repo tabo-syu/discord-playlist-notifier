@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"gorm.io/gorm"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
@@ -160,9 +159,9 @@ func TestSubscriptionRepositoryAdd(t *testing.T) {
 	}{
 		{
 			name:         "通知設定を保存する",
-			subscription: &subscription.Subscription{YoutubeID: "PL", SendChannelID: "ch", Title: "PL", GuildID: 1},
+			subscription: &subscription.Subscription{YoutubeID: "PL", SendChannelID: "ch", Title: "PL", GuildID: 1, NotifiedUntil: hoursAgo(6)},
 			want: []*subscription.Subscription{
-				{Model: model(1), YoutubeID: "PL", SendChannelID: "ch", Title: "PL", GuildID: 1},
+				{Model: model(1), YoutubeID: "PL", SendChannelID: "ch", Title: "PL", GuildID: 1, NotifiedUntil: hoursAgo(6)},
 			},
 		},
 		{
@@ -193,8 +192,9 @@ func TestSubscriptionRepositoryUpdate(t *testing.T) {
 		wantErr      error
 	}{
 		{
-			// GORM の Save は UpdatedAt を保存した時刻で上書きする
-			name: "全てのフィールドを保存し、UpdatedAt は保存した時刻にする",
+			// GORM の Save は UpdatedAt を保存した時刻で上書きするが、新着動画の
+			// 通知の基準時刻（NotifiedUntil）には触れない
+			name: "全てのフィールドを保存し、UpdatedAt だけは保存した時刻にする",
 			subscription: &subscription.Subscription{
 				ID: 1, CreatedAt: now, UpdatedAt: hoursAgo(1),
 				YoutubeID:     "PL",
@@ -202,9 +202,10 @@ func TestSubscriptionRepositoryUpdate(t *testing.T) {
 				Title:         "新しいタイトル",
 				PickInterval:  subscription.PickDaily,
 				GuildID:       1,
+				NotifiedUntil: hoursAgo(1),
 			},
 			want: []*subscription.Subscription{
-				{Model: model(1), YoutubeID: "PL", SendChannelID: "ch", Title: "新しいタイトル", PickInterval: subscription.PickDaily, GuildID: 1},
+				{Model: model(1), YoutubeID: "PL", SendChannelID: "ch", Title: "新しいタイトル", PickInterval: subscription.PickDaily, GuildID: 1, NotifiedUntil: hoursAgo(1)},
 			},
 		},
 		{
@@ -230,50 +231,6 @@ func TestSubscriptionRepositoryUpdate(t *testing.T) {
 	}
 }
 
-func TestSubscriptionRepositoryUpdatePickInterval(t *testing.T) {
-	tests := []struct {
-		name         string
-		subscription *subscription.Subscription
-		want         []*subscription.Subscription
-		wantErr      error
-	}{
-		{
-			name: "ピックの間隔だけを保存し、新着動画の基準時刻（UpdatedAt）は変えない",
-			subscription: &subscription.Subscription{
-				ID:            1,
-				YoutubeID:     "PL",
-				SendChannelID: "ch",
-				Title:         "新しいタイトル",
-				PickInterval:  subscription.PickWeekly,
-				GuildID:       1,
-			},
-			want: []*subscription.Subscription{
-				{ID: 1, CreatedAt: now, UpdatedAt: hoursAgo(6), YoutubeID: "PL", SendChannelID: "ch", Title: "PL", PickInterval: subscription.PickWeekly, GuildID: 1},
-			},
-		},
-		{
-			name:         "ID のない通知設定は保存しない",
-			subscription: &subscription.Subscription{PickInterval: subscription.PickWeekly},
-			want: []*subscription.Subscription{
-				storedSubscription(1, 1, "PL", "PL"),
-			},
-			wantErr: domain.ErrDBRecordNotFound,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			db := newDB(t)
-			seed(t, db, guilds()...)
-			seed(t, db, newSubscription(1, "PL", "PL"))
-
-			err := persistence.NewSubscriptionRepository(db).UpdatePickInterval(tt.subscription)
-
-			assert.ErrorIs(t, err, tt.wantErr)
-			assert.Equal(t, tt.want, rows[subscription.Subscription](t, db))
-		})
-	}
-}
-
 func TestSubscriptionRepositoryDeleteAll(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -287,7 +244,7 @@ func TestSubscriptionRepositoryDeleteAll(t *testing.T) {
 				storedSubscription(1, 1, "PL1", "PL1"),
 			},
 			want: []*subscription.Subscription{
-				{ID: 1, CreatedAt: now, UpdatedAt: hoursAgo(6), DeletedAt: gorm.DeletedAt{Time: now, Valid: true}, YoutubeID: "PL1", SendChannelID: "ch", Title: "PL1", GuildID: 1},
+				{Model: deleted(1), YoutubeID: "PL1", SendChannelID: "ch", Title: "PL1", GuildID: 1, NotifiedUntil: hoursAgo(6)},
 				storedSubscription(2, 1, "PL2", "PL2"),
 			},
 		},

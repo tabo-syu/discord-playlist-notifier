@@ -343,8 +343,8 @@ func TestNotificationServicePostPicks(t *testing.T) {
 			m := newDeps(t)
 			tt.setup(m)
 
-			clock := func() time.Time { return tt.now }
-			s := application.NewNotificationService(m.subscriptions, application.NewLibraryService(m.youtube, m.library, jst, clock), m.notifier, jst, clock)
+			fixed := func() time.Time { return tt.now }
+			s := application.NewNotificationService(m.subscriptions, application.NewLibraryService(m.youtube, m.library, jst, fixed), m.notifier, jst, fixed)
 
 			s.PostPicks()
 		})
@@ -433,8 +433,8 @@ func TestNotificationServicePostWrapped(t *testing.T) {
 			m := newDeps(t)
 			tt.setup(m)
 
-			clock := func() time.Time { return tt.now }
-			s := application.NewNotificationService(m.subscriptions, application.NewLibraryService(m.youtube, m.library, jst, clock), m.notifier, jst, clock)
+			fixed := func() time.Time { return tt.now }
+			s := application.NewNotificationService(m.subscriptions, application.NewLibraryService(m.youtube, m.library, jst, fixed), m.notifier, jst, fixed)
 
 			s.PostWrapped()
 		})
