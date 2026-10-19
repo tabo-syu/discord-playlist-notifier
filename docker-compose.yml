@@ -46,6 +46,37 @@ services:
       db:
         condition: service_healthy
 
+  # Dumps the database once a day into ./backups and keeps 14 days of dumps.
+  backup:
+    image: "postgres:14.4-alpine"
+    restart: unless-stopped
+    environment:
+      PGHOST: db
+      PGPORT: ${DB_PORT}
+      PGDATABASE: ${DB_NAME}
+      PGUSER: ${DB_USER}
+      PGPASSWORD: ${DB_PASSWORD}
+      TZ: ${DB_TIMEZONE}
+    volumes:
+      - ./backups:/backups
+    entrypoint: [ "/bin/sh", "-c" ]
+    command:
+      - |
+        while true; do
+          f=/backups/$$(date +%Y%m%d-%H%M%S).dump
+          if pg_dump -Fc -f "$$f.tmp" && mv "$$f.tmp" "$$f"; then
+            echo "Backup created: $$f"
+          else
+            rm -f "$$f.tmp"
+            echo "Backup failed: $$f"
+          fi
+          find /backups -name '*.dump' -mtime +14 -delete
+          sleep 86400
+        done
+    depends_on:
+      db:
+        condition: service_healthy
+
   db:
     image: "postgres:14.4-alpine"
     restart: always
