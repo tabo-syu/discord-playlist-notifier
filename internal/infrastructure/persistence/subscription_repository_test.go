@@ -187,14 +187,16 @@ func TestSubscriptionRepositoryAdd(t *testing.T) {
 func TestSubscriptionRepositoryUpdate(t *testing.T) {
 	tests := []struct {
 		name         string
+		stored       []any
 		subscription *subscription.Subscription
 		want         []*subscription.Subscription
 		wantErr      error
 	}{
 		{
-			// GORM の Save は UpdatedAt を保存した時刻で上書きするが、新着動画の
+			// GORM は UpdatedAt を保存した時刻で上書きするが、新着動画の
 			// 通知の基準時刻（NotifiedUntil）には触れない
-			name: "全てのフィールドを保存し、UpdatedAt だけは保存した時刻にする",
+			name:   "全てのフィールドを保存し、UpdatedAt だけは保存した時刻にする",
+			stored: []any{newSubscription(1, "PL", "PL")},
 			subscription: &subscription.Subscription{
 				ID: 1, CreatedAt: now, UpdatedAt: hoursAgo(1),
 				YoutubeID:     "PL",
@@ -210,9 +212,20 @@ func TestSubscriptionRepositoryUpdate(t *testing.T) {
 		},
 		{
 			name:         "ID のない通知設定は保存しない",
+			stored:       []any{newSubscription(1, "PL", "PL")},
 			subscription: &subscription.Subscription{YoutubeID: "PL", SendChannelID: "ch", Title: "新しいタイトル", GuildID: 1},
 			want: []*subscription.Subscription{
 				storedSubscription(1, 1, "PL", "PL"),
+			},
+			wantErr: domain.ErrDBRecordNotFound,
+		},
+		{
+			// 読んだ後に解除された通知設定を、保存し直して元に戻さない
+			name:         "論理削除した通知設定は保存しない",
+			stored:       []any{deletedSubscription(1, "PL", "PL")},
+			subscription: storedSubscription(1, 1, "PL", "新しいタイトル"),
+			want: []*subscription.Subscription{
+				{Model: deleted(1), YoutubeID: "PL", SendChannelID: "ch", Title: "PL", GuildID: 1, NotifiedUntil: hoursAgo(6)},
 			},
 			wantErr: domain.ErrDBRecordNotFound,
 		},
@@ -221,7 +234,7 @@ func TestSubscriptionRepositoryUpdate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			db := newDB(t)
 			seed(t, db, guilds()...)
-			seed(t, db, newSubscription(1, "PL", "PL"))
+			seed(t, db, tt.stored...)
 
 			err := persistence.NewSubscriptionRepository(db).Update(tt.subscription)
 

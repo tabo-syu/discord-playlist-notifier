@@ -8,7 +8,8 @@ import (
 type Repository interface {
 	Exists(guildID guild.DiscordID, playlistID library.PlaylistID) (bool, error)
 	Add(subscription *Subscription) error
-	// Update は通知設定の全てのフィールドを保存する。
+	// Update は通知設定の全てのフィールドを保存する。保存していないか、論理削除
+	// した通知設定には domain.ErrDBRecordNotFound を返す。
 	Update(subscription *Subscription) error
 	// FindAll は通知設定が 1 つもないときに domain.ErrDBRecordNotFound を返す。
 	FindAll() ([]*Subscription, error)

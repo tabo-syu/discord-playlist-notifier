@@ -67,14 +67,20 @@ func (r *subscriptionRepository) Add(s *subscription.Subscription) error {
 	return nil
 }
 
+// Save は対象の行がない（論理削除されている）と INSERT し直し、解除された通知設定を
+// 元に戻してしまうので、全てのカラムを Select して Updates する。
 func (r *subscriptionRepository) Update(s *subscription.Subscription) error {
 	if s.ID == 0 {
 		return domain.ErrDBRecordNotFound
 	}
 
-	result := r.db.Save(s)
+	result := r.db.Model(s).Select("*").Updates(s)
 	if err := result.Error; err != nil {
 		return err
+	}
+
+	if result.RowsAffected == 0 {
+		return domain.ErrDBRecordNotFound
 	}
 
 	return nil
