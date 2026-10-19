@@ -12,6 +12,8 @@ paths:
   この形のおかげでハンドラを mock だけでテストできます。文字列だけの応答は
   `command.Text(...)` で包みます。
 - ハンドラはアプリケーションサービスだけを呼び、文字列の引数を値オブジェクトに変換して渡します。
+  人が入力したプレイリスト ID や動画の ID は `library.ParseXxx` で検証し、形式が正しくなければ
+  サービスを呼ばずに断ります（`INVALID_PLAYLIST_ID_MESSAGE`）。
 - サブコマンドの手本は `playlist_notifier/` です。各サブコマンドは
   `*discordgo.ApplicationCommandOption` の変数と `*PlaylistNotifier` のメソッドを 1 ファイルに
   まとめます（`add.go` など）。

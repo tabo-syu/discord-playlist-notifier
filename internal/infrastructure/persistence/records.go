@@ -118,6 +118,7 @@ type videoRecord struct {
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	YoutubeID        string `gorm:"uniqueIndex"`
+	DetailsFetched   bool
 	Title            string
 	Views            uint64
 	PrivacyStatus    string
@@ -145,6 +146,7 @@ func toVideoRecord(v *library.Video) *videoRecord {
 
 	return &videoRecord{
 		YoutubeID:        string(v.YoutubeID),
+		DetailsFetched:   v.DetailsFetched,
 		Title:            v.Title,
 		Views:            uint64(v.Views),
 		PrivacyStatus:    string(v.PrivacyStatus),
@@ -169,6 +171,7 @@ func (r *videoRecord) toDomain() *library.Video {
 
 	return &library.Video{
 		YoutubeID:        library.VideoID(r.YoutubeID),
+		DetailsFetched:   r.DetailsFetched,
 		Title:            r.Title,
 		Views:            library.ViewCount(r.Views),
 		PrivacyStatus:    library.PrivacyStatus(r.PrivacyStatus),

@@ -22,7 +22,7 @@ func sub(playlistID library.PlaylistID, channelID subscription.ChannelID) *subsc
 
 // video は詳細を取得済みの動画を返す。タイトルは ID と同じにする。
 func video(id library.VideoID, status library.PrivacyStatus) *library.Video {
-	return &library.Video{YoutubeID: id, Title: string(id), PrivacyStatus: status}
+	return &library.Video{YoutubeID: id, DetailsFetched: true, Title: string(id), PrivacyStatus: status}
 }
 
 // added はプレイリストに hoursLater(hours) に追加された動画を返す。

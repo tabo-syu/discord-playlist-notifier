@@ -36,6 +36,18 @@ func Migrate(db *gorm.DB) error {
 		log.Println("Filled notified_until of playlists:", result.RowsAffected)
 	}
 
+	// 詳細を取得済みかは、以前はタイトルが空でないかで判断していた。AutoMigrate が足した
+	// details_fetched は既存の行で NULL なので、その判断で埋める。notified_until と同じく
+	// 毎回実行する。
+	result = db.Exec("UPDATE videos SET details_fetched = (COALESCE(title, '') <> '') WHERE details_fetched IS NULL")
+	if err := result.Error; err != nil {
+		return fmt.Errorf("could not fill details_fetched of videos: %w", err)
+	}
+
+	if result.RowsAffected > 0 {
+		log.Println("Filled details_fetched of videos:", result.RowsAffected)
+	}
+
 	// 集約は互いを ID でのみ参照するので、GORM は Guild.Playlists の関連付けから
 	// 作っていた外部キーをもう導出しない。
 	if !db.Migrator().HasConstraint(&subscriptionRecord{}, "fk_guilds_playlists") {

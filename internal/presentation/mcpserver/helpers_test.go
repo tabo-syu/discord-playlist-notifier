@@ -146,5 +146,5 @@ func item(playlistID library.PlaylistID, itemID library.ItemID, videoID library.
 
 // video は保存した公開の動画を返す。タイトルは ID と同じにする。
 func video(id library.VideoID, views library.ViewCount) *library.Video {
-	return &library.Video{YoutubeID: id, Title: string(id), PrivacyStatus: library.PrivacyPublic, Views: views}
+	return &library.Video{YoutubeID: id, DetailsFetched: true, Title: string(id), PrivacyStatus: library.PrivacyPublic, Views: views}
 }

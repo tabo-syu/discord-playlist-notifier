@@ -27,9 +27,10 @@ func TestNotifyHiddenVideo(t *testing.T) {
 				PlaylistID:    "PL",
 				PlaylistTitle: "お気に入り",
 				Video: &library.Video{
-					YoutubeID:     "a",
-					Title:         "a",
-					PrivacyStatus: library.PrivacyPrivate,
+					YoutubeID:      "a",
+					DetailsFetched: true,
+					Title:          "a",
+					PrivacyStatus:  library.PrivacyPrivate,
 				},
 			},
 			setup: func(discord *mocks.MockSender) {
@@ -49,9 +50,10 @@ func TestNotifyHiddenVideo(t *testing.T) {
 				PlaylistID:    "PL",
 				PlaylistTitle: "お気に入り",
 				Video: &library.Video{
-					YoutubeID:     "a",
-					Title:         "a",
-					PrivacyStatus: library.PrivacyDeleted,
+					YoutubeID:      "a",
+					DetailsFetched: true,
+					Title:          "a",
+					PrivacyStatus:  library.PrivacyDeleted,
 				},
 			},
 			setup: func(discord *mocks.MockSender) {

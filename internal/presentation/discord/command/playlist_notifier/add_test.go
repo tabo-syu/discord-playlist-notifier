@@ -10,6 +10,7 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command/playlist_notifier"
 )
 
 func TestAdd(t *testing.T) {
@@ -74,6 +75,12 @@ func TestAdd(t *testing.T) {
 			data:  subcommand("add", stringOption("playlist-id", "")),
 			setup: func(m *deps) {},
 			want:  command.Text("Error: Playlist ID cannot be empty."),
+		},
+		{
+			name:  "プレイリスト ID の形式が正しくなければ、何も呼ばずに断る",
+			data:  subcommand("add", stringOption("playlist-id", "https://www.youtube.com/playlist?list=PL")),
+			setup: func(m *deps) {},
+			want:  command.Text(playlist_notifier.INVALID_PLAYLIST_ID_MESSAGE),
 		},
 	}
 	for _, tt := range tests {

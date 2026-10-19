@@ -107,7 +107,7 @@ func item(playlistID library.PlaylistID, itemID library.ItemID, videoID library.
 
 // video は保存した動画を返す。タイトルは ID と同じにし、再生数の節目は milestone まで記録済みにする。
 func video(id library.VideoID, status library.PrivacyStatus, views, milestone library.ViewCount) *library.Video {
-	return &library.Video{YoutubeID: id, Title: string(id), PrivacyStatus: status, Views: views, ViewMilestone: &milestone}
+	return &library.Video{YoutubeID: id, DetailsFetched: true, Title: string(id), PrivacyStatus: status, Views: views, ViewMilestone: &milestone}
 }
 
 // picking はピックの間隔を interval にした、ギルド 1 の通知設定を返す。

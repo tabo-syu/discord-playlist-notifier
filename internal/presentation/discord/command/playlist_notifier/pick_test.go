@@ -8,6 +8,7 @@ import (
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command/playlist_notifier"
 )
 
 func TestPick(t *testing.T) {
@@ -68,6 +69,12 @@ func TestPick(t *testing.T) {
 			data:  subcommand("pick", stringOption("playlist-id", "PL")),
 			setup: func(m *deps) {},
 			want:  command.Text("Error: interval is required."),
+		},
+		{
+			name:  "プレイリスト ID の形式が正しくなければ、何も呼ばずに断る",
+			data:  subcommand("pick", stringOption("playlist-id", "https://www.youtube.com/playlist?list=PL"), stringOption("interval", "daily")),
+			setup: func(m *deps) {},
+			want:  command.Text(playlist_notifier.INVALID_PLAYLIST_ID_MESSAGE),
 		},
 	}
 	for _, tt := range tests {

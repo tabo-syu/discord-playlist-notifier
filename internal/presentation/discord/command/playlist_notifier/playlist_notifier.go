@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command"
 
 	"github.com/bwmarrin/discordgo"
@@ -18,6 +19,9 @@ type PlaylistNotifier struct {
 	// 現在時刻。テストで固定できるように外から渡す
 	now func() time.Time
 }
+
+// プレイリスト ID の引数に、ID に使えない文字（URL など）があったときの応答
+const INVALID_PLAYLIST_ID_MESSAGE = "プレイリストの ID の形式が正しくありません。\nプレイリストページの URL の「list=」より後ろの部分を入力してください。"
 
 var (
 	playlistIdOption = &discordgo.ApplicationCommandOption{
@@ -57,6 +61,16 @@ func NewPlaylistNotifier(s *application.SubscriptionService, l *application.Libr
 		loc,
 		now,
 	}
+}
+
+// parsePlaylistFilter は省略できるプレイリスト ID の引数を読み取る。省略されたときは、
+// 全てのプレイリストを表す空の ID を返す。
+func parsePlaylistFilter(s string) (library.PlaylistID, error) {
+	if s == "" {
+		return "", nil
+	}
+
+	return library.ParsePlaylistID(s)
 }
 
 func (c *PlaylistNotifier) GetCommand() *discordgo.ApplicationCommand {

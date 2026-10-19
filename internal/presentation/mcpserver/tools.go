@@ -31,6 +31,9 @@ const (
 	YOUTUBE_PLAYLIST_URL  = "https://www.youtube.com/playlist?list=%s"
 	YOUTUBE_VIDEO_URL     = "https://www.youtube.com/watch?v=%s"
 	ERR_VIDEO_NOT_WATCHED = "登録されているプレイリストに、その動画は見つかりません。find_videos で video_id を確認してください。"
+	ERR_INVALID_PLAYLIST  = "playlist_id の形式が正しくありません。list_playlists で ID を確認してください。"
+	ERR_INVALID_CHANNEL   = "channel_id の形式が正しくありません。find_videos の結果の channel_id を指定してください。"
+	ERR_INVALID_VIDEO     = "video_id には動画の ID か URL を指定してください。"
 )
 
 // クライアントの接続時に伝える
@@ -99,13 +102,30 @@ func logged[In, Out any](name string, h mcp.ToolHandlerFor[In, Out]) mcp.ToolHan
 // clientError はユースケースのエラーを、クライアントに見せるメッセージに変換する。
 // 内部エラーの原因はログに出すだけにする。
 func clientError(err error) error {
-	if errors.Is(err, subscription.ErrNotSubscribed) {
+	switch {
+	case errors.Is(err, subscription.ErrNotSubscribed):
 		return errors.New(ERR_NOT_WATCHED)
+	case errors.Is(err, library.ErrInvalidPlaylistID):
+		return errors.New(ERR_INVALID_PLAYLIST)
+	case errors.Is(err, library.ErrInvalidChannelID):
+		return errors.New(ERR_INVALID_CHANNEL)
+	case errors.Is(err, library.ErrInvalidVideoID):
+		return errors.New(ERR_INVALID_VIDEO)
 	}
 
 	log.Println("MCP query failed cause:", err)
 
 	return errors.New(ERR_INTERNAL)
+}
+
+// optional は省略できる引数を parse で読み取る。省略された（空の）ときは、
+// 絞り込まないことを表すゼロ値を返す。
+func optional[T ~string](s string, parse func(string) (T, error)) (T, error) {
+	if s == "" {
+		return "", nil
+	}
+
+	return parse(s)
 }
 
 // ---------- 出力 ----------
@@ -366,11 +386,21 @@ func (t *tools) findVideos(_ context.Context, _ *mcp.CallToolRequest, in findVid
 		return nil, findVideosOut{}, errors.New("min_duration_seconds と max_duration_seconds は 0 以上で指定してください")
 	}
 
+	playlistID, err := optional(in.PlaylistID, library.ParsePlaylistID)
+	if err != nil {
+		return nil, findVideosOut{}, clientError(err)
+	}
+
+	channelID, err := optional(in.ChannelID, library.ParseChannelID)
+	if err != nil {
+		return nil, findVideosOut{}, clientError(err)
+	}
+
 	page, err := t.query.FindVideos(application.VideoQuery{
-		PlaylistID:         library.PlaylistID(in.PlaylistID),
+		PlaylistID:         playlistID,
 		Title:              in.Title,
 		Channel:            in.Channel,
-		ChannelID:          library.ChannelID(in.ChannelID),
+		ChannelID:          channelID,
 		Tag:                in.Tag,
 		CategoryID:         category,
 		MinDuration:        time.Duration(in.MinDurationSec) * time.Second,
@@ -440,7 +470,10 @@ type playlistStatsOut struct {
 }
 
 func (t *tools) playlistStats(_ context.Context, _ *mcp.CallToolRequest, in playlistIn) (*mcp.CallToolResult, playlistStatsOut, error) {
-	id := library.PlaylistID(in.PlaylistID)
+	id, err := library.ParsePlaylistID(in.PlaylistID)
+	if err != nil {
+		return nil, playlistStatsOut{}, clientError(err)
+	}
 
 	playlist, err := t.query.Playlist(id)
 	if err != nil {
@@ -496,7 +529,10 @@ func (t *tools) playlistWrapped(_ context.Context, _ *mcp.CallToolRequest, in pl
 		year = t.now().In(t.location).Year()
 	}
 
-	id := library.PlaylistID(in.PlaylistID)
+	id, err := library.ParsePlaylistID(in.PlaylistID)
+	if err != nil {
+		return nil, playlistWrappedOut{}, clientError(err)
+	}
 
 	playlist, err := t.query.Playlist(id)
 	if err != nil {
@@ -552,7 +588,12 @@ func (t *tools) randomVideos(_ context.Context, _ *mcp.CallToolRequest, in rando
 		return nil, randomVideosOut{}, fmt.Errorf("count は 1〜%d で指定してください", MAX_RANDOM_COUNT)
 	}
 
-	picked, err := t.query.RandomVideos(library.PlaylistID(in.PlaylistID), count)
+	playlistID, err := optional(in.PlaylistID, library.ParsePlaylistID)
+	if err != nil {
+		return nil, randomVideosOut{}, clientError(err)
+	}
+
+	picked, err := t.query.RandomVideos(playlistID, count)
 	if err != nil {
 		return nil, randomVideosOut{}, clientError(err)
 	}
@@ -573,7 +614,7 @@ const (
 )
 
 type videoHistoryIn struct {
-	VideoID string `json:"video_id" jsonschema:"動画の ID"`
+	VideoID string `json:"video_id" jsonschema:"動画の ID か URL"`
 	Days    int    `json:"days,omitempty" jsonschema:"さかのぼる日数（1〜365、既定 30）"`
 }
 
@@ -603,7 +644,12 @@ func (t *tools) videoHistory(_ context.Context, _ *mcp.CallToolRequest, in video
 		return nil, videoHistoryOut{}, fmt.Errorf("days は 1〜%d で指定してください", MAX_HISTORY_DAYS)
 	}
 
-	h, err := t.query.History(library.VideoID(in.VideoID), t.now().AddDate(0, 0, -days))
+	id, err := library.ParseVideoID(in.VideoID)
+	if err != nil {
+		return nil, videoHistoryOut{}, clientError(err)
+	}
+
+	h, err := t.query.History(id, t.now().AddDate(0, 0, -days))
 	if errors.Is(err, library.ErrVideoNotFound) {
 		return nil, videoHistoryOut{}, errors.New(ERR_VIDEO_NOT_WATCHED)
 	}

@@ -49,8 +49,8 @@ var (
 )
 
 func (c *PlaylistNotifier) history(guildId string, video string, days int) *command.Response {
-	videoID, ok := library.ParseVideoID(video)
-	if !ok {
+	videoID, err := library.ParseVideoID(video)
+	if err != nil {
 		return command.Text("動画の URL か ID を入力してください。")
 	}
 

@@ -77,6 +77,11 @@ internal/mocks/              mockery が生成した mock（手で編集しな�
   GORM の関連付けは使いません。
 - ID や状態は値オブジェクト（`guild.DiscordID`、`library.VideoID` など）です。文字列との
   変換は境界（コマンドハンドラ、`infrastructure`）で行います。
+- 人が入力した ID（Discord のコマンドと MCP のツールの引数）は、`library.ParsePlaylistID`・
+  `ParseVideoID`・`ParseChannelID` で検証してから値オブジェクトにし、型の変換
+  （`library.PlaylistID(s)`）で作りません。YouTube API の応答、Discord がイベントに入れて送ってくる
+  ID、DB から読んだ値は、発行元が正しさを保証しているので型の変換で作ります。この規約は lint で
+  強制できないので、レビューで守ります。
 - ドメインのモデルは保存の仕方を知りません。テーブルの行の形（`gorm.Model`、タグ、
   `TableName()`）は `infrastructure/persistence/records.go` のレコードが持ち、リポジトリが
   ドメインのモデルとの間で変換します。代理キーの `ID` をドメインに残しているのは、集約の
@@ -84,6 +89,8 @@ internal/mocks/              mockery が生成した mock（手で編集しな�
   監査用の時刻（`created_at`・`updated_at`）と論理削除（`deleted_at`）はレコードにだけあります。
 - フィールドは公開していますが、状態は直接代入せず、メソッド
   （`Subscription.MarkNotified`、`Video.ChangePrivacy` など）を通して変えます。
+  動画の詳細を取得済みかは `Video.DetailsFetched`（`ApplyDetails` が立てる）で表し、タイトルが
+  空かどうかでは判断しません。
 - リポジトリと外部サービスのインターフェース（`library.YouTube`）は各集約の
   パッケージで宣言します。
 

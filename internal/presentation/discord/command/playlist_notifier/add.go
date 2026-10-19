@@ -21,11 +21,16 @@ var addSubCommand = &discordgo.ApplicationCommandOption{
 }
 
 func (c *PlaylistNotifier) add(guildId string, channelId string, playlistId string) string {
+	id, err := library.ParsePlaylistID(playlistId)
+	if err != nil {
+		return INVALID_PLAYLIST_ID_MESSAGE
+	}
+
 	var message string
 	//nolint:errorlint // 完全一致での比較は既知の挙動（CLAUDE.md）
-	switch c.subscriptions.Subscribe(guild.DiscordID(guildId), subscription.ChannelID(channelId), library.PlaylistID(playlistId)) {
+	switch c.subscriptions.Subscribe(guild.DiscordID(guildId), subscription.ChannelID(channelId), id) {
 	case nil:
-		message = fmt.Sprintf("通知登録しました！\nhttps://www.youtube.com/playlist?list=%s", playlistId)
+		message = fmt.Sprintf("通知登録しました！\nhttps://www.youtube.com/playlist?list=%s", id)
 	case library.ErrPlaylistNotFound:
 		message = "該当するプレイリストが見つかりませんでした...\n非公開のプレイリストではありませんか？"
 	case subscription.ErrAlreadySubscribed:

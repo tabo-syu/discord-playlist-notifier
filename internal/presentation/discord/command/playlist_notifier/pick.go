@@ -40,12 +40,17 @@ var (
 )
 
 func (c *PlaylistNotifier) pick(guildId string, playlistId string, choice string) string {
+	id, err := library.ParsePlaylistID(playlistId)
+	if err != nil {
+		return INVALID_PLAYLIST_ID_MESSAGE
+	}
+
 	interval := subscription.PickInterval(choice)
 	if choice == PICK_OFF {
 		interval = subscription.PickNone
 	}
 
-	err := c.subscriptions.SetPickInterval(guild.DiscordID(guildId), library.PlaylistID(playlistId), interval)
+	err = c.subscriptions.SetPickInterval(guild.DiscordID(guildId), id, interval)
 	switch {
 	case errors.Is(err, subscription.ErrNotSubscribed):
 		return "通知登録されていないプレイリストです。"
@@ -53,7 +58,7 @@ func (c *PlaylistNotifier) pick(guildId string, playlistId string, choice string
 		return "エラー！システムに問題があります！"
 	}
 
-	url := fmt.Sprintf("https://www.youtube.com/playlist?list=%s", playlistId)
+	url := fmt.Sprintf("https://www.youtube.com/playlist?list=%s", id)
 
 	switch interval {
 	case subscription.PickDaily:

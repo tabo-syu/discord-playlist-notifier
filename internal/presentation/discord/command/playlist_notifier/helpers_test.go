@@ -139,7 +139,7 @@ func added(playlistID library.PlaylistID, v *library.Video, addedAt time.Time) *
 
 // video は保存した公開の動画を返す。タイトルは ID と同じにする。
 func video(id library.VideoID) *library.Video {
-	return &library.Video{YoutubeID: id, Title: string(id), PrivacyStatus: library.PrivacyPublic}
+	return &library.Video{YoutubeID: id, DetailsFetched: true, Title: string(id), PrivacyStatus: library.PrivacyPublic}
 }
 
 // picking は sub(1, "PL", "PL") のピックの間隔を interval にしたものを返す。

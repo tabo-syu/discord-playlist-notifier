@@ -15,7 +15,7 @@ func date(year int, month time.Month, day, hour int) time.Time {
 
 // video は詳細を取得済みの動画を返す。タイトルは ID と同じにする。
 func video(id string, status library.PrivacyStatus, views library.ViewCount) *library.Video {
-	return &library.Video{YoutubeID: library.VideoID(id), Title: id, PrivacyStatus: status, Views: views}
+	return &library.Video{YoutubeID: library.VideoID(id), DetailsFetched: true, Title: id, PrivacyStatus: status, Views: views}
 }
 
 // added はプレイリストに addedAt に追加された動画を返す。

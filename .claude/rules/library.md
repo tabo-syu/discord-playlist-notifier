@@ -34,5 +34,7 @@ paths:
   （`persistence` の `subscriptionRecord.TableName()` で固定）。
 - 新着動画の通知の基準時刻は、以前は `playlists.updated_at` でした。今は `notified_until` で、
   `persistence.Migrate` が空の行を毎回 `updated_at` で埋めます（何度実行しても同じ結果になる）。
+- 動画の詳細を取得済みかは、以前はタイトルが空でないかで判断していました。今は
+  `videos.details_fetched` で、`persistence.Migrate` が空（NULL）の行を毎回タイトルの有無で埋めます。
 - `videos` テーブルは以前、通知した動画の履歴でした。古い形（`playlist_id` カラムがある）は、
   `persistence.Migrate`（`cmd/migrate`）が一度だけ削除します。

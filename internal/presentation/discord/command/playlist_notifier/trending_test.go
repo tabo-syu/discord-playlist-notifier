@@ -8,6 +8,7 @@ import (
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command/playlist_notifier"
 )
 
 // グラフの画像は比べられないので、グラフを添付しない場合だけを確かめる。
@@ -79,6 +80,12 @@ func TestTrending(t *testing.T) {
 			data:  subcommand("trending", intOption("days", 366)),
 			setup: func(m *deps) {},
 			want:  command.Text("Error: days must be between 1 and 365."),
+		},
+		{
+			name:  "プレイリスト ID の形式が正しくなければ、何も呼ばずに断る",
+			data:  subcommand("trending", stringOption("playlist-id", "https://www.youtube.com/playlist?list=PL1")),
+			setup: func(m *deps) {},
+			want:  command.Text(playlist_notifier.INVALID_PLAYLIST_ID_MESSAGE),
 		},
 	}
 	for _, tt := range tests {

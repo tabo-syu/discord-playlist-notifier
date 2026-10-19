@@ -9,6 +9,7 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command/playlist_notifier"
 )
 
 func TestDelete(t *testing.T) {
@@ -43,6 +44,12 @@ func TestDelete(t *testing.T) {
 			data:  subcommand("delete"),
 			setup: func(m *deps) {},
 			want:  command.Text("Error: Playlist ID is required."),
+		},
+		{
+			name:  "プレイリスト ID の形式が正しくなければ、何も呼ばずに断る",
+			data:  subcommand("delete", stringOption("playlist-id", "https://www.youtube.com/playlist?list=PL1")),
+			setup: func(m *deps) {},
+			want:  command.Text(playlist_notifier.INVALID_PLAYLIST_ID_MESSAGE),
 		},
 	}
 	for _, tt := range tests {
