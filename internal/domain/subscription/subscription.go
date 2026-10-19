@@ -17,8 +17,8 @@ type ChannelID string
 // Subscription はギルドが YouTube のプレイリストの通知を受けるための設定。
 // プレイリスト自体の中身は library に属する。
 //
-// UpdatedAt は新着動画の通知の基準時刻で、それ以降にプレイリストへ追加された
-// 動画が新着になる（IsNew を参照）。
+// gorm.Model の UpdatedAt は保存のたびに GORM が書き換える監査用の時刻で、
+// ドメインの判断には使わない。
 type Subscription struct {
 	gorm.Model
 
@@ -30,6 +30,10 @@ type Subscription struct {
 	// 通知設定が属する guild.Guild。他の集約は ID でのみ
 	// 参照する。
 	GuildID uint
+	// 新着動画の通知の基準時刻。これより前にプレイリストへ追加された動画は
+	// 通知済みか、登録より前からあったので通知しない。ちょうどこの時刻に
+	// 追加された動画は新着に含める（IsNew を参照）。
+	NotifiedUntil time.Time
 }
 
 // テーブル名はモデルのリネーム前の名前のままにしている。
@@ -37,25 +41,28 @@ func (Subscription) TableName() string {
 	return "playlists"
 }
 
-func New(g *guild.Guild, channelID ChannelID, youtubeID library.PlaylistID, title string) *Subscription {
+// New は subscribedAt に登録した通知設定を返す。登録より前からプレイリストに
+// あった動画は通知しない。
+func New(g *guild.Guild, channelID ChannelID, youtubeID library.PlaylistID, title string, subscribedAt time.Time) *Subscription {
 	return &Subscription{
 		YoutubeID:     youtubeID,
 		SendChannelID: channelID,
 		Title:         title,
 		GuildID:       g.ID,
+		NotifiedUntil: subscribedAt,
 	}
 }
 
 // IsNew はアイテムが前回の通知以降に追加されたかを返す。
 // ちょうど同時刻に追加されたアイテムを含めるため、After ではなく !Before を使う。
 func (s *Subscription) IsNew(item *library.PlaylistItem) bool {
-	return !item.AddedAt.Before(s.UpdatedAt)
+	return !item.AddedAt.Before(s.NotifiedUntil)
 }
 
 // MarkNotified は新着動画の通知の基準時刻を進める。過去に戻すと、
 // その時刻以降に追加された動画をもう一度通知する。
 func (s *Subscription) MarkNotified(at time.Time) {
-	s.UpdatedAt = at
+	s.NotifiedUntil = at
 }
 
 // Rename は YouTube 上のプレイリストのタイトルに合わせる。

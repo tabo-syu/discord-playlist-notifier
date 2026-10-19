@@ -166,22 +166,21 @@ func deleted(id uint) gorm.Model {
 }
 
 // newSubscription は保存する前の、ギルド guildID の通知設定を返す。新着動画の
-// 通知の基準時刻（UpdatedAt）は 6 時間前にする。
+// 通知の基準時刻（NotifiedUntil）は 6 時間前にする。
 func newSubscription(guildID uint, playlistID library.PlaylistID, title string) *subscription.Subscription {
 	return &subscription.Subscription{
-		UpdatedAt:     hoursAgo(6),
 		YoutubeID:     playlistID,
 		SendChannelID: "ch",
 		Title:         title,
 		GuildID:       guildID,
+		NotifiedUntil: hoursAgo(6),
 	}
 }
 
 // storedSubscription は newSubscription で作って ID id で保存した通知設定を返す。
 func storedSubscription(id, guildID uint, playlistID library.PlaylistID, title string) *subscription.Subscription {
 	s := newSubscription(guildID, playlistID, title)
-	s.ID = id
-	s.CreatedAt = now
+	s.Model = model(id)
 
 	return s
 }

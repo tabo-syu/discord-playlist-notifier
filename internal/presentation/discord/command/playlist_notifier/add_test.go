@@ -34,6 +34,7 @@ func TestAdd(t *testing.T) {
 					SendChannelID: "ch",
 					Title:         "タイトル",
 					GuildID:       1,
+					NotifiedUntil: now,
 				}).Return(nil)
 			},
 			want: command.Text("通知登録しました！\nhttps://www.youtube.com/playlist?list=PL"),

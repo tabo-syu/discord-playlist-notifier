@@ -87,7 +87,7 @@ func guildOf(id uint, discordID guild.DiscordID) *guild.Guild {
 // sub はギルド 1 の通知設定を返す。notifiedAt は新着動画の通知の基準時刻。
 func sub(id uint, playlistID library.PlaylistID, channelID subscription.ChannelID, title string, notifiedAt time.Time) *subscription.Subscription {
 	return &subscription.Subscription{
-		ID: id, UpdatedAt: notifiedAt,
+		ID: id, NotifiedUntil: notifiedAt,
 		YoutubeID:     playlistID,
 		SendChannelID: channelID,
 		Title:         title,

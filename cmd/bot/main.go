@@ -77,7 +77,7 @@ func main() {
 	sbr := persistence.NewSubscriptionRepository(db)
 	lr := persistence.NewLibraryRepository(db)
 
-	ss := application.NewSubscriptionService(yc, sbr, gr)
+	ss := application.NewSubscriptionService(yc, sbr, gr, time.Now)
 	gs := application.NewGuildService(gr, sbr)
 	ls := application.NewLibraryService(yc, lr, location, time.Now)
 	ns := application.NewNotificationService(sbr, ls, notifier.New(dc, location), location, time.Now)

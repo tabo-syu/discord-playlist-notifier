@@ -126,7 +126,8 @@ internal/mocks/              mockery が生成した mock（手で編集しな�
 
 `internal/domain/` の構造体に追加すれば、`cmd/migrate` が `persistence.Migrate` の `AutoMigrate` で
 カラムを足します。マイグレーションファイルはありません。新しいモデルは `Migrate` に
-追加し、`TableName()` を定義します。リネームと削除は AutoMigrate がしないので、DB に
+追加し、`TableName()` を定義します。既存の行に値を入れる必要があるときは、AutoMigrate の後に
+何度実行しても同じ結果になる UPDATE を `Migrate` に書きます（`notified_until` の例）。リネームと削除は AutoMigrate がしないので、DB に
 手で行う必要があることをユーザーに伝えます。
 
 ### テスト
