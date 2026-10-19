@@ -545,7 +545,7 @@ func TestLibraryServicePlaylistsContaining(t *testing.T) {
 		{
 			name: "動画ごとに、それを含むプレイリストを返す",
 			setup: func(m *deps) {
-				m.playlists.EXPECT().FindContaining([]library.VideoID{"a", "b"}).Return([]*library.Playlist{
+				m.playlists.EXPECT().FindContaining([]library.VideoID{"a", "b", "a"}).Return([]*library.Playlist{
 					playlist("PL1", item("PL1", "1", "a", hoursAgo(3))),
 					playlist("PL2", item("PL2", "2", "a", hoursAgo(2)), item("PL2", "3", "b", hoursAgo(1))),
 				}, nil)
@@ -558,7 +558,7 @@ func TestLibraryServicePlaylistsContaining(t *testing.T) {
 		{
 			name: "1 つのプレイリストに 2 回入っている動画でも、プレイリストは 1 回だけ返す",
 			setup: func(m *deps) {
-				m.playlists.EXPECT().FindContaining([]library.VideoID{"a", "b"}).Return([]*library.Playlist{
+				m.playlists.EXPECT().FindContaining([]library.VideoID{"a", "b", "a"}).Return([]*library.Playlist{
 					playlist("PL", item("PL", "1", "a", hoursAgo(2)), item("PL", "2", "a", hoursAgo(1))),
 				}, nil)
 			},
@@ -569,7 +569,7 @@ func TestLibraryServicePlaylistsContaining(t *testing.T) {
 		{
 			name: "どのプレイリストにもなければ空のマップを返す",
 			setup: func(m *deps) {
-				m.playlists.EXPECT().FindContaining([]library.VideoID{"a", "b"}).Return([]*library.Playlist{}, nil)
+				m.playlists.EXPECT().FindContaining([]library.VideoID{"a", "b", "a"}).Return([]*library.Playlist{}, nil)
 			},
 			want: map[library.VideoID][]library.PlaylistID{},
 		},
@@ -582,7 +582,8 @@ func TestLibraryServicePlaylistsContaining(t *testing.T) {
 			tt.setup(m)
 			s := newLibraryService(m, clock)
 
-			got, err := s.PlaylistsContaining([]library.VideoID{"a", "b"})
+			// 同じ動画を 2 回指定しても、プレイリストは 1 回だけ返す
+			got, err := s.PlaylistsContaining([]library.VideoID{"a", "b", "a"})
 
 			assert.NoError(t, err)
 			assert.Equal(t, tt.want, got)

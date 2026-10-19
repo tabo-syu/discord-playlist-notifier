@@ -225,8 +225,9 @@ func (s *LibraryService) PlaylistsContaining(videoIDs []library.VideoID) (map[li
 
 	result := map[library.VideoID][]library.PlaylistID{}
 
+	ids := unique(videoIDs)
 	for _, p := range playlists {
-		for _, id := range videoIDs {
+		for _, id := range ids {
 			if p.Contains(id) {
 				result[id] = append(result[id], p.YoutubeID)
 			}
@@ -347,6 +348,11 @@ func (s *LibraryService) Wrapped(playlistID library.PlaylistID, year int) (*libr
 // ので、次の同期で公開状態の変化と新しい動画をもう一度検知できる。逆の順だと、
 // 動画の公開状態を保存した後にプレイリストの保存に失敗したとき、次の同期では
 // 公開状態がもう変わっていて、非公開になったことを通知できない。
+//
+// ただし、同じ回に同期した別のプレイリストにも同じ動画があり、そちらで公開状態を
+// 保存できたときは、次の同期ではもう変化を検知しない。非公開の通知はそちらの
+// プレイリストの分だけになる（同期そのものに失敗したときも同じで、1 つの
+// トランザクションで保存していたときから変わらない）。
 func (s *LibraryService) syncPlaylist(meta *library.PlaylistMeta) (*library.Snapshot, error) {
 	playlist, err := s.playlists.Find(meta.YoutubeID)
 	if err != nil {
