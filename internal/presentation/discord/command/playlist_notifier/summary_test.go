@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command/playlist_notifier"
 )
 
 // 集計した中身の整形は view のゴールデンテストで確かめるので、ここでは中身のない
@@ -54,6 +55,12 @@ func TestSummary(t *testing.T) {
 				m.guildHas()
 			},
 			want: command.Text("通知登録されているプレイリストが存在しません。"),
+		},
+		{
+			name:  "プレイリスト ID の形式が正しくなければ、何も呼ばずに断る",
+			data:  subcommand("summary", stringOption("playlist-id", "https://www.youtube.com/playlist?list=PL1")),
+			setup: func(m *deps) {},
+			want:  command.Text(playlist_notifier.INVALID_PLAYLIST_ID_MESSAGE),
 		},
 	}
 	for _, tt := range tests {

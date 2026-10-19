@@ -20,7 +20,7 @@ func sub(title string, interval subscription.PickInterval) *subscription.Subscri
 
 // video は公開の動画を返す。タイトルは ID と同じにする。
 func video(id library.VideoID, views library.ViewCount) *library.Video {
-	return &library.Video{YoutubeID: id, Title: string(id), PrivacyStatus: library.PrivacyPublic, Views: views}
+	return &library.Video{YoutubeID: id, DetailsFetched: true, Title: string(id), PrivacyStatus: library.PrivacyPublic, Views: views}
 }
 
 // added はプレイリスト PL に addedAt に追加された動画を返す。

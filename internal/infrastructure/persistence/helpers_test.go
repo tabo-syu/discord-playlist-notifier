@@ -231,12 +231,12 @@ func storedItemRow(id uint, r *persistence.PlaylistItemRecord) *persistence.Play
 
 // video は公開の動画を返す。タイトルは ID と同じにする。
 func video(youtubeID library.VideoID, views library.ViewCount) *library.Video {
-	return &library.Video{YoutubeID: youtubeID, Title: string(youtubeID), PrivacyStatus: library.PrivacyPublic, Views: views}
+	return &library.Video{YoutubeID: youtubeID, DetailsFetched: true, Title: string(youtubeID), PrivacyStatus: library.PrivacyPublic, Views: views}
 }
 
 // videoRow は保存する前の、video と同じ動画の行を返す。
 func videoRow(youtubeID string, views uint64) *persistence.VideoRecord {
-	return &persistence.VideoRecord{YoutubeID: youtubeID, Title: youtubeID, PrivacyStatus: "public", Views: views}
+	return &persistence.VideoRecord{YoutubeID: youtubeID, DetailsFetched: true, Title: youtubeID, PrivacyStatus: "public", Views: views}
 }
 
 // storedVideoRow は行 r を ID id で now に保存した行を返す。
@@ -252,6 +252,7 @@ func fullVideo() *library.Video {
 
 	return &library.Video{
 		YoutubeID:        "full",
+		DetailsFetched:   true,
 		Title:            "全部入り",
 		Views:            120_000,
 		PrivacyStatus:    library.PrivacyUnlisted,
@@ -272,6 +273,7 @@ func fullVideoRow() *persistence.VideoRecord {
 
 	return &persistence.VideoRecord{
 		YoutubeID:        "full",
+		DetailsFetched:   true,
 		Title:            "全部入り",
 		Views:            120_000,
 		PrivacyStatus:    "unlisted",

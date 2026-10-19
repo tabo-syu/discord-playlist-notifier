@@ -61,16 +61,16 @@ func TestQueryServiceFindVideos(t *testing.T) {
 	t.Parallel()
 
 	short := func() *library.Video {
-		return &library.Video{YoutubeID: "short", Title: "Short Song", PrivacyStatus: library.PrivacyPublic, Views: 300, Duration: 2 * time.Minute, Tags: []string{"J-Pop"}, CategoryID: "10", ChannelYoutubeID: "UC1"}
+		return &library.Video{YoutubeID: "short", DetailsFetched: true, Title: "Short Song", PrivacyStatus: library.PrivacyPublic, Views: 300, Duration: 2 * time.Minute, Tags: []string{"J-Pop"}, CategoryID: "10", ChannelYoutubeID: "UC1"}
 	}
 	long := func() *library.Video {
-		return &library.Video{YoutubeID: "long", Title: "Long Mix", PrivacyStatus: library.PrivacyPublic, Views: 100, Duration: 10 * time.Minute, Tags: []string{"Lo-Fi", "作業用"}, CategoryID: "10", ChannelYoutubeID: "UC2"}
+		return &library.Video{YoutubeID: "long", DetailsFetched: true, Title: "Long Mix", PrivacyStatus: library.PrivacyPublic, Views: 100, Duration: 10 * time.Minute, Tags: []string{"Lo-Fi", "作業用"}, CategoryID: "10", ChannelYoutubeID: "UC2"}
 	}
 	live := func() *library.Video {
-		return &library.Video{YoutubeID: "live", Title: "Live Stream", PrivacyStatus: library.PrivacyPublic, Views: 200, CategoryID: "20", ChannelYoutubeID: "UC1"}
+		return &library.Video{YoutubeID: "live", DetailsFetched: true, Title: "Live Stream", PrivacyStatus: library.PrivacyPublic, Views: 200, CategoryID: "20", ChannelYoutubeID: "UC1"}
 	}
 	private := func() *library.Video {
-		return &library.Video{YoutubeID: "private", Title: "Secret", PrivacyStatus: library.PrivacyPrivate}
+		return &library.Video{YoutubeID: "private", DetailsFetched: true, Title: "Secret", PrivacyStatus: library.PrivacyPrivate}
 	}
 	shortInPL1 := &library.PlaylistVideo{PlaylistID: "PL1", Item: item("PL1", "1", "short", hoursAgo(5)), Video: short()}
 	longInPL1 := &library.PlaylistVideo{PlaylistID: "PL1", Item: item("PL1", "2", "long", hoursAgo(4)), Video: long()}

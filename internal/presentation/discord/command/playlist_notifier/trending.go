@@ -10,7 +10,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/view"
@@ -46,6 +45,11 @@ var (
 )
 
 func (c *PlaylistNotifier) trending(guildId string, playlistId string, days int) *command.Response {
+	filter, err := parsePlaylistFilter(playlistId)
+	if err != nil {
+		return command.Text(INVALID_PLAYLIST_ID_MESSAGE)
+	}
+
 	subscriptions, err := c.subscriptions.FindByGuild(guild.DiscordID(guildId))
 	if errors.Is(err, subscription.ErrNotSubscribed) {
 		return command.Text("通知登録されているプレイリストが存在しません。")
@@ -63,7 +67,7 @@ func (c *PlaylistNotifier) trending(guildId string, playlistId string, days int)
 	)
 
 	for _, sub := range subscriptions {
-		if playlistId != "" && sub.YoutubeID != library.PlaylistID(playlistId) {
+		if filter != "" && sub.YoutubeID != filter {
 			continue
 		}
 

@@ -23,7 +23,7 @@ func TestListPlaylists(t *testing.T) {
 				m.watched(sub(1, "PL", "お気に入り"))
 				m.playlistHas("PL",
 					added("PL", video("a", 100), date(2026, time.October, 1, 0)),
-					added("PL", &library.Video{YoutubeID: "b", Title: "b", PrivacyStatus: library.PrivacyDeleted}, date(2026, time.October, 2, 0)),
+					added("PL", &library.Video{YoutubeID: "b", DetailsFetched: true, Title: "b", PrivacyStatus: library.PrivacyDeleted}, date(2026, time.October, 2, 0)),
 				)
 			},
 			want: `{"playlists": [{
@@ -66,6 +66,7 @@ func TestFindVideos(t *testing.T) {
 		Item:       item("PL", "1", "song", time.Date(2026, time.October, 17, 15, 0, 0, 0, time.UTC)),
 		Video: &library.Video{
 			YoutubeID:        "song",
+			DetailsFetched:   true,
 			Title:            "夜に駆ける",
 			PrivacyStatus:    library.PrivacyPublic,
 			Views:            1234,
@@ -81,10 +82,11 @@ func TestFindVideos(t *testing.T) {
 		PlaylistID: "PL",
 		Item:       item("PL", "2", "game", date(2026, time.October, 17, 23)),
 		Video: &library.Video{
-			YoutubeID:     "game",
-			Title:         "実況",
-			PrivacyStatus: library.PrivacyPublic,
-			CategoryID:    "20",
+			YoutubeID:      "game",
+			DetailsFetched: true,
+			Title:          "実況",
+			PrivacyStatus:  library.PrivacyPublic,
+			CategoryID:     "20",
 		},
 	}
 	channels := map[library.ChannelID]*library.Channel{
@@ -203,6 +205,24 @@ func TestFindVideos(t *testing.T) {
 			wantError: `added_until は YYYY-MM-DD の形式で指定してください: "2026/10/18"`,
 		},
 		{
+			name: "プレイリストの ID の形式が正しくなければ、DB を読まずに断る",
+			arguments: map[string]any{
+				"playlist_id": "PL ID",
+			},
+			setup:     func(m *deps) {},
+			want:      `null`,
+			wantError: "playlist_id の形式が正しくありません。list_playlists で ID を確認してください。",
+		},
+		{
+			name: "チャンネルの ID の形式が正しくなければ、DB を読まずに断る",
+			arguments: map[string]any{
+				"channel_id": "@YOASOBI",
+			},
+			setup:     func(m *deps) {},
+			want:      `null`,
+			wantError: "channel_id の形式が正しくありません。find_videos の結果の channel_id を指定してください。",
+		},
+		{
 			name: "知らない並び順",
 			arguments: map[string]any{
 				"sort": "random",
@@ -301,6 +321,15 @@ func TestPlaylistStats(t *testing.T) {
 			want:      `null`,
 			wantError: "登録されていないプレイリストです。list_playlists で ID を確認してください。",
 		},
+		{
+			name: "プレイリストの ID の形式が正しくなければ、DB を読まずに断る",
+			arguments: map[string]any{
+				"playlist_id": "https://www.youtube.com/playlist?list=PL",
+			},
+			setup:     func(m *deps) {},
+			want:      `null`,
+			wantError: "playlist_id の形式が正しくありません。list_playlists で ID を確認してください。",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -383,6 +412,15 @@ func TestPlaylistWrapped(t *testing.T) {
 			want:      `null`,
 			wantError: "登録されていないプレイリストです。list_playlists で ID を確認してください。",
 		},
+		{
+			name: "プレイリストの ID の形式が正しくなければ、DB を読まずに断る",
+			arguments: map[string]any{
+				"playlist_id": "https://www.youtube.com/playlist?list=PL",
+			},
+			setup:     func(m *deps) {},
+			want:      `null`,
+			wantError: "playlist_id の形式が正しくありません。list_playlists で ID を確認してください。",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -445,6 +483,15 @@ func TestRandomVideos(t *testing.T) {
 			want:      `null`,
 			wantError: "登録されていないプレイリストです。list_playlists で ID を確認してください。",
 		},
+		{
+			name: "プレイリストの ID の形式が正しくなければ、DB を読まずに断る",
+			arguments: map[string]any{
+				"playlist_id": "https://www.youtube.com/playlist?list=PL",
+			},
+			setup:     func(m *deps) {},
+			want:      `null`,
+			wantError: "playlist_id の形式が正しくありません。list_playlists で ID を確認してください。",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -475,66 +522,95 @@ func TestVideoHistory(t *testing.T) {
 		{
 			name: "直近 30 日の記録を古い順に返す",
 			arguments: map[string]any{
-				"video_id": "a",
+				"video_id": "dQw4w9WgXcQ",
 			},
 			setup: func(m *deps) {
 				m.watched(sub(1, "PL", "お気に入り"))
-				m.library.EXPECT().FindItemsByVideos([]library.VideoID{"a"}).Return([]*library.PlaylistItem{
-					item("PL", "1", "a", date(2026, time.March, 1, 0)),
+				m.library.EXPECT().FindItemsByVideos([]library.VideoID{"dQw4w9WgXcQ"}).Return([]*library.PlaylistItem{
+					item("PL", "1", "dQw4w9WgXcQ", date(2026, time.March, 1, 0)),
 				}, nil)
-				m.library.EXPECT().FindVideos([]library.VideoID{"a"}).Return(map[library.VideoID]*library.Video{
-					"a": video("a", 200),
+				m.library.EXPECT().FindVideos([]library.VideoID{"dQw4w9WgXcQ"}).Return(map[library.VideoID]*library.Video{
+					"dQw4w9WgXcQ": video("dQw4w9WgXcQ", 200),
 				}, nil)
-				m.library.EXPECT().FindSnapshots(library.VideoID("a"), now.AddDate(0, 0, -30)).Return([]*library.VideoSnapshot{
-					{VideoYoutubeID: "a", RecordedAt: date(2026, time.October, 10, 0), Title: "a", PrivacyStatus: library.PrivacyPublic, Views: 100, Likes: 10, Comments: 1},
-					{VideoYoutubeID: "a", RecordedAt: date(2026, time.October, 18, 0), Title: "a", PrivacyStatus: library.PrivacyPublic, Views: 200, Likes: 20, Comments: 2},
+				m.library.EXPECT().FindSnapshots(library.VideoID("dQw4w9WgXcQ"), now.AddDate(0, 0, -30)).Return([]*library.VideoSnapshot{
+					{VideoYoutubeID: "dQw4w9WgXcQ", RecordedAt: date(2026, time.October, 10, 0), Title: "dQw4w9WgXcQ", PrivacyStatus: library.PrivacyPublic, Views: 100, Likes: 10, Comments: 1},
+					{VideoYoutubeID: "dQw4w9WgXcQ", RecordedAt: date(2026, time.October, 18, 0), Title: "dQw4w9WgXcQ", PrivacyStatus: library.PrivacyPublic, Views: 200, Likes: 20, Comments: 2},
 				}, nil)
 			},
 			want: `{
-				"video_id": "a", "title": "a", "url": "https://www.youtube.com/watch?v=a",
+				"video_id": "dQw4w9WgXcQ", "title": "dQw4w9WgXcQ", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
 				"snapshots": [
-					{"recorded_at": "2026-10-10T00:00:00+09:00", "title": "a", "status": "public", "views": 100, "likes": 10, "comments": 1},
-					{"recorded_at": "2026-10-18T00:00:00+09:00", "title": "a", "status": "public", "views": 200, "likes": 20, "comments": 2}
+					{"recorded_at": "2026-10-10T00:00:00+09:00", "title": "dQw4w9WgXcQ", "status": "public", "views": 100, "likes": 10, "comments": 1},
+					{"recorded_at": "2026-10-18T00:00:00+09:00", "title": "dQw4w9WgXcQ", "status": "public", "views": 200, "likes": 20, "comments": 2}
 				]
 			}`,
 		},
 		{
 			name: "日数を指定する",
 			arguments: map[string]any{
-				"video_id": "a",
+				"video_id": "dQw4w9WgXcQ",
 				"days":     1,
 			},
 			setup: func(m *deps) {
 				m.watched(sub(1, "PL", "お気に入り"))
-				m.library.EXPECT().FindItemsByVideos([]library.VideoID{"a"}).Return([]*library.PlaylistItem{
-					item("PL", "1", "a", date(2026, time.March, 1, 0)),
+				m.library.EXPECT().FindItemsByVideos([]library.VideoID{"dQw4w9WgXcQ"}).Return([]*library.PlaylistItem{
+					item("PL", "1", "dQw4w9WgXcQ", date(2026, time.March, 1, 0)),
 				}, nil)
-				m.library.EXPECT().FindVideos([]library.VideoID{"a"}).Return(map[library.VideoID]*library.Video{
-					"a": video("a", 200),
+				m.library.EXPECT().FindVideos([]library.VideoID{"dQw4w9WgXcQ"}).Return(map[library.VideoID]*library.Video{
+					"dQw4w9WgXcQ": video("dQw4w9WgXcQ", 200),
 				}, nil)
-				m.library.EXPECT().FindSnapshots(library.VideoID("a"), now.AddDate(0, 0, -1)).Return([]*library.VideoSnapshot{}, nil)
+				m.library.EXPECT().FindSnapshots(library.VideoID("dQw4w9WgXcQ"), now.AddDate(0, 0, -1)).Return([]*library.VideoSnapshot{}, nil)
 			},
 			want: `{
-				"video_id": "a", "title": "a", "url": "https://www.youtube.com/watch?v=a",
+				"video_id": "dQw4w9WgXcQ", "title": "dQw4w9WgXcQ", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
 				"snapshots": []
 			}`,
 		},
 		{
 			name: "通知登録されたプレイリストにない動画は断る",
 			arguments: map[string]any{
-				"video_id": "unknown",
+				"video_id": "notWatched0",
 			},
 			setup: func(m *deps) {
 				m.watched(sub(1, "PL", "お気に入り"))
-				m.library.EXPECT().FindItemsByVideos([]library.VideoID{"unknown"}).Return([]*library.PlaylistItem{}, nil)
+				m.library.EXPECT().FindItemsByVideos([]library.VideoID{"notWatched0"}).Return([]*library.PlaylistItem{}, nil)
 			},
 			want:      `null`,
 			wantError: "登録されているプレイリストに、その動画は見つかりません。find_videos で video_id を確認してください。",
 		},
 		{
+			name: "動画の URL から ID を読み取る",
+			arguments: map[string]any{
+				"video_id": "https://youtu.be/dQw4w9WgXcQ?si=abc",
+			},
+			setup: func(m *deps) {
+				m.watched(sub(1, "PL", "お気に入り"))
+				m.library.EXPECT().FindItemsByVideos([]library.VideoID{"dQw4w9WgXcQ"}).Return([]*library.PlaylistItem{
+					item("PL", "1", "dQw4w9WgXcQ", date(2026, time.March, 1, 0)),
+				}, nil)
+				m.library.EXPECT().FindVideos([]library.VideoID{"dQw4w9WgXcQ"}).Return(map[library.VideoID]*library.Video{
+					"dQw4w9WgXcQ": video("dQw4w9WgXcQ", 200),
+				}, nil)
+				m.library.EXPECT().FindSnapshots(library.VideoID("dQw4w9WgXcQ"), now.AddDate(0, 0, -30)).Return([]*library.VideoSnapshot{}, nil)
+			},
+			want: `{
+				"video_id": "dQw4w9WgXcQ", "title": "dQw4w9WgXcQ", "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+				"snapshots": []
+			}`,
+		},
+		{
+			name: "動画の ID とも URL とも読めない値は、DB を読まずに断る",
+			arguments: map[string]any{
+				"video_id": "https://www.youtube.com/playlist?list=PL",
+			},
+			setup:     func(m *deps) {},
+			want:      `null`,
+			wantError: "video_id には動画の ID か URL を指定してください。",
+		},
+		{
 			name: "日数が多すぎる",
 			arguments: map[string]any{
-				"video_id": "a",
+				"video_id": "dQw4w9WgXcQ",
 				"days":     366,
 			},
 			setup:     func(m *deps) {},

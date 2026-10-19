@@ -6,10 +6,14 @@ import "time"
 // 動画ごとに 1 つ持つ。詳細（タイトル、再生数など）は動画が非公開・削除に
 // なっても表示できるように残す。
 type Video struct {
-	YoutubeID     VideoID
-	Title         string
-	Views         ViewCount
-	PrivacyStatus PrivacyStatus
+	YoutubeID VideoID
+	// 詳細（タイトルから CategoryID まで）を一度でも取得したか。ApplyDetails で
+	// 立て、その後は下ろさない。最初から非公開・削除の動画は詳細を取得できないので、
+	// 偽のまま残る。
+	DetailsFetched bool
+	Title          string
+	Views          ViewCount
+	PrivacyStatus  PrivacyStatus
 	// 動画自体が投稿された時刻
 	PublishedAt time.Time
 	// すでに達した再生数の最も高い節目。既存の再生数を通知しないように、
@@ -29,7 +33,7 @@ type Video struct {
 
 // HasDetails は動画の詳細を一度でも取得したかを返す。
 func (v *Video) HasDetails() bool {
-	return v.Title != ""
+	return v.DetailsFetched
 }
 
 // Available は動画が視聴でき、ユーザーに見せてよいかを返す。
@@ -56,9 +60,10 @@ func (v *Video) ChangePrivacy(status PrivacyStatus) (changed bool, hidden bool) 
 	return true, hidden
 }
 
-// ApplyDetails は videos のエンドポイントから取得した詳細をコピーする。
-// 公開状態はプレイリストのアイテムが持つものなので変えない。
+// ApplyDetails は videos のエンドポイントから取得した詳細をコピーし、詳細を
+// 取得済みにする。公開状態はプレイリストのアイテムが持つものなので変えない。
 func (v *Video) ApplyDetails(details *Video) {
+	v.DetailsFetched = true
 	v.Title = details.Title
 	v.Views = details.Views
 	v.Likes = details.Likes

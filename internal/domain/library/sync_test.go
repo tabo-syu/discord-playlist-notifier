@@ -97,15 +97,16 @@ func TestSyncApplyDetails(t *testing.T) {
 			details: []*library.Video{{YoutubeID: "a", Title: "曲", Views: 250_000}},
 			want: map[library.VideoID]*library.Video{
 				"a": {
-					YoutubeID:     "a",
-					Title:         "曲",
-					Views:         250_000,
-					PrivacyStatus: library.PrivacyPublic,
-					ViewMilestone: new(library.ViewCount(100_000)),
+					YoutubeID:      "a",
+					DetailsFetched: true,
+					Title:          "曲",
+					Views:          250_000,
+					PrivacyStatus:  library.PrivacyPublic,
+					ViewMilestone:  new(library.ViewCount(100_000)),
 				},
 			},
 			wantChanged: []*library.Video{
-				{YoutubeID: "a", Title: "曲", Views: 250_000, PrivacyStatus: library.PrivacyPublic, ViewMilestone: new(library.ViewCount(100_000))},
+				{YoutubeID: "a", DetailsFetched: true, Title: "曲", Views: 250_000, PrivacyStatus: library.PrivacyPublic, ViewMilestone: new(library.ViewCount(100_000))},
 			},
 		},
 	}

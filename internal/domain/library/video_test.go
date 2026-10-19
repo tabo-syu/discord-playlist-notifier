@@ -44,6 +44,24 @@ func TestVideoAvailable(t *testing.T) {
 			},
 			want: false,
 		},
+		{
+			name: "タイトルが空でも、詳細を取得済みなら見せる",
+			video: &library.Video{
+				YoutubeID:      "a",
+				DetailsFetched: true,
+				PrivacyStatus:  library.PrivacyPublic,
+			},
+			want: true,
+		},
+		{
+			name: "タイトルがあっても、詳細を取得済みでなければ見せない",
+			video: &library.Video{
+				YoutubeID:     "a",
+				Title:         "a",
+				PrivacyStatus: library.PrivacyPublic,
+			},
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -142,7 +160,7 @@ func TestVideoApplyDetails(t *testing.T) {
 		want    *library.Video
 	}{
 		{
-			name: "公開状態と ID 以外をコピーする",
+			name: "公開状態と ID 以外をコピーし、詳細を取得済みにする",
 			video: &library.Video{
 				YoutubeID:     "a",
 				PrivacyStatus: library.PrivacyUnlisted,
@@ -160,6 +178,7 @@ func TestVideoApplyDetails(t *testing.T) {
 			},
 			want: &library.Video{
 				YoutubeID:        "a",
+				DetailsFetched:   true,
 				Title:            "曲",
 				Views:            100,
 				Likes:            10,

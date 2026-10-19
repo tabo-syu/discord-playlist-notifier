@@ -8,18 +8,19 @@ import (
 
 var videoIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{11}$`)
 
-// ParseVideoID は動画 ID か、次のような動画の URL を読み取る。
+// ParseVideoID は人が入力した動画 ID か、次のような動画の URL を読み取る。
 // https://www.youtube.com/watch?v=ID、https://youtu.be/ID、
 // https://www.youtube.com/shorts/ID
-func ParseVideoID(s string) (VideoID, bool) {
+// どちらとも読めなければ ErrInvalidVideoID を返す。
+func ParseVideoID(s string) (VideoID, error) {
 	s = strings.TrimSpace(s)
 	if videoIDPattern.MatchString(s) {
-		return VideoID(s), true
+		return VideoID(s), nil
 	}
 
 	u, err := url.Parse(s)
 	if err != nil {
-		return "", false
+		return "", ErrInvalidVideoID
 	}
 
 	candidate := u.Query().Get("v")
@@ -29,8 +30,8 @@ func ParseVideoID(s string) (VideoID, bool) {
 	}
 
 	if !videoIDPattern.MatchString(candidate) {
-		return "", false
+		return "", ErrInvalidVideoID
 	}
 
-	return VideoID(candidate), true
+	return VideoID(candidate), nil
 }

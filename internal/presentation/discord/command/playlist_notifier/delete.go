@@ -18,9 +18,14 @@ var deleteSubCommand = &discordgo.ApplicationCommandOption{
 }
 
 func (c *PlaylistNotifier) delete(guildId string, playlistId string) string {
+	id, err := library.ParsePlaylistID(playlistId)
+	if err != nil {
+		return INVALID_PLAYLIST_ID_MESSAGE
+	}
+
 	var message string
 	//nolint:errorlint // 完全一致での比較は既知の挙動（CLAUDE.md）
-	switch c.subscriptions.Unsubscribe(guild.DiscordID(guildId), library.PlaylistID(playlistId)) {
+	switch c.subscriptions.Unsubscribe(guild.DiscordID(guildId), id) {
 	case nil:
 		message = "指定されたプレイリストを削除しました。"
 	case subscription.ErrNotSubscribed:
