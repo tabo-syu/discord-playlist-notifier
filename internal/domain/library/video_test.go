@@ -83,7 +83,7 @@ func TestVideoChangePrivacy(t *testing.T) {
 		status      library.PrivacyStatus
 		want        *library.Video
 		wantChanged bool
-		wantHidden  bool
+		wantHidden  *library.VideoHidden
 	}{
 		{
 			name:        "変わらない",
@@ -91,7 +91,7 @@ func TestVideoChangePrivacy(t *testing.T) {
 			status:      library.PrivacyPublic,
 			want:        video("a", library.PrivacyPublic, 0),
 			wantChanged: false,
-			wantHidden:  false,
+			wantHidden:  nil,
 		},
 		{
 			name:        "公開から非公開になった",
@@ -99,7 +99,7 @@ func TestVideoChangePrivacy(t *testing.T) {
 			status:      library.PrivacyPrivate,
 			want:        video("a", library.PrivacyPrivate, 0),
 			wantChanged: true,
-			wantHidden:  true,
+			wantHidden:  &library.VideoHidden{Video: video("a", library.PrivacyPrivate, 0)},
 		},
 		{
 			name:        "限定公開から削除になった",
@@ -107,7 +107,7 @@ func TestVideoChangePrivacy(t *testing.T) {
 			status:      library.PrivacyDeleted,
 			want:        video("a", library.PrivacyDeleted, 0),
 			wantChanged: true,
-			wantHidden:  true,
+			wantHidden:  &library.VideoHidden{Video: video("a", library.PrivacyDeleted, 0)},
 		},
 		{
 			name:        "非公開から公開に戻った",
@@ -115,7 +115,7 @@ func TestVideoChangePrivacy(t *testing.T) {
 			status:      library.PrivacyPublic,
 			want:        video("a", library.PrivacyPublic, 0),
 			wantChanged: true,
-			wantHidden:  false,
+			wantHidden:  nil,
 		},
 		{
 			name:        "非公開から削除になった",
@@ -123,7 +123,7 @@ func TestVideoChangePrivacy(t *testing.T) {
 			status:      library.PrivacyDeleted,
 			want:        video("a", library.PrivacyDeleted, 0),
 			wantChanged: true,
-			wantHidden:  false,
+			wantHidden:  nil,
 		},
 		{
 			name:   "初めて見る動画が非公開",
@@ -134,7 +134,7 @@ func TestVideoChangePrivacy(t *testing.T) {
 				PrivacyStatus: library.PrivacyPrivate,
 			},
 			wantChanged: true,
-			wantHidden:  false,
+			wantHidden:  nil,
 		},
 	}
 	for _, tt := range tests {
@@ -247,7 +247,7 @@ func TestVideoUpdateMilestone(t *testing.T) {
 		name        string
 		video       *library.Video
 		want        *library.Video
-		wantReached bool
+		wantReached *library.MilestoneReached
 	}{
 		{
 			name:  "初めて再生数がわかったときは通知しない",
@@ -256,7 +256,7 @@ func TestVideoUpdateMilestone(t *testing.T) {
 				Views:         2_500_000,
 				ViewMilestone: new(library.ViewCount(1_000_000)),
 			},
-			wantReached: false,
+			wantReached: nil,
 		},
 		{
 			name: "新しい節目に達した",
@@ -268,7 +268,13 @@ func TestVideoUpdateMilestone(t *testing.T) {
 				Views:         1_000_000,
 				ViewMilestone: new(library.ViewCount(1_000_000)),
 			},
-			wantReached: true,
+			wantReached: &library.MilestoneReached{
+				Video: &library.Video{
+					Views:         1_000_000,
+					ViewMilestone: new(library.ViewCount(1_000_000)),
+				},
+				Milestone: 1_000_000,
+			},
 		},
 		{
 			name: "同じ節目のまま",
@@ -280,7 +286,7 @@ func TestVideoUpdateMilestone(t *testing.T) {
 				Views:         9_999_999,
 				ViewMilestone: new(library.ViewCount(1_000_000)),
 			},
-			wantReached: false,
+			wantReached: nil,
 		},
 		{
 			name: "再生数が減っても節目は下げない",
@@ -292,7 +298,7 @@ func TestVideoUpdateMilestone(t *testing.T) {
 				Views:         999_999,
 				ViewMilestone: new(library.ViewCount(1_000_000)),
 			},
-			wantReached: false,
+			wantReached: nil,
 		},
 	}
 	for _, tt := range tests {

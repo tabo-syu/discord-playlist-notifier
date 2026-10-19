@@ -84,7 +84,16 @@ func main() {
 	ss := application.NewSubscriptionService(yc, sbr, gr, time.Now)
 	gs := application.NewGuildService(gr, sbr)
 	ls := application.NewLibraryService(yc, pr, vr, cr, car, vsr, location, time.Now)
-	ns := application.NewNotificationService(sbr, ls, notifier.New(dc, location), location, time.Now)
+	nt := notifier.New(dc, location)
+
+	// ドメインイベントのハンドラ。通知の種類を足すときは、ここに登録を足す
+	events := application.NewEventPublisher()
+	nh := application.NewNotificationHandlers(sbr, ls, nt)
+	application.Subscribe(events, nh.NotifyHiddenVideos)
+	application.Subscribe(events, nh.NotifyMilestones)
+	application.Subscribe(events, nh.NotifyNewVideos)
+
+	ns := application.NewNotificationService(sbr, ls, nt, events, location, time.Now)
 
 	commands := []command.Command{playlist_notifier.NewPlaylistNotifier(ss, ls, location, time.Now)}
 

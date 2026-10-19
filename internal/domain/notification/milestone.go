@@ -17,27 +17,18 @@ type Milestone struct {
 // FindMilestones は節目に達した動画の通知を、チャンネルの複数のプレイリストが
 // その動画を含んでいてもチャンネルごとに 1 回ずつ組み立てる。
 // containing は動画ごとに、それを含むプレイリストを対応付ける。
-func FindMilestones(subscriptions []*subscription.Subscription, videos []*library.Video, containing map[library.VideoID][]library.PlaylistID) []*Milestone {
+func FindMilestones(subscriptions []*subscription.Subscription, events []*library.MilestoneReached, containing map[library.VideoID][]library.PlaylistID) []*Milestone {
 	var notices []*Milestone
 
-	for _, video := range videos {
-		inPlaylist := map[library.PlaylistID]bool{}
-		for _, id := range containing[video.YoutubeID] {
-			inPlaylist[id] = true
-		}
+	sent := map[sentKey]bool{}
 
-		sent := map[subscription.ChannelID]bool{}
-		for _, sub := range subscriptions {
-			if !inPlaylist[sub.YoutubeID] || sent[sub.SendChannelID] {
-				continue
-			}
-
-			sent[sub.SendChannelID] = true
+	for _, e := range events {
+		for _, sub := range recipients(subscriptions, e.Video.YoutubeID, containing, sent) {
 			notices = append(notices, &Milestone{
 				ChannelID:  sub.SendChannelID,
 				PlaylistID: sub.YoutubeID,
-				Video:      video,
-				Milestone:  video.Views.Milestone(),
+				Video:      e.Video,
+				Milestone:  e.Milestone,
 			})
 		}
 	}

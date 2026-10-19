@@ -62,8 +62,10 @@ func NewLibraryService(
 }
 
 // Sync は指定したプレイリストの保存済みの中身を最新にして返す。
-// 同期に失敗したプレイリストはログに出して結果から除く。
-func (s *LibraryService) Sync(playlistIDs []library.PlaylistID) (map[library.PlaylistID]*library.Snapshot, error) {
+// 同期に失敗したプレイリストはログに出して結果から除く。今回の同期で非公開・削除に
+// なった動画のイベントも返す。イベントは動画を保存できたプレイリストの分だけで、
+// 配るのは呼んだ側。
+func (s *LibraryService) Sync(playlistIDs []library.PlaylistID) (map[library.PlaylistID]*library.Snapshot, []*library.VideoHidden, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -71,10 +73,13 @@ func (s *LibraryService) Sync(playlistIDs []library.PlaylistID) (map[library.Pla
 
 	metas, err := s.youtube.FetchPlaylistMetas(ids...)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	snapshots := map[library.PlaylistID]*library.Snapshot{}
+	var (
+		snapshots = map[library.PlaylistID]*library.Snapshot{}
+		hidden    []*library.VideoHidden
+	)
 
 	for _, id := range ids {
 		meta, ok := metas[id]
@@ -84,7 +89,7 @@ func (s *LibraryService) Sync(playlistIDs []library.PlaylistID) (map[library.Pla
 			continue
 		}
 
-		snapshot, err := s.syncPlaylist(meta)
+		snapshot, h, err := s.syncPlaylist(meta)
 		if err != nil {
 			log.Println("Could not sync playlist:", id, "cause:", err)
 
@@ -92,15 +97,18 @@ func (s *LibraryService) Sync(playlistIDs []library.PlaylistID) (map[library.Pla
 		}
 
 		snapshots[id] = snapshot
+
+		hidden = append(hidden, h...)
 	}
 
-	return snapshots, nil
+	return snapshots, hidden, nil
 }
 
 // RefreshVideos は通知対象のプレイリストにある全動画の詳細（再生数、タイトルなど）を
-// 更新し、その状態を履歴に記録して、再生数の新しい節目に達した動画を返す。
+// 更新し、その状態を履歴に記録して、再生数の新しい節目に達した動画のイベントを
+// 返す。イベントは動画を保存できたときだけ返し、配るのは呼んだ側。
 // 50 動画ごとに 1 ユニットを消費する。
-func (s *LibraryService) RefreshVideos() ([]*library.Video, error) {
+func (s *LibraryService) RefreshVideos() ([]*library.MilestoneReached, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -131,15 +139,15 @@ func (s *LibraryService) RefreshVideos() ([]*library.Video, error) {
 	var (
 		toSave    []*library.Video
 		snapshots []*library.VideoSnapshot
-		reached   []*library.Video
+		reached   []*library.MilestoneReached
 	)
 
 	for _, f := range fetched {
 		video := stored[f.YoutubeID]
 		video.ApplyDetails(f)
 
-		if video.UpdateMilestone() {
-			reached = append(reached, video)
+		if e := video.UpdateMilestone(); e != nil {
+			reached = append(reached, e)
 		}
 
 		toSave = append(toSave, video)
@@ -349,31 +357,35 @@ func (s *LibraryService) Wrapped(playlistID library.PlaylistID, year int) (*libr
 // 動画の公開状態を保存した後にプレイリストの保存に失敗したとき、次の同期では
 // 公開状態がもう変わっていて、非公開になったことを通知できない。
 //
-// ただし、同じ回に同期した別のプレイリストにも同じ動画があり、そちらで公開状態を
-// 保存できたときは、次の同期ではもう変化を検知しない。非公開の通知はそちらの
-// プレイリストの分だけになる（同期そのものに失敗したときも同じで、1 つの
-// トランザクションで保存していたときから変わらない）。
-func (s *LibraryService) syncPlaylist(meta *library.PlaylistMeta) (*library.Snapshot, error) {
+// 同じ回に同期した別のプレイリストにも同じ動画があり、そちらで公開状態を保存
+// できたときは、次の同期ではもう変化を検知しないが、そちらの VideoHidden で通知
+// する。通知先はハンドラが DB に保存したアイテムで決めるので、このプレイリストの
+// チャンネルにも届く。
+func (s *LibraryService) syncPlaylist(meta *library.PlaylistMeta) (*library.Snapshot, []*library.VideoHidden, error) {
 	playlist, err := s.playlists.Find(meta.YoutubeID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	state, synced := s.state[meta.YoutubeID]
 
 	now := s.now()
 	if synced && state.itemCount == meta.ItemCount && now.Sub(state.fullSyncAt) < FULL_SYNC_INTERVAL {
-		return s.snapshot(meta, playlist)
+		var snapshot *library.Snapshot
+
+		snapshot, err = s.snapshot(meta, playlist)
+
+		return snapshot, nil, err
 	}
 
 	fetched, err := s.youtube.FetchPlaylistItems(meta.YoutubeID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	videos, err := s.videos.FindInPlaylists(meta.YoutubeID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// このプレイリストで初めて見る動画でも、別のプレイリストの分として保存済みのことがある
 	var missing []library.VideoID
@@ -386,7 +398,7 @@ func (s *LibraryService) syncPlaylist(meta *library.PlaylistMeta) (*library.Snap
 
 	others, err := s.videos.Find(unique(missing))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	maps.Copy(videos, others)
@@ -402,7 +414,7 @@ func (s *LibraryService) syncPlaylist(meta *library.PlaylistMeta) (*library.Snap
 
 		details, channels, err = s.youtube.FetchVideos(changes.NeedDetails)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		changes.ApplyDetails(details)
@@ -413,11 +425,11 @@ func (s *LibraryService) syncPlaylist(meta *library.PlaylistMeta) (*library.Snap
 	}
 
 	if err = s.playlists.Save(playlist); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	if err = s.videos.Save(changes.ChangedVideos()); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	s.state[meta.YoutubeID] = syncState{itemCount: meta.ItemCount, fullSyncAt: now}
@@ -425,7 +437,7 @@ func (s *LibraryService) syncPlaylist(meta *library.PlaylistMeta) (*library.Snap
 		log.Println("Synced playlist:", meta.YoutubeID, "added:", len(added), "removed:", len(removed))
 	}
 
-	return &library.Snapshot{Playlist: playlist, Title: meta.Title, Videos: changes.Videos, Hidden: changes.Hidden}, nil
+	return &library.Snapshot{Playlist: playlist, Title: meta.Title, Videos: changes.Videos}, changes.Hidden, nil
 }
 
 func (s *LibraryService) snapshot(meta *library.PlaylistMeta, playlist *library.Playlist) (*library.Snapshot, error) {

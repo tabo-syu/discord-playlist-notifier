@@ -6,7 +6,6 @@ import (
 
 	"github.com/stretchr/testify/mock"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/notification"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
@@ -39,8 +38,9 @@ func TestNotificationServiceNotifyUpdates(t *testing.T) {
 				})
 				saved := m.subscriptions.EXPECT().Update(sub(1, "PL", "ch", "新しいタイトル", now)).Return(nil).Call
 				m.youtube.EXPECT().FetchLiveVideos([]library.VideoID{"new"}).Return(map[library.VideoID]*library.LiveVideo{}, nil)
-				m.notifier.EXPECT().NotifyNewVideos(&notification.NewVideos{
-					Subscription:  sub(1, "PL", "ch", "新しいタイトル", now),
+				m.notifier.EXPECT().NotifyNewVideos(&subscription.VideosAdded{
+					ChannelID:     "ch",
+					PlaylistID:    "PL",
 					PlaylistTitle: "新しいタイトル",
 					Videos: []*library.PlaylistVideo{
 						{PlaylistID: "PL", Item: item("PL", "2", "new", hoursAgo(1)), Video: video("new", library.PrivacyPublic, 0, 0)},
@@ -88,8 +88,9 @@ func TestNotificationServiceNotifyUpdates(t *testing.T) {
 				m.subscriptions.EXPECT().Update(sub(1, "PL1", "ch", "PL1", now)).Return(errMock)
 				m.subscriptions.EXPECT().Update(sub(2, "PL2", "ch", "PL2", now)).Return(nil)
 				m.youtube.EXPECT().FetchLiveVideos([]library.VideoID{"b"}).Return(map[library.VideoID]*library.LiveVideo{}, nil)
-				m.notifier.EXPECT().NotifyNewVideos(&notification.NewVideos{
-					Subscription:  sub(2, "PL2", "ch", "PL2", now),
+				m.notifier.EXPECT().NotifyNewVideos(&subscription.VideosAdded{
+					ChannelID:     "ch",
+					PlaylistID:    "PL2",
 					PlaylistTitle: "PL2",
 					Videos: []*library.PlaylistVideo{
 						{PlaylistID: "PL2", Item: item("PL2", "2", "b", hoursAgo(1)), Video: video("b", library.PrivacyPublic, 0, 0)},
@@ -113,8 +114,9 @@ func TestNotificationServiceNotifyUpdates(t *testing.T) {
 				})
 				m.subscriptions.EXPECT().Update(sub(1, "PL", "ch", "PL", now)).Return(nil)
 				m.youtube.EXPECT().FetchLiveVideos([]library.VideoID{"a"}).Return(nil, errMock)
-				m.notifier.EXPECT().NotifyNewVideos(&notification.NewVideos{
-					Subscription:  sub(1, "PL", "ch", "PL", now),
+				m.notifier.EXPECT().NotifyNewVideos(&subscription.VideosAdded{
+					ChannelID:     "ch",
+					PlaylistID:    "PL",
 					PlaylistTitle: "PL",
 					Videos: []*library.PlaylistVideo{
 						{PlaylistID: "PL", Item: item("PL", "1", "a", hoursAgo(1)), Video: video("a", library.PrivacyPublic, 0, 0)},
@@ -123,11 +125,12 @@ func TestNotificationServiceNotifyUpdates(t *testing.T) {
 			},
 		},
 		{
-			name: "見られなくなった動画を通知する",
+			name: "見られなくなった動画を、保存した後に通知する",
 			setup: func(m *deps) {
+				// 同期の前と、非公開のハンドラで読む
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
-				}, nil)
+				}, nil).Times(2)
 				m.youtube.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
 					"PL": meta("PL", "PL", 1),
 				}, nil)
@@ -144,15 +147,18 @@ func TestNotificationServiceNotifyUpdates(t *testing.T) {
 				m.playlists.EXPECT().Save(playlist("PL",
 					item("PL", "1", "a", hoursAgo(10)),
 				)).Return(nil)
-				m.videos.EXPECT().Save([]*library.Video{
+				saved := m.videos.EXPECT().Save([]*library.Video{
 					video("a", library.PrivacyPrivate, 0, 0),
-				}).Return(nil)
+				}).Return(nil).Call
+				m.playlists.EXPECT().FindContaining([]library.VideoID{"a"}).Return([]*library.Playlist{
+					playlist("PL", item("PL", "1", "a", hoursAgo(10))),
+				}, nil)
 				m.notifier.EXPECT().NotifyHiddenVideo(&notification.HiddenVideo{
 					ChannelID:     "ch",
 					PlaylistID:    "PL",
 					PlaylistTitle: "PL",
 					Video:         video("a", library.PrivacyPrivate, 0, 0),
-				}).Return(nil)
+				}).Return(nil).NotBefore(saved)
 			},
 		},
 		{
@@ -177,7 +183,7 @@ func TestNotificationServiceNotifyUpdates(t *testing.T) {
 
 			m := newDeps(t)
 			tt.setup(m)
-			s := application.NewNotificationService(m.subscriptions, newLibraryService(m, clock), m.notifier, jst, clock)
+			s := newNotificationService(m, clock)
 
 			s.NotifyUpdates()
 		})
@@ -240,7 +246,7 @@ func TestNotificationServiceRefreshVideos(t *testing.T) {
 
 			m := newDeps(t)
 			tt.setup(m)
-			s := application.NewNotificationService(m.subscriptions, newLibraryService(m, clock), m.notifier, jst, clock)
+			s := newNotificationService(m, clock)
 
 			s.RefreshVideos()
 		})
@@ -346,7 +352,7 @@ func TestNotificationServicePostPicks(t *testing.T) {
 			tt.setup(m)
 
 			fixed := func() time.Time { return tt.now }
-			s := application.NewNotificationService(m.subscriptions, newLibraryService(m, fixed), m.notifier, jst, fixed)
+			s := newNotificationService(m, fixed)
 
 			s.PostPicks()
 		})
@@ -436,7 +442,7 @@ func TestNotificationServicePostWrapped(t *testing.T) {
 			tt.setup(m)
 
 			fixed := func() time.Time { return tt.now }
-			s := application.NewNotificationService(m.subscriptions, newLibraryService(m, fixed), m.notifier, jst, fixed)
+			s := newNotificationService(m, fixed)
 
 			s.PostWrapped()
 		})

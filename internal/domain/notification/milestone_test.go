@@ -18,14 +18,14 @@ func TestFindMilestones(t *testing.T) {
 	tests := []struct {
 		name          string
 		subscriptions []*subscription.Subscription
-		videos        []*library.Video
+		events        []*library.MilestoneReached
 		containing    map[library.VideoID][]library.PlaylistID
 		want          []*notification.Milestone
 	}{
 		{
 			name:          "動画を含むプレイリストのチャンネルに、達した節目を通知する",
 			subscriptions: []*subscription.Subscription{sub("PL1", "ch1"), sub("PL2", "ch2")},
-			videos:        []*library.Video{a},
+			events:        []*library.MilestoneReached{{Video: a, Milestone: 1_000_000}},
 			containing:    map[library.VideoID][]library.PlaylistID{"a": {"PL1", "PL2"}},
 			want: []*notification.Milestone{
 				{ChannelID: "ch1", PlaylistID: "PL1", Video: a, Milestone: 1_000_000},
@@ -35,7 +35,7 @@ func TestFindMilestones(t *testing.T) {
 		{
 			name:          "同じチャンネルには 1 回だけ通知する",
 			subscriptions: []*subscription.Subscription{sub("PL1", "ch1"), sub("PL2", "ch1")},
-			videos:        []*library.Video{a},
+			events:        []*library.MilestoneReached{{Video: a, Milestone: 1_000_000}},
 			containing:    map[library.VideoID][]library.PlaylistID{"a": {"PL1", "PL2"}},
 			want: []*notification.Milestone{
 				{ChannelID: "ch1", PlaylistID: "PL1", Video: a, Milestone: 1_000_000},
@@ -44,7 +44,7 @@ func TestFindMilestones(t *testing.T) {
 		{
 			name:          "動画を含まないプレイリストには通知しない",
 			subscriptions: []*subscription.Subscription{sub("PL1", "ch1"), sub("PL2", "ch2")},
-			videos:        []*library.Video{a},
+			events:        []*library.MilestoneReached{{Video: a, Milestone: 1_000_000}},
 			containing:    map[library.VideoID][]library.PlaylistID{"a": {"PL1"}},
 			want: []*notification.Milestone{
 				{ChannelID: "ch1", PlaylistID: "PL1", Video: a, Milestone: 1_000_000},
@@ -55,7 +55,7 @@ func TestFindMilestones(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := notification.FindMilestones(tt.subscriptions, tt.videos, tt.containing)
+			got := notification.FindMilestones(tt.subscriptions, tt.events, tt.containing)
 
 			assert.Equal(t, tt.want, got)
 		})

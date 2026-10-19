@@ -11,7 +11,7 @@ import (
 // その場合はそれらなしで投稿する。
 type Notifier interface {
 	// NotifyNewVideos は動画 1 件につき 1 通投稿し、1 件失敗しても残りの投稿を続ける。
-	NotifyNewVideos(news *notification.NewVideos, live map[library.VideoID]*library.LiveVideo) error
+	NotifyNewVideos(added *subscription.VideosAdded, live map[library.VideoID]*library.LiveVideo) error
 	NotifyHiddenVideo(notice *notification.HiddenVideo) error
 	NotifyMilestone(notice *notification.Milestone, live map[library.VideoID]*library.LiveVideo) error
 	PostWrapped(sub *subscription.Subscription, wrapped *library.Wrapped) error

@@ -50,6 +50,106 @@ func TestIsNew(t *testing.T) {
 	}
 }
 
+func TestSubscriptionTakeNewVideos(t *testing.T) {
+	t.Parallel()
+
+	// 基準時刻を進める時刻
+	at := hoursLater(10)
+
+	tests := []struct {
+		name      string
+		sub       *subscription.Subscription
+		latest    *library.Snapshot
+		want      *subscription.Subscription
+		wantAdded *subscription.VideosAdded
+	}{
+		{
+			name:   "前回の通知の後に追加された動画を返し、基準時刻とタイトルを進める",
+			sub:    sub("古いタイトル", hoursLater(0)),
+			latest: snapshot(added(video("a", library.PrivacyPublic), 1)),
+			want:   sub("新しいタイトル", at),
+			wantAdded: &subscription.VideosAdded{
+				ChannelID:     "ch",
+				PlaylistID:    "PL",
+				PlaylistTitle: "新しいタイトル",
+				Videos: []*library.PlaylistVideo{
+					added(video("a", library.PrivacyPublic), 1),
+				},
+			},
+		},
+		{
+			name:   "前回の通知とちょうど同時刻に追加された動画を返す",
+			sub:    sub("PL", hoursLater(0)),
+			latest: snapshot(added(video("a", library.PrivacyPublic), 0)),
+			want:   sub("新しいタイトル", at),
+			wantAdded: &subscription.VideosAdded{
+				ChannelID:     "ch",
+				PlaylistID:    "PL",
+				PlaylistTitle: "新しいタイトル",
+				Videos: []*library.PlaylistVideo{
+					added(video("a", library.PrivacyPublic), 0),
+				},
+			},
+		},
+		{
+			name: "追加された順に並べる",
+			sub:  sub("PL", hoursLater(0)),
+			latest: snapshot(
+				added(video("b", library.PrivacyPublic), 2),
+				added(video("a", library.PrivacyPublic), 1),
+			),
+			want: sub("新しいタイトル", at),
+			wantAdded: &subscription.VideosAdded{
+				ChannelID:     "ch",
+				PlaylistID:    "PL",
+				PlaylistTitle: "新しいタイトル",
+				Videos: []*library.PlaylistVideo{
+					added(video("a", library.PrivacyPublic), 1),
+					added(video("b", library.PrivacyPublic), 2),
+				},
+			},
+		},
+		{
+			name:      "前回の通知の前に追加された動画は返さず、何も変えない",
+			sub:       sub("PL", hoursLater(0)),
+			latest:    snapshot(added(video("a", library.PrivacyPublic), -1)),
+			want:      sub("PL", hoursLater(0)),
+			wantAdded: nil,
+		},
+		{
+			name:      "見られない動画は返さない",
+			sub:       sub("PL", hoursLater(0)),
+			latest:    snapshot(added(video("a", library.PrivacyPrivate), 1)),
+			want:      sub("PL", hoursLater(0)),
+			wantAdded: nil,
+		},
+		{
+			name:      "詳細を取得していない動画は返さない",
+			sub:       sub("PL", hoursLater(0)),
+			latest:    snapshot(added(&library.Video{YoutubeID: "a", PrivacyStatus: library.PrivacyPublic}, 1)),
+			want:      sub("PL", hoursLater(0)),
+			wantAdded: nil,
+		},
+		{
+			name:      "削除されたプレイリストの動画は返さない",
+			sub:       sub("PL", hoursLater(0)),
+			latest:    deleted(snapshot(added(video("a", library.PrivacyPublic), 1))),
+			want:      sub("PL", hoursLater(0)),
+			wantAdded: nil,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := tt.sub.TakeNewVideos(tt.latest, at)
+
+			assert.Equal(t, tt.want, tt.sub)
+			assert.Equal(t, tt.wantAdded, got)
+		})
+	}
+}
+
 func TestPickIntervalDueOn(t *testing.T) {
 	t.Parallel()
 

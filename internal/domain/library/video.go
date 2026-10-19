@@ -46,15 +46,18 @@ func (v *Video) Thumbnail() string {
 	return "https://i.ytimg.com/vi/" + string(v.YoutubeID) + "/hqdefault.jpg"
 }
 
-// ChangePrivacy は公開状態を設定し、変わったかどうかと、その変化で動画が
-// 見られなくなったかどうかを返す。初めて見る動画は見られなくなったとは
-// みなさない。
-func (v *Video) ChangePrivacy(status PrivacyStatus) (changed bool, hidden bool) {
+// ChangePrivacy は公開状態を設定し、変わったかどうかを返す。その変化で動画が
+// 見られなくなったときは VideoHidden も返す（それ以外は nil）。初めて見る動画は
+// 見られなくなったとはみなさない。
+func (v *Video) ChangePrivacy(status PrivacyStatus) (changed bool, hidden *VideoHidden) {
 	if v.PrivacyStatus == status {
-		return false, false
+		return false, nil
 	}
 
-	hidden = v.Available() && status.Hidden()
+	if v.Available() && status.Hidden() {
+		hidden = &VideoHidden{Video: v}
+	}
+
 	v.PrivacyStatus = status
 
 	return true, hidden
@@ -84,23 +87,23 @@ func (v *Video) InitMilestone() {
 	}
 }
 
-// UpdateMilestone は現在の再生数の節目を記録し、新しい節目に達したかを
-// 返す。
-func (v *Video) UpdateMilestone() bool {
+// UpdateMilestone は現在の再生数の節目を記録し、新しい節目に達したときは
+// MilestoneReached を返す（それ以外は nil）。
+func (v *Video) UpdateMilestone() *MilestoneReached {
 	milestone := v.Views.Milestone()
 	if v.ViewMilestone == nil {
 		v.ViewMilestone = &milestone
 
-		return false
+		return nil
 	}
 
 	if milestone > *v.ViewMilestone {
 		v.ViewMilestone = &milestone
 
-		return true
+		return &MilestoneReached{Video: v, Milestone: milestone}
 	}
 
-	return false
+	return nil
 }
 
 // LiveVideo は動画を表示する直前に YouTube から取得する情報。チャンネルは

@@ -26,8 +26,8 @@ type FetchedItem struct {
 type VideoSync struct {
 	// 取得したアイテムの全ての動画。初めて見る動画も含む
 	Videos map[VideoID]*Video
-	// 非公開・削除になった動画
-	Hidden []*Video
+	// 非公開・削除になった動画のイベント。動画を保存した後に配る
+	Hidden []*VideoHidden
 	// 視聴可能で、詳細をまだ一度も取得していない動画
 	NeedDetails []VideoID
 
@@ -54,8 +54,8 @@ func SyncVideos(fetched []*FetchedItem, videos map[VideoID]*Video) *VideoSync {
 		}
 
 		changed, hidden := video.ChangePrivacy(f.PrivacyStatus)
-		if hidden {
-			s.Hidden = append(s.Hidden, video)
+		if hidden != nil {
+			s.Hidden = append(s.Hidden, hidden)
 		}
 
 		if changed {
