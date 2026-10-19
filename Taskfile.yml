@@ -5,9 +5,9 @@ vars:
 
 tasks:
   fmt:
-    desc: gofumpt と goimports で整形する
+    desc: gofumpt と goimports で整形する（引数でファイルを絞れる。task fmt -- a.go b.go）
     cmds:
-      - "{{.GOLANGCI_LINT}} fmt"
+      - "{{.GOLANGCI_LINT}} fmt {{.CLI_ARGS}}"
   lint:
     desc: golangci-lint で静的チェックする
     cmds:
@@ -16,6 +16,14 @@ tasks:
     desc: golangci-lint の指摘のうち自動で直せるもの（空行など）を直す
     cmds:
       - "{{.GOLANGCI_LINT}} run --fix"
+  tidy:
+    desc: go.mod と go.sum を整える
+    cmds:
+      - go mod tidy
+  tidy:check:
+    desc: go mod tidy で go.mod と go.sum が変わらないことを確かめる
+    cmds:
+      - go mod tidy -diff
   test:
     desc: テストを実行する（Testcontainers を使うので Docker が必要）
     cmds:
@@ -28,9 +36,14 @@ tasks:
     desc: mock を生成し直す
     cmds:
       - go tool mockery
+  hooks:
+    desc: lefthook の Git フックを入れる（clone したら 1 回だけ）
+    cmds:
+      - go tool lefthook install
   check:
-    desc: コミット前の確認（build・lint・test）
+    desc: コミット前の確認（build・tidy・lint・test）
     cmds:
       - go build ./...
+      - task: tidy:check
       - task: lint
       - task: test

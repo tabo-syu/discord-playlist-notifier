@@ -340,19 +340,24 @@ func (s *LibraryService) syncPlaylist(meta *library.PlaylistMeta) (*library.Snap
 
 	changes := library.Reconcile(meta.YoutubeID, stored, fetched, videos)
 	if len(changes.NeedDetails) > 0 {
-		details, channels, err := s.youtube.FetchVideos(changes.NeedDetails)
+		var (
+			details  []*library.Video
+			channels []*library.Channel
+		)
+
+		details, channels, err = s.youtube.FetchVideos(changes.NeedDetails)
 		if err != nil {
 			return nil, err
 		}
 
 		changes.ApplyDetails(details)
 		// チャンネルは動画の検索にしか使わない
-		if err := s.library.SaveChannels(channels); err != nil {
+		if err = s.library.SaveChannels(channels); err != nil {
 			log.Println("Could not save channels cause:", err)
 		}
 	}
 
-	if err := s.library.ApplyItems(meta.YoutubeID, changes.Added, changes.Removed, changes.ChangedVideos()); err != nil {
+	if err = s.library.ApplyItems(meta.YoutubeID, changes.Added, changes.Removed, changes.ChangedVideos()); err != nil {
 		return nil, err
 	}
 

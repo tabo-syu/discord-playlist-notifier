@@ -128,8 +128,10 @@ func call(t *testing.T, session *mcp.ClientSession, name string, arguments map[s
 	}
 
 	require.Len(t, res.Content, 1)
+	text, ok := res.Content[0].(*mcp.TextContent)
+	require.True(t, ok)
 
-	return string(output), res.Content[0].(*mcp.TextContent).Text
+	return string(output), text.Text
 }
 
 // sub はギルド 1 の通知設定を返す。

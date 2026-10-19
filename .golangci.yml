@@ -8,6 +8,7 @@ linters:
     - embeddedstructfieldcheck
     - errorlint
     - exhaustive
+    - forcetypeassert
     - funcorder
     - gocritic
     - intrange
@@ -17,12 +18,17 @@ linters:
     - nolintlint
     - paralleltest
     - prealloc
+    - predeclared
     - recvcheck
+    - tagliatelle
     - testifylint
+    - testpackage
     - thelper
+    - tparallel
     - unconvert
     - unparam
     - usestdlibvars
+    - usetesting
     - wsl_v5
   settings:
     depguard:
@@ -53,6 +59,10 @@ linters:
           deny:
             - pkg: github.com/tabo-syu/discord-playlist-notifier/internal/mocks
               desc: mock はテストからだけ使う
+    govet:
+      enable:
+        # 内側のスコープで err などを宣言し直して、外側の値を隠していないか
+        - shadow
     exhaustive:
       # default があれば残りの値はまとめて扱っているとみなす
       default-signifies-exhaustive: true
@@ -60,6 +70,11 @@ linters:
       exclusions:
         # GORM のテーブル名は値のレシーバで定義する
         - "*.TableName"
+    tagliatelle:
+      case:
+        rules:
+          # MCP のツールの入出力は snake_case
+          json: snake
     testifylint:
       disable:
         # テストの書き方ではエラーを assert.ErrorIs で比べる

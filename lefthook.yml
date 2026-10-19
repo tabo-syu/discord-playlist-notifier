@@ -1,0 +1,21 @@
+# Git フック。clone したら `go tool task hooks` で 1 回だけ入れる。
+# 一時的に飛ばすときは LEFTHOOK=0 git commit ...
+pre-commit:
+  # 整形してから lint するので、順に実行する
+  piped: true
+  jobs:
+    - name: fmt
+      glob: "*.go"
+      run: go tool task fmt -- {staged_files}
+      stage_fixed: true
+    - name: tidy
+      glob: "{*.go,go.mod,go.sum}"
+      run: go tool task tidy:check
+    - name: lint
+      glob: "*.go"
+      run: go tool task lint
+
+pre-push:
+  jobs:
+    - name: test
+      run: go tool task test

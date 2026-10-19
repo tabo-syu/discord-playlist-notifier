@@ -70,7 +70,7 @@ func run(m *testing.M) int {
 		return 1
 	}
 	defer func() {
-		if err := container.Terminate(ctx); err != nil {
+		if err = container.Terminate(ctx); err != nil {
 			fmt.Println("could not terminate PostgreSQL:", err)
 		}
 	}()
