@@ -40,7 +40,7 @@ func (h *NotificationHandlers) NotifyHiddenVideos(events []*library.VideoHidden)
 	}
 
 	for _, notice := range notification.FindHiddenVideos(subscriptions, events, containing) {
-		if err := h.notifier.NotifyHiddenVideo(notice); err != nil {
+		if err = h.notifier.NotifyHiddenVideo(notice); err != nil {
 			log.Println("Hidden video notice could not send to", notice.ChannelID, "video:", notice.Video.YoutubeID, "cause:", err)
 		} else {
 			log.Println("Sent hidden video notice to", notice.ChannelID, "video:", notice.Video.YoutubeID, "status:", notice.Video.PrivacyStatus)
@@ -70,7 +70,7 @@ func (h *NotificationHandlers) NotifyMilestones(events []*library.MilestoneReach
 	}
 
 	for _, notice := range notification.FindMilestones(subscriptions, events, containing) {
-		if err := h.notifier.NotifyMilestone(notice, live); err != nil {
+		if err = h.notifier.NotifyMilestone(notice, live); err != nil {
 			log.Println("Milestone notice could not send to", notice.ChannelID, "video:", notice.Video.YoutubeID, "cause:", err)
 		} else {
 			log.Println("Sent milestone notice to", notice.ChannelID, "video:", notice.Video.YoutubeID, "milestone:", notice.Milestone)
@@ -93,7 +93,7 @@ func (h *NotificationHandlers) NotifyNewVideos(events []*subscription.VideosAdde
 			log.Println("Could not fetch channels for playlist:", e.PlaylistID, "cause:", err)
 		}
 
-		if err := h.notifier.NotifyNewVideos(e, live); err != nil {
+		if err = h.notifier.NotifyNewVideos(e, live); err != nil {
 			log.Println("Message could not send to", e.ChannelID, "for playlist:", e.PlaylistID, "cause:", err)
 		} else {
 			log.Println("Successfully sent notification for playlist:", e.PlaylistID, "to channel:", e.ChannelID)

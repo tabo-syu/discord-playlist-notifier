@@ -82,7 +82,7 @@ func (s *NotificationService) NotifyUpdates() {
 
 		found = true
 
-		if err := s.subscriptions.Update(sub); err != nil {
+		if err = s.subscriptions.Update(sub); err != nil {
 			log.Println("Could not update playlist:", sub.YoutubeID, "cause:", err)
 		} else {
 			saved = append(saved, added)

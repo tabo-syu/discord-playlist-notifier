@@ -31,7 +31,8 @@ paths:
 - 配るのは `NotificationService` です（`application.Publish`）。`LibraryService` はイベントを返す
   だけで、発行者を持ちません。`EventPublisher` は同期的に、登録した順にハンドラを呼びます。
 - ハンドラ（`NotificationHandlers`）は 1 回の発行のイベントをまとめて受け取ります。チャンネルごとの
-  重複の排除と、`LiveVideos` の呼び出しを 1 回にまとめるためです。
+  重複の排除と、節目の `LiveVideos` の呼び出しを 1 回にまとめるためです（新着は今までどおり
+  通知設定ごとに 1 回呼びます）。
 - 非公開と節目のハンドラは、全ての通知設定と「動画を含むプレイリスト」（`LibraryService.PlaylistsContaining`、
   DB に保存したアイテム）を自分で読み、`notification.FindHiddenVideos` / `FindMilestones` に
   チャンネルごとに 1 回にまとめさせます。そのため、非公開の通知に出すプレイリスト名は
