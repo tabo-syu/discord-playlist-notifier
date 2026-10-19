@@ -131,7 +131,7 @@ YouTube のプレイリストを見張って、新しい動画が追加された
    cp .env.example .env
    ```
 
-3. 起動します。PostgreSQL・マイグレーション・ボット・MCP サーバーがまとめて立ち上がります
+3. 起動します。PostgreSQL・マイグレーション・ボット・MCP サーバー・バックアップがまとめて立ち上がります
    （マイグレーションが終わってから、ボットと MCP サーバーが起動します）。
 
    ```bash
@@ -161,6 +161,26 @@ YouTube のプレイリストを見張って、新しい動画が追加された
 | `YOUTUBE_APIKEY` | YouTube Data API v3 の API キー | |
 
 MCP サーバーの待ち受けアドレス `MCP_ADDR` は `docker-compose.yml` の `mcp` で `:8080` に設定しています。
+
+### バックアップ
+
+`backup` コンテナが起動時と、その後 24 時間ごとに `pg_dump` を実行し、`backups/` に
+`20261020-030000.dump` のような名前で保存します。14 日より古いファイルは消します。
+バックアップは同じマシンにしか残らないので、ディスクの故障に備えるなら別の場所にもコピーしてください。
+
+```bash
+docker compose logs backup   # Backup created: ... が出ていれば成功
+ls backups/
+```
+
+復元するときは、ボットと MCP サーバーを止めてから `pg_restore` を実行します。
+
+```bash
+docker compose stop bot mcp
+set -a && . ./.env && set +a
+docker compose exec -T db pg_restore -U "$DB_USER" -d "$DB_NAME" --clean --if-exists < backups/20261020-030000.dump
+docker compose start bot mcp
+```
 
 ### YouTube API のクォータ
 
