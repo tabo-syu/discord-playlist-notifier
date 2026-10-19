@@ -131,11 +131,12 @@ YouTube のプレイリストを見張って、新しい動画が追加された
    cp .env.example .env
    ```
 
-3. 起動します。ボットと PostgreSQL がまとめて立ち上がります。
+3. 起動します。PostgreSQL・マイグレーション・ボット・MCP サーバーがまとめて立ち上がります
+   （マイグレーションが終わってから、ボットと MCP サーバーが起動します）。
 
    ```bash
    docker compose up -d
-   docker compose logs -f bot   # ログを見る
+   docker compose logs -f bot mcp   # ログを見る
    ```
 
 4. Discord Developer Portal の OAuth2 URL Generator で招待 URL を作り、ボットをサーバーに招待します。
@@ -159,7 +160,7 @@ YouTube のプレイリストを見張って、新しい動画が追加された
 | `DISCORD_ACCESS_TOKEN` | Discord のボットトークン | |
 | `YOUTUBE_APIKEY` | YouTube Data API v3 の API キー | |
 
-MCP サーバーの待ち受けアドレス `MCP_ADDR` は `docker-compose.yml` で `:8080` に設定しています（空にすると MCP サーバーを起動しません）。
+MCP サーバーの待ち受けアドレス `MCP_ADDR` は `docker-compose.yml` の `mcp` で `:8080` に設定しています。
 
 ### YouTube API のクォータ
 
@@ -197,8 +198,8 @@ YouTube Data API には 1 日 10,000 ユニットの上限があります。こ�
 ## 外部から使う：MCP サーバー
 
 ほかのボット（Claude Code など）から、登録されているプレイリストの中身を調べられるように、
-読み取り専用の MCP サーバーを内蔵しています。`docker compose` で起動すると、Docker の
-`playlist-api` ネットワーク上の `http://playlist-notifier:8080/mcp` で待ち受けます
+読み取り専用の MCP サーバーを用意しています。ボットとは別のコンテナ（`mcp`）で動き、
+`docker compose` で起動すると、Docker の `playlist-api` ネットワーク上の `http://playlist-notifier:8080/mcp` で待ち受けます
 （ホストにはポートを公開しません。認証はないので、公開範囲を広げるときは注意してください）。
 
 | ツール | 内容 |
@@ -236,10 +237,13 @@ go tool task test:short  # DB のテストを飛ばす（Docker なし）
 go tool task check       # build・tidy・lint・test をまとめて。コミット前はこれ
 ```
 
-Docker の外でボットを直接動かすときは、PostgreSQL を用意し、環境変数をシェルにエクスポートしてから実行します。
+Docker の外で直接動かすときは、PostgreSQL を用意し、環境変数をシェルにエクスポートしてから実行します。
+ボットと MCP サーバーはスキーマを作らないので、先にマイグレーションを実行します。
 
 ```bash
-go run cmd/server/main.go
+go run cmd/migrate/main.go   # スキーマを更新して終わる
+go run cmd/bot/main.go
+go run cmd/mcp/main.go       # MCP サーバー（MCP_ADDR も必要）
 ```
 
 ### プロジェクトの構成
@@ -247,7 +251,10 @@ go run cmd/server/main.go
 DDD のレイヤードアーキテクチャで、依存は外側から内側への一方向です。
 
 ```
-cmd/server/            依存の組み立て（エントリーポイント）
+cmd/
+├── bot/               ボットのエントリーポイント（依存の組み立て）
+├── mcp/               MCP サーバーのエントリーポイント
+└── migrate/           スキーマを更新して終了する
 internal/
 ├── presentation/      Discord のコマンド、定期実行、通知の投稿、MCP サーバー、文言の整形
 ├── infrastructure/    DB（GORM）と YouTube Data API の実装

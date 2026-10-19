@@ -19,5 +19,5 @@ paths:
 ## スラッシュコマンドを追加する
 
 1. `command/` 配下に `command.Command` を実装するパッケージを作る。
-2. `cmd/server/main.go` の `commands` スライスに追加する。router と registrar はこのスライスから
+2. `cmd/bot/main.go` の `commands` スライスに追加する。router と registrar はこのスライスから
    導出されるので、他に変える箇所はありません。

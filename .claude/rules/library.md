@@ -33,4 +33,4 @@ paths:
 - `subscription.Subscription` は以前 `Playlist` だったので、テーブル名は `playlists` のままです
   （`TableName()` で固定）。
 - `videos` テーブルは以前、通知した動画の履歴でした。古い形（`playlist_id` カラムがある）は、
-  起動時に `persistence.Migrate` が一度だけ削除します。
+  `persistence.Migrate`（`cmd/migrate`）が一度だけ削除します。

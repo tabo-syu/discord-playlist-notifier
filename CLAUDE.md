@@ -35,8 +35,8 @@ go tool task check        # コミット前はこれ
 go tool task mock         # インターフェースを変えたら mock を生成し直す
 go tool task hooks        # lefthook の Git フックを入れる（clone したら 1 回だけ）
 
-# スタック全体（ボット + PostgreSQL）を起動する。通常はこちら
-cp .env.example .env && docker compose up -d && docker compose logs -f bot
+# スタック全体（マイグレーション + ボット + MCP サーバー + PostgreSQL）を起動する。通常はこちら
+cp .env.example .env && docker compose up -d && docker compose logs -f bot mcp
 ```
 
 - Task・mockery・lefthook は `go.mod` の `tool`、golangci-lint は `Taskfile.yml` の
@@ -50,7 +50,9 @@ DDD のレイヤードアーキテクチャです。依存は外側から内側�
 import しない。`internal/mocks` はテストからだけ import する）。
 
 ```
-cmd/server/main.go           コンポジションルート — 全ての組み立てと依存注入
+cmd/bot/main.go              ボットのコンポジションルート — 全ての組み立てと依存注入
+cmd/mcp/main.go              MCP サーバーのコンポジションルート（読み取りに要るものだけ）
+cmd/migrate/main.go          スキーマを更新して終了する（persistence.Migrate）
 internal/presentation/       外界との入出力（discord・scheduler・notifier・mcpserver・view）。ユーザーに見える日本語はここだけ
 internal/infrastructure/     ドメインが宣言したインターフェースの実装（persistence・youtube）
 internal/application/        ユースケース（リポジトリから集約を読み、ドメインに判断させ、保存する）
@@ -80,8 +82,13 @@ internal/mocks/              mockery が生成した mock（手で編集しな�
 
 ### 依存の組み立て
 
-依存を組み立てるのは `cmd/server/main.go` だけです。DI コンテナはありません。新しい依存も
-ここに追加します。
+依存を組み立てるのは `cmd/bot/main.go` と `cmd/mcp/main.go` だけです。DI コンテナはありません。
+新しい依存もここに追加します。
+
+- スキーマを更新するのは `cmd/migrate` だけで、ボットと MCP サーバーは更新しません。
+  compose では一度だけ動く `migrate` が `db` の healthcheck を待って実行し、`bot` と `mcp` は
+  `service_completed_successfully` でその完了を待ちます。`bot` だけが再起動しても
+  マイグレーションは走りません。
 
 - 現在時刻は `time.Now` をコンストラクタで渡します。テストで時刻を固定するためで、
   サービスの中では `time.Now()` を直接呼びません。
@@ -115,7 +122,7 @@ internal/mocks/              mockery が生成した mock（手で編集しな�
 
 ### 永続化するフィールドを追加する
 
-`internal/domain/` の構造体に追加すれば、起動時に `persistence.Migrate` の `AutoMigrate` が
+`internal/domain/` の構造体に追加すれば、`cmd/migrate` が `persistence.Migrate` の `AutoMigrate` で
 カラムを足します。マイグレーションファイルはありません。新しいモデルは `Migrate` に
 追加し、`TableName()` を定義します。リネームと削除は AutoMigrate がしないので、DB に
 手で行う必要があることをユーザーに伝えます。
@@ -138,7 +145,7 @@ internal/mocks/              mockery が生成した mock（手で編集しな�
 | `DB_TIMEZONE` | IANA のタイムゾーン名。DSN と gocron のロケーションの両方に使う |
 | `DISCORD_ACCESS_TOKEN` | `env.DISCORD_TOKEN` に読み込まれる（名前が違う） |
 | `YOUTUBE_APIKEY` | `env.YOUTUBE_TOKEN` に読み込まれる（名前が違う） |
-| `MCP_ADDR` | MCP サーバーの待ち受けアドレス（例 `:8080`）。空なら起動しない |
+| `MCP_ADDR` | MCP サーバー（`cmd/mcp`）の待ち受けアドレス（例 `:8080`）。`docker-compose.yml` の `mcp` で設定 |
 
 実際のトークンはコード・テスト・コミットメッセージ・PR の説明に書かず、`.env`
 （gitignore 済み）だけに置きます。
@@ -172,5 +179,6 @@ Discord や YouTube の実際の挙動は、本物の認証情報とテスト用
   `videos` は他のサーバーと共有しているので削除しません。
 - `playlists.guild_id` の外部キー `fk_guilds_playlists` は、集約を ID で参照するように
   したため `persistence.Migrate` が明示的に作成します。
-- Dockerfile は `go run` を実行し（バイナリのビルドはしない）、`docker-compose.yml` は
+- Dockerfile は `go run` を実行し（バイナリのビルドはしない。`migrate` と `mcp` は `command:` で
+  `cmd/migrate`・`cmd/mcp` に差し替える）、`docker-compose.yml` は
   ソースをコンテナにバインドマウントします。
