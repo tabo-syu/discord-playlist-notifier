@@ -9,9 +9,9 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/view"
 )
@@ -47,7 +47,7 @@ var (
 
 func (c *PlaylistNotifier) trending(guildId string, playlistId string, days int) *command.Response {
 	subscriptions, err := c.subscriptions.FindByGuild(guild.DiscordID(guildId))
-	if errors.Is(err, domain.ErrDBRecordNotFound) {
+	if errors.Is(err, subscription.ErrNotSubscribed) {
 		return command.Text("通知登録されているプレイリストが存在しません。")
 	}
 

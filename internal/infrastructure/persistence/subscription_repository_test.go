@@ -5,7 +5,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
@@ -87,7 +86,7 @@ func TestSubscriptionRepositoryFindAll(t *testing.T) {
 			// 既知の挙動: 空のスライスではなくエラーを返す
 			name:    "通知設定がなければ ErrDBRecordNotFound を返す",
 			want:    nil,
-			wantErr: domain.ErrDBRecordNotFound,
+			wantErr: subscription.ErrNotSubscribed,
 		},
 	}
 	for _, tt := range tests {
@@ -126,14 +125,14 @@ func TestSubscriptionRepositoryFindByGuild(t *testing.T) {
 			stored:  []any{subscriptionRow(2, "PL2", "PL2")},
 			guildID: "guild",
 			want:    nil,
-			wantErr: domain.ErrDBRecordNotFound,
+			wantErr: subscription.ErrNotSubscribed,
 		},
 		{
 			name:    "ギルドを保存していなければ ErrDBRecordNotFound を返す",
 			stored:  []any{subscriptionRow(1, "PL1", "PL1")},
 			guildID: "unknown",
 			want:    nil,
-			wantErr: domain.ErrDBRecordNotFound,
+			wantErr: subscription.ErrNotSubscribed,
 		},
 	}
 	for _, tt := range tests {
@@ -171,7 +170,7 @@ func TestSubscriptionRepositoryAdd(t *testing.T) {
 			subscription:     &subscription.Subscription{ID: 5, YoutubeID: "PL", SendChannelID: "ch", Title: "PL", GuildID: 1},
 			want:             []*persistence.SubscriptionRecord{},
 			wantSubscription: &subscription.Subscription{ID: 5, YoutubeID: "PL", SendChannelID: "ch", Title: "PL", GuildID: 1},
-			wantErr:          domain.ErrDBRecordAlreadyCreated,
+			wantErr:          subscription.ErrAlreadySubscribed,
 		},
 	}
 	for _, tt := range tests {
@@ -222,7 +221,7 @@ func TestSubscriptionRepositoryUpdate(t *testing.T) {
 			want: []*persistence.SubscriptionRecord{
 				storedSubscriptionRow(1, 1, "PL", "PL"),
 			},
-			wantErr: domain.ErrDBRecordNotFound,
+			wantErr: subscription.ErrNotSubscribed,
 		},
 		{
 			// 読んだ後に解除された通知設定を、保存し直して元に戻さない
@@ -232,7 +231,7 @@ func TestSubscriptionRepositoryUpdate(t *testing.T) {
 			want: []*persistence.SubscriptionRecord{
 				{Model: deleted(1), YoutubeID: "PL", SendChannelID: "ch", Title: "PL", PickInterval: "weekly", GuildID: 1, NotifiedUntil: hoursAgo(6)},
 			},
-			wantErr: domain.ErrDBRecordNotFound,
+			wantErr: subscription.ErrNotSubscribed,
 		},
 	}
 	for _, tt := range tests {
@@ -276,7 +275,7 @@ func TestSubscriptionRepositoryDeleteAll(t *testing.T) {
 				storedSubscriptionRow(1, 1, "PL1", "PL1"),
 				storedSubscriptionRow(2, 1, "PL2", "PL2"),
 			},
-			wantErr: domain.ErrDBRecordNotFound,
+			wantErr: subscription.ErrNotSubscribed,
 		},
 	}
 	for _, tt := range tests {

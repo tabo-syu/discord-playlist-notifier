@@ -5,7 +5,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
@@ -26,11 +26,11 @@ func (c *PlaylistNotifier) add(guildId string, channelId string, playlistId stri
 	switch c.subscriptions.Subscribe(guild.DiscordID(guildId), subscription.ChannelID(channelId), library.PlaylistID(playlistId)) {
 	case nil:
 		message = fmt.Sprintf("通知登録しました！\nhttps://www.youtube.com/playlist?list=%s", playlistId)
-	case domain.ErrYouTubePlaylistNotFound:
+	case library.ErrPlaylistNotFound:
 		message = "該当するプレイリストが見つかりませんでした...\n非公開のプレイリストではありませんか？"
-	case domain.ErrDBRecordAlreadyCreated:
+	case subscription.ErrAlreadySubscribed:
 		message = "既に通知登録されているプレイリストです。"
-	case domain.ErrYouTubeGeneralError:
+	case application.ErrYouTubeUnavailable:
 		message = "YouTube API のサービス状況を確認してください。"
 	default:
 		message = "エラー！システムに問題があります！"

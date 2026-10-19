@@ -10,8 +10,8 @@ import (
 	"time"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -99,7 +99,7 @@ func logged[In, Out any](name string, h mcp.ToolHandlerFor[In, Out]) mcp.ToolHan
 // clientError はユースケースのエラーを、クライアントに見せるメッセージに変換する。
 // 内部エラーの原因はログに出すだけにする。
 func clientError(err error) error {
-	if errors.Is(err, domain.ErrDBRecordNotFound) {
+	if errors.Is(err, subscription.ErrNotSubscribed) {
 		return errors.New(ERR_NOT_WATCHED)
 	}
 
@@ -604,7 +604,7 @@ func (t *tools) videoHistory(_ context.Context, _ *mcp.CallToolRequest, in video
 	}
 
 	h, err := t.query.History(library.VideoID(in.VideoID), t.now().AddDate(0, 0, -days))
-	if errors.Is(err, domain.ErrDBRecordNotFound) {
+	if errors.Is(err, library.ErrVideoNotFound) {
 		return nil, videoHistoryOut{}, errors.New(ERR_VIDEO_NOT_WATCHED)
 	}
 

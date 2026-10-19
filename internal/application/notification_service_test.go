@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/notification"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
@@ -165,7 +164,7 @@ func TestNotificationServiceNotifyUpdates(t *testing.T) {
 		{
 			name: "通知設定がなければ何もしない",
 			setup: func(m *deps) {
-				m.subscriptions.EXPECT().FindAll().Return(nil, domain.ErrDBRecordNotFound)
+				m.subscriptions.EXPECT().FindAll().Return(nil, subscription.ErrNotSubscribed)
 			},
 		},
 	}
@@ -332,7 +331,7 @@ func TestNotificationServicePostPicks(t *testing.T) {
 			name: "通知設定がなければ何もしない",
 			now:  date(2026, time.October, 18, 12),
 			setup: func(m *deps) {
-				m.subscriptions.EXPECT().FindAll().Return(nil, domain.ErrDBRecordNotFound)
+				m.subscriptions.EXPECT().FindAll().Return(nil, subscription.ErrNotSubscribed)
 			},
 		},
 	}
@@ -422,7 +421,7 @@ func TestNotificationServicePostWrapped(t *testing.T) {
 			name: "通知設定がなければ何もしない",
 			now:  date(2026, time.December, 31, 21),
 			setup: func(m *deps) {
-				m.subscriptions.EXPECT().FindAll().Return(nil, domain.ErrDBRecordNotFound)
+				m.subscriptions.EXPECT().FindAll().Return(nil, subscription.ErrNotSubscribed)
 			},
 		},
 	}

@@ -6,7 +6,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
@@ -52,7 +51,7 @@ func TestAdd(t *testing.T) {
 			name: "YouTube にないプレイリスト",
 			data: subcommand("add", stringOption("playlist-id", "PL")),
 			setup: func(m *deps) {
-				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(nil, domain.ErrYouTubePlaylistNotFound)
+				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(nil, library.ErrPlaylistNotFound)
 			},
 			want: command.Text("該当するプレイリストが見つかりませんでした...\n非公開のプレイリストではありませんか？"),
 		},

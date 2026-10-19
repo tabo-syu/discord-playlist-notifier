@@ -11,7 +11,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
@@ -75,7 +74,7 @@ func newCommand(m *deps) *playlist_notifier.PlaylistNotifier {
 // guildHas は、ギルド「guild」の通知設定が subscriptions であることを期待する。
 func (m *deps) guildHas(subscriptions ...*subscription.Subscription) {
 	if len(subscriptions) == 0 {
-		m.subscriptions.EXPECT().FindByGuild(mockGuild).Return(nil, domain.ErrDBRecordNotFound)
+		m.subscriptions.EXPECT().FindByGuild(mockGuild).Return(nil, subscription.ErrNotSubscribed)
 
 		return
 	}

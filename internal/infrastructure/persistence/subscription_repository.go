@@ -1,7 +1,6 @@
 package persistence
 
 import (
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
@@ -35,7 +34,7 @@ func (r *subscriptionRepository) FindAll() ([]*subscription.Subscription, error)
 	}
 
 	if len(recs) == 0 {
-		return nil, domain.ErrDBRecordNotFound
+		return nil, subscription.ErrNotSubscribed
 	}
 
 	return mapSlice(recs, (*subscriptionRecord).toDomain), nil
@@ -48,7 +47,7 @@ func (r *subscriptionRepository) FindByGuild(guildID guild.DiscordID) ([]*subscr
 	}
 
 	if len(recs) == 0 {
-		return nil, domain.ErrDBRecordNotFound
+		return nil, subscription.ErrNotSubscribed
 	}
 
 	return mapSlice(recs, (*subscriptionRecord).toDomain), nil
@@ -57,7 +56,7 @@ func (r *subscriptionRepository) FindByGuild(guildID guild.DiscordID) ([]*subscr
 // Add は保存した通知設定に DB が振った ID を s に書き戻す。
 func (r *subscriptionRepository) Add(s *subscription.Subscription) error {
 	if s.ID != 0 {
-		return domain.ErrDBRecordAlreadyCreated
+		return subscription.ErrAlreadySubscribed
 	}
 
 	rec := toSubscriptionRecord(s)
@@ -77,7 +76,7 @@ func (r *subscriptionRepository) Add(s *subscription.Subscription) error {
 // created_at を持たないので、レコードのゼロ値で上書きしないように除く。
 func (r *subscriptionRepository) Update(s *subscription.Subscription) error {
 	if s.ID == 0 {
-		return domain.ErrDBRecordNotFound
+		return subscription.ErrNotSubscribed
 	}
 
 	rec := toSubscriptionRecord(s)
@@ -88,7 +87,7 @@ func (r *subscriptionRepository) Update(s *subscription.Subscription) error {
 	}
 
 	if result.RowsAffected == 0 {
-		return domain.ErrDBRecordNotFound
+		return subscription.ErrNotSubscribed
 	}
 
 	return nil
@@ -99,7 +98,7 @@ func (r *subscriptionRepository) DeleteAll(subscriptions []*subscription.Subscri
 
 	for _, s := range subscriptions {
 		if s.ID == 0 {
-			return domain.ErrDBRecordNotFound
+			return subscription.ErrNotSubscribed
 		}
 
 		ids = append(ids, s.ID)

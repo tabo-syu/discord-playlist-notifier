@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 )
@@ -32,7 +31,7 @@ func TestGuildServiceRegister(t *testing.T) {
 			setup: func(m *deps) {
 				m.guilds.EXPECT().Exists(guild.DiscordID("guild")).Return(true, nil)
 			},
-			wantErr: domain.ErrDBRecordAlreadyCreated,
+			wantErr: guild.ErrAlreadyRegistered,
 		},
 	}
 	for _, tt := range tests {
@@ -79,16 +78,16 @@ func TestGuildServiceUnregister(t *testing.T) {
 			setup: func(m *deps) {
 				m.guilds.EXPECT().Exists(guild.DiscordID("guild")).Return(true, nil)
 				m.guilds.EXPECT().FindByDiscordID(guild.DiscordID("guild")).Return(guildOf(1, "guild"), nil)
-				m.subscriptions.EXPECT().FindByGuild(guild.DiscordID("guild")).Return(nil, domain.ErrDBRecordNotFound)
+				m.subscriptions.EXPECT().FindByGuild(guild.DiscordID("guild")).Return(nil, subscription.ErrNotSubscribed)
 			},
-			wantErr: domain.ErrDBRecordNotFound,
+			wantErr: subscription.ErrNotSubscribed,
 		},
 		{
 			name: "記録していないギルドは削除できない",
 			setup: func(m *deps) {
 				m.guilds.EXPECT().Exists(guild.DiscordID("guild")).Return(false, nil)
 			},
-			wantErr: domain.ErrDBRecordNotFound,
+			wantErr: guild.ErrNotRegistered,
 		},
 	}
 	for _, tt := range tests {

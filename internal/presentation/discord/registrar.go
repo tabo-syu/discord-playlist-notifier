@@ -1,7 +1,8 @@
 package discord
 
 import (
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
+	"fmt"
+
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command"
 
 	"github.com/bwmarrin/discordgo"
@@ -23,7 +24,7 @@ func (r *registrar) Register(guildId string) error {
 	for _, command := range r.commands {
 		registered, err := r.session.ApplicationCommandCreate(r.session.State.User.ID, guildId, command.GetCommand())
 		if err != nil {
-			return domain.ErrDiscordCommandCouldNotCreate
+			return fmt.Errorf("failed to create command %s: %w", command.GetCommand().Name, err)
 		}
 
 		r.guildCommands[guildID(guildId)] = append(r.guildCommands[guildID(guildId)], registered)

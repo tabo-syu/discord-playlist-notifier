@@ -3,7 +3,6 @@
 package application
 
 import (
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 )
@@ -25,7 +24,7 @@ func (s *GuildService) Register(id guild.DiscordID) error {
 	}
 
 	if exists {
-		return domain.ErrDBRecordAlreadyCreated
+		return guild.ErrAlreadyRegistered
 	}
 
 	return s.guilds.Add(guild.New(id))
@@ -39,7 +38,7 @@ func (s *GuildService) Unregister(id guild.DiscordID) error {
 	}
 
 	if !exists {
-		return domain.ErrDBRecordNotFound
+		return guild.ErrNotRegistered
 	}
 
 	g, err := s.guilds.FindByDiscordID(id)

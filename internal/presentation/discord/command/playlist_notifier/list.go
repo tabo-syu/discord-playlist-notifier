@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 
 	"github.com/bwmarrin/discordgo"
 )
@@ -19,7 +19,7 @@ var listSubCommand = &discordgo.ApplicationCommandOption{
 
 func (c *PlaylistNotifier) list(guildId string) string {
 	subscriptions, err := c.subscriptions.FindByGuild(guild.DiscordID(guildId))
-	if errors.Is(err, domain.ErrDBRecordNotFound) {
+	if errors.Is(err, subscription.ErrNotSubscribed) {
 		return "通知登録されているプレイリストが存在しません。"
 	}
 

@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 )
@@ -38,7 +37,7 @@ func TestQueryServicePlaylists(t *testing.T) {
 		{
 			name: "通知設定がなければ空のスライスを返す",
 			setup: func(m *deps) {
-				m.subscriptions.EXPECT().FindAll().Return(nil, domain.ErrDBRecordNotFound)
+				m.subscriptions.EXPECT().FindAll().Return(nil, subscription.ErrNotSubscribed)
 			},
 			want: []*application.WatchedPlaylist{},
 		},
@@ -176,7 +175,7 @@ func TestQueryServiceFindVideos(t *testing.T) {
 			},
 			setup:   watched,
 			want:    nil,
-			wantErr: domain.ErrDBRecordNotFound,
+			wantErr: subscription.ErrNotSubscribed,
 		},
 		{
 			name: "タイトルの一部で絞り込む（大文字・小文字を区別しない）",
@@ -390,7 +389,7 @@ func TestQueryServiceFindVideos(t *testing.T) {
 			name:  "通知設定がなければ空のスライスを返す",
 			query: application.VideoQuery{},
 			setup: func(m *deps) {
-				m.subscriptions.EXPECT().FindAll().Return(nil, domain.ErrDBRecordNotFound)
+				m.subscriptions.EXPECT().FindAll().Return(nil, subscription.ErrNotSubscribed)
 			},
 			want: &application.VideoPage{
 				Total:  0,
@@ -460,7 +459,7 @@ func TestQueryServiceWrapped(t *testing.T) {
 				}, nil)
 			},
 			want:    nil,
-			wantErr: domain.ErrDBRecordNotFound,
+			wantErr: subscription.ErrNotSubscribed,
 		},
 	}
 	for _, tt := range tests {
@@ -507,7 +506,7 @@ func TestQueryServiceStats(t *testing.T) {
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil)
 			},
-			wantErr: domain.ErrDBRecordNotFound,
+			wantErr: subscription.ErrNotSubscribed,
 		},
 	}
 	for _, tt := range tests {
@@ -561,13 +560,13 @@ func TestQueryServiceRandomVideos(t *testing.T) {
 				}, nil)
 			},
 			want:    nil,
-			wantErr: domain.ErrDBRecordNotFound,
+			wantErr: subscription.ErrNotSubscribed,
 		},
 		{
 			name:       "通知設定がなければ空のスライスを返す",
 			playlistID: "",
 			setup: func(m *deps) {
-				m.subscriptions.EXPECT().FindAll().Return(nil, domain.ErrDBRecordNotFound)
+				m.subscriptions.EXPECT().FindAll().Return(nil, subscription.ErrNotSubscribed)
 			},
 			want: []*library.PlaylistVideo{},
 		},
@@ -630,7 +629,7 @@ func TestQueryServiceHistory(t *testing.T) {
 				}, nil)
 			},
 			want:    nil,
-			wantErr: domain.ErrDBRecordNotFound,
+			wantErr: library.ErrVideoNotFound,
 		},
 	}
 	for _, tt := range tests {

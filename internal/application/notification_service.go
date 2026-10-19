@@ -5,7 +5,6 @@ import (
 	"log"
 	"time"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/notification"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
@@ -156,7 +155,7 @@ func (s *NotificationService) RefreshVideos() {
 // その年のまとめを投稿する。
 func (s *NotificationService) PostWrapped() {
 	subscriptions, err := s.subscriptions.FindAll()
-	if errors.Is(err, domain.ErrDBRecordNotFound) {
+	if errors.Is(err, subscription.ErrNotSubscribed) {
 		return
 	}
 
@@ -191,7 +190,7 @@ func (s *NotificationService) PostWrapped() {
 // ランダムな動画を投稿する。
 func (s *NotificationService) PostPicks() {
 	subscriptions, err := s.subscriptions.FindAll()
-	if errors.Is(err, domain.ErrDBRecordNotFound) {
+	if errors.Is(err, subscription.ErrNotSubscribed) {
 		return
 	}
 
