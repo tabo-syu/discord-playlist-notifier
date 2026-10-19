@@ -19,7 +19,7 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/scheduler"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/go-co-op/gocron"
+	"github.com/go-co-op/gocron/v2"
 	"google.golang.org/api/option"
 	ytapi "google.golang.org/api/youtube/v3"
 	"gorm.io/driver/postgres"
@@ -27,21 +27,25 @@ import (
 )
 
 var (
-	sr *gocron.Scheduler
-	db *gorm.DB
-	dc *discordgo.Session
-	yt *ytapi.Service
+	location *time.Location
+	sr       gocron.Scheduler
+	db       *gorm.DB
+	dc       *discordgo.Session
+	yt       *ytapi.Service
 )
 
 func init() {
 	var err error
 
-	location, err := time.LoadLocation(env.DB_TIMEZONE)
+	location, err = time.LoadLocation(env.DB_TIMEZONE)
 	if err != nil {
 		log.Fatalf("Could not load time location: %v", err)
 	}
 
-	sr = gocron.NewScheduler(location)
+	sr, err = gocron.NewScheduler(gocron.WithLocation(location))
+	if err != nil {
+		log.Fatalf("Could not create the scheduler: %v", err)
+	}
 
 	dsn := fmt.Sprintf(
 		"host=%s user=%s password=%s dbname=%s port=%s sslmode=disable Timezone=%s",
@@ -70,8 +74,6 @@ func init() {
 }
 
 func main() {
-	location := sr.Location()
-
 	yc := youtube.NewClient(yt)
 	gr := persistence.NewGuildRepository(db)
 	sbr := persistence.NewSubscriptionRepository(db)
