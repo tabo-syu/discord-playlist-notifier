@@ -384,7 +384,7 @@ YouTube から直接データを取る前に、DB に保存した中身（`libra
 
 テストは層ごとに少しずつ増やしています。カバレッジ 100% は目指さず、壊れると
 通知の二重送信・取りこぼしや集計の誤りにつながるロジックを優先します。
-今あるのは次の 7 つです。
+今あるのは次の 9 つです。
 
 - **ドメイン**（`internal/domain/library`、`notification`、`subscription`）— 純粋な
   関数とメソッドのテスト。境界の値（基準時刻ちょうど、タイムゾーンをまたぐ
@@ -424,6 +424,15 @@ YouTube から直接データを取る前に、DB に保存した中身（`libra
   前提の行は `seed(t, db, ...)`（ID なしで作ると、作った順に 1, 2, ... が振られる）、
   書き込んだ結果は `rows[T](t, db)`（論理削除も含めて ID の順）で読みます。
   `go test -short` では DB のテストを飛ばします。
+- **YouTube クライアント**（`infrastructure/youtube`）— `httptest` で偽の YouTube Data API を
+  立て、`option.WithEndpoint` でクライアントを向けます。偽の API はエンドポイント
+  （`/playlists` など）ごとに、呼ばれた順に JSON を返し（`ok(...)` / `failure()`）、受けた
+  リクエストを「/エンドポイント キー=値 ...」の文字列で記録します。返した値に加え、
+  記録したリクエストを `wantRequests` と比べて、50 件ごとの分割・ページング・part を
+  確かめます。エラーは文言（`message(err)`）を `wantErr` と比べます。
+- **ルーター**（`presentation/discord`）— コマンド名からハンドラを引くことを、
+  `mocks.MockCommand` で確かめます。Discord のセッションに触れるその他の部分と、
+  スケジューラ（gocron への登録だけ）、グラフの PNG はテストしていません。
 - **view のテキスト** — `text_test.go` が固定のデータで整形した結果を
   `view/testdata/*.golden` と比べます（ゴールデンテスト）。文言を変えたら
   `go test ./internal/presentation/view/ -update` で期待値を書き直し、golden の差分で
@@ -537,7 +546,8 @@ for _, tt := range tests {
   （`[]*library.Video(nil)`）。
 - 同じ引数で何度も呼ばれるメソッドは、何度でも同じ値を返します。回数を確かめたいとき
   （全件取得を省くかなど）は `.Times(n)` / `.Once()`、順序を確かめたいときは
-  `.NotBefore(...)` を使います。順序の決まらない引数（マップから組み立てたスライス）は
+  `.NotBefore(...)` を使います。呼ばれても呼ばれなくてもよい期待（複数のケースで共有する
+  mock の準備など）には `.Maybe()` を付けます。順序の決まらない引数（マップから組み立てたスライス）は
   `sameElements(want)` で比べます。
 - 何度も同じ組み合わせで期待する呼び出し（同期で何も変わらない、ギルドの通知設定、
   プレイリストの中身など）は `m.expectUnchangedSync(...)`・`m.guildHas(...)`・

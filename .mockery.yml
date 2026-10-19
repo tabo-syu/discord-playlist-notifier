@@ -43,3 +43,9 @@ packages:
         config:
           structname: MockSender
           filename: sender.go
+  github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command:
+    interfaces:
+      Command:
+        config:
+          structname: MockCommand
+          filename: command.go
