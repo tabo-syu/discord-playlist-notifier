@@ -8,37 +8,26 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 )
 
-func TestReconcile(t *testing.T) {
+func TestSyncVideos(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name            string
-		stored          []*library.PlaylistItem
 		fetched         []*library.FetchedItem
 		videos          map[library.VideoID]*library.Video
-		wantAdded       []*library.PlaylistItem
-		wantRemoved     []*library.PlaylistItem
 		wantHidden      []*library.Video
 		wantNeedDetails []library.VideoID
 		wantChanged     []*library.Video
 	}{
 		{
-			name:            "新しいアイテムを追加し、動画の詳細を取る",
+			name:            "初めて見る動画を作り、詳細を取る",
 			fetched:         []*library.FetchedItem{fetched("1", "a", library.PrivacyPublic)},
 			videos:          map[library.VideoID]*library.Video{},
-			wantAdded:       []*library.PlaylistItem{stored("1", "a")},
 			wantNeedDetails: []library.VideoID{"a"},
 			wantChanged:     []*library.Video{{YoutubeID: "a", PrivacyStatus: library.PrivacyPublic}},
 		},
 		{
-			name:        "消えたアイテムを除く",
-			stored:      []*library.PlaylistItem{stored("1", "a")},
-			videos:      map[library.VideoID]*library.Video{},
-			wantRemoved: []*library.PlaylistItem{stored("1", "a")},
-		},
-		{
 			name:        "見られなくなった動画を報告する",
-			stored:      []*library.PlaylistItem{stored("1", "a")},
 			fetched:     []*library.FetchedItem{fetched("1", "a", library.PrivacyPrivate)},
 			videos:      map[library.VideoID]*library.Video{"a": video("a", library.PrivacyPublic, 0)},
 			wantHidden:  []*library.Video{video("a", library.PrivacyPrivate, 0)},
@@ -48,20 +37,17 @@ func TestReconcile(t *testing.T) {
 			name:        "初めて見る非公開の動画は報告せず、詳細も取らない",
 			fetched:     []*library.FetchedItem{fetched("1", "a", library.PrivacyPrivate)},
 			videos:      map[library.VideoID]*library.Video{},
-			wantAdded:   []*library.PlaylistItem{stored("1", "a")},
 			wantChanged: []*library.Video{{YoutubeID: "a", PrivacyStatus: library.PrivacyPrivate}},
 		},
 		{
 			name:            "同じ動画が 2 回追加されても、詳細は 1 回だけ取る",
 			fetched:         []*library.FetchedItem{fetched("1", "a", library.PrivacyPublic), fetched("2", "a", library.PrivacyPublic)},
 			videos:          map[library.VideoID]*library.Video{},
-			wantAdded:       []*library.PlaylistItem{stored("1", "a"), stored("2", "a")},
 			wantNeedDetails: []library.VideoID{"a"},
 			wantChanged:     []*library.Video{{YoutubeID: "a", PrivacyStatus: library.PrivacyPublic}},
 		},
 		{
 			name:    "変化がなければ何もしない",
-			stored:  []*library.PlaylistItem{stored("1", "a")},
 			fetched: []*library.FetchedItem{fetched("1", "a", library.PrivacyPublic)},
 			videos:  map[library.VideoID]*library.Video{"a": video("a", library.PrivacyPublic, 0)},
 		},
@@ -70,10 +56,8 @@ func TestReconcile(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := library.Reconcile("PL", tt.stored, tt.fetched, tt.videos)
+			got := library.SyncVideos(tt.fetched, tt.videos)
 
-			assert.Equal(t, tt.wantAdded, got.Added)
-			assert.Equal(t, tt.wantRemoved, got.Removed)
 			assert.Equal(t, tt.wantHidden, got.Hidden)
 			assert.Equal(t, tt.wantNeedDetails, got.NeedDetails)
 			assert.ElementsMatch(t, tt.wantChanged, got.ChangedVideos())
@@ -81,7 +65,7 @@ func TestReconcile(t *testing.T) {
 	}
 }
 
-func TestSyncApplyDetails(t *testing.T) {
+func TestVideoSyncApplyDetails(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -114,7 +98,7 @@ func TestSyncApplyDetails(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := library.Reconcile("PL", nil, tt.fetched, map[library.VideoID]*library.Video{})
+			got := library.SyncVideos(tt.fetched, map[library.VideoID]*library.Video{})
 
 			got.ApplyDetails(tt.details)
 

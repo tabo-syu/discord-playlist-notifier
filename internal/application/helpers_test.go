@@ -32,7 +32,11 @@ var errMock = errors.New("mock error")
 type deps struct {
 	guilds        *mocks.MockGuildRepository
 	subscriptions *mocks.MockSubscriptionRepository
-	library       *mocks.MockLibraryRepository
+	playlists     *mocks.MockPlaylistRepository
+	videos        *mocks.MockVideoRepository
+	channels      *mocks.MockChannelRepository
+	categories    *mocks.MockCategoryRepository
+	snapshots     *mocks.MockVideoSnapshotRepository
 	youtube       *mocks.MockYouTube
 	notifier      *mocks.MockNotifier
 }
@@ -43,7 +47,11 @@ func newDeps(t *testing.T) *deps {
 	return &deps{
 		guilds:        mocks.NewMockGuildRepository(t),
 		subscriptions: mocks.NewMockSubscriptionRepository(t),
-		library:       mocks.NewMockLibraryRepository(t),
+		playlists:     mocks.NewMockPlaylistRepository(t),
+		videos:        mocks.NewMockVideoRepository(t),
+		channels:      mocks.NewMockChannelRepository(t),
+		categories:    mocks.NewMockCategoryRepository(t),
+		snapshots:     mocks.NewMockVideoSnapshotRepository(t),
 		youtube:       mocks.NewMockYouTube(t),
 		notifier:      mocks.NewMockNotifier(t),
 	}
@@ -132,11 +140,17 @@ func (m *deps) expectUnchangedSync(playlistID library.PlaylistID, items []*libra
 		fetchedItems = append(fetchedItems, fetched(item.ItemID, item.VideoYoutubeID, item.AddedAt, videos[item.VideoYoutubeID].PrivacyStatus))
 	}
 
-	m.library.EXPECT().FindItems(playlistID).Return(items, nil).Times(2)
+	m.playlists.EXPECT().Find(playlistID).Return(playlist(playlistID, items...), nil)
 	m.youtube.EXPECT().FetchPlaylistItems(playlistID).Return(fetchedItems, nil)
-	m.library.EXPECT().FindVideosInPlaylists(playlistID).Return(videos, nil)
-	m.library.EXPECT().FindVideos([]library.VideoID(nil)).Return(map[library.VideoID]*library.Video{}, nil)
-	m.library.EXPECT().ApplyItems(playlistID, []*library.PlaylistItem(nil), []*library.PlaylistItem(nil), []*library.Video(nil)).Return(nil)
+	m.videos.EXPECT().FindInPlaylists(playlistID).Return(videos, nil)
+	m.videos.EXPECT().Find([]library.VideoID(nil)).Return(map[library.VideoID]*library.Video{}, nil)
+	m.playlists.EXPECT().Save(playlist(playlistID, items...)).Return(nil)
+	m.videos.EXPECT().Save([]*library.Video(nil)).Return(nil)
+}
+
+// playlist は items を持つプレイリストを返す。
+func playlist(playlistID library.PlaylistID, items ...*library.PlaylistItem) *library.Playlist {
+	return &library.Playlist{YoutubeID: playlistID, Items: items}
 }
 
 // meta は YouTube から取得したプレイリストの情報を返す。
@@ -146,10 +160,10 @@ func meta(playlistID library.PlaylistID, title string, itemCount int64) *library
 
 // expectPick は、プレイリストの唯一の動画「a」を s のピックとして投稿するときの呼び出しを期待する。
 func (m *deps) expectPick(s *subscription.Subscription) {
-	m.library.EXPECT().FindItems(s.YoutubeID).Return([]*library.PlaylistItem{
+	m.playlists.EXPECT().Find(s.YoutubeID).Return(playlist(s.YoutubeID,
 		item(s.YoutubeID, "1", "a", hoursAgo(10)),
-	}, nil)
-	m.library.EXPECT().FindVideosInPlaylists(s.YoutubeID).Return(map[library.VideoID]*library.Video{
+	), nil)
+	m.videos.EXPECT().FindInPlaylists(s.YoutubeID).Return(map[library.VideoID]*library.Video{
 		"a": video("a", library.PrivacyPublic, 0, 0),
 	}, nil)
 	m.youtube.EXPECT().FetchLiveVideos([]library.VideoID{"a"}).Return(map[library.VideoID]*library.LiveVideo{}, nil)
@@ -162,5 +176,10 @@ func (m *deps) expectPick(s *subscription.Subscription) {
 
 // newQueryService は mock で QueryService を組み立てる。
 func newQueryService(m *deps) *application.QueryService {
-	return application.NewQueryService(m.subscriptions, application.NewLibraryService(m.youtube, m.library, jst, clock), m.library)
+	return application.NewQueryService(m.subscriptions, newLibraryService(m, clock), m.categories, m.channels)
+}
+
+// newLibraryService は mock で LibraryService を組み立てる。now は現在時刻を返す。
+func newLibraryService(m *deps, now func() time.Time) *application.LibraryService {
+	return application.NewLibraryService(m.youtube, m.playlists, m.videos, m.channels, m.categories, m.snapshots, jst, now)
 }

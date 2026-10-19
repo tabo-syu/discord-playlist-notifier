@@ -212,6 +212,11 @@ func storedSubscription(id, guildID uint, playlistID library.PlaylistID, title s
 	}
 }
 
+// playlist は items を持つプレイリストを返す。
+func playlist(playlistID library.PlaylistID, items ...*library.PlaylistItem) *library.Playlist {
+	return &library.Playlist{YoutubeID: playlistID, Items: items}
+}
+
 // item はプレイリストのアイテムを返す。
 func item(playlistID library.PlaylistID, itemID library.ItemID, videoID library.VideoID, addedAt time.Time) *library.PlaylistItem {
 	return &library.PlaylistItem{PlaylistYoutubeID: playlistID, ItemID: itemID, VideoYoutubeID: videoID, AddedAt: addedAt}

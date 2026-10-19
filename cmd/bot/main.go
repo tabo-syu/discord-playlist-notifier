@@ -75,11 +75,15 @@ func main() {
 	yc := youtube.NewClient(yt)
 	gr := persistence.NewGuildRepository(db)
 	sbr := persistence.NewSubscriptionRepository(db)
-	lr := persistence.NewLibraryRepository(db)
+	pr := persistence.NewPlaylistRepository(db)
+	vr := persistence.NewVideoRepository(db)
+	cr := persistence.NewChannelRepository(db)
+	car := persistence.NewCategoryRepository(db)
+	vsr := persistence.NewVideoSnapshotRepository(db)
 
 	ss := application.NewSubscriptionService(yc, sbr, gr, time.Now)
 	gs := application.NewGuildService(gr, sbr)
-	ls := application.NewLibraryService(yc, lr, location, time.Now)
+	ls := application.NewLibraryService(yc, pr, vr, cr, car, vsr, location, time.Now)
 	ns := application.NewNotificationService(sbr, ls, notifier.New(dc, location), location, time.Now)
 
 	commands := []command.Command{playlist_notifier.NewPlaylistNotifier(ss, ls, location, time.Now)}

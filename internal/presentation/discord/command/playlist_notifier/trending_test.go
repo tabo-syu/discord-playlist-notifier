@@ -26,9 +26,9 @@ func TestTrending(t *testing.T) {
 			data: subcommand("trending"),
 			setup: func(m *deps) {
 				m.guildHas(sub(1, "PL", "お気に入り"))
-				m.library.EXPECT().FindVideosInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{}, nil)
-				m.library.EXPECT().FindEarliestSnapshots([]library.VideoID{}, daysAgo(30)).Return(map[library.VideoID]*library.VideoSnapshot{}, nil)
-				m.library.EXPECT().FindLatestSnapshots([]library.VideoID{}, daysAgo(30)).Return(map[library.VideoID]*library.VideoSnapshot{}, nil)
+				m.videos.EXPECT().FindInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{}, nil)
+				m.snapshots.EXPECT().FindEarliest([]library.VideoID{}, daysAgo(30)).Return(map[library.VideoID]*library.VideoSnapshot{}, nil)
+				m.snapshots.EXPECT().FindLatest([]library.VideoID{}, daysAgo(30)).Return(map[library.VideoID]*library.VideoSnapshot{}, nil)
 			},
 			want: &command.Response{
 				Content: "🔥 **お気に入り** の急上昇\nまだ記録が足りません。再生数は 6 時間ごとに記録しています。\n",
@@ -39,13 +39,13 @@ func TestTrending(t *testing.T) {
 			data: subcommand("trending", intOption("days", 7)),
 			setup: func(m *deps) {
 				m.guildHas(sub(1, "PL", "お気に入り"))
-				m.library.EXPECT().FindVideosInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
+				m.videos.EXPECT().FindInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
 					"a": video("a"),
 				}, nil)
-				m.library.EXPECT().FindEarliestSnapshots([]library.VideoID{"a"}, daysAgo(7)).Return(map[library.VideoID]*library.VideoSnapshot{
+				m.snapshots.EXPECT().FindEarliest([]library.VideoID{"a"}, daysAgo(7)).Return(map[library.VideoID]*library.VideoSnapshot{
 					"a": {VideoYoutubeID: "a", RecordedAt: hoursAgo(48), Views: 100},
 				}, nil)
-				m.library.EXPECT().FindLatestSnapshots([]library.VideoID{"a"}, daysAgo(7)).Return(map[library.VideoID]*library.VideoSnapshot{
+				m.snapshots.EXPECT().FindLatest([]library.VideoID{"a"}, daysAgo(7)).Return(map[library.VideoID]*library.VideoSnapshot{
 					"a": {VideoYoutubeID: "a", RecordedAt: hoursAgo(24), Views: 100},
 				}, nil)
 			},

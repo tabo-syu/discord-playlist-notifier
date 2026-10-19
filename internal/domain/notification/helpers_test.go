@@ -36,7 +36,7 @@ func added(playlistID library.PlaylistID, v *library.Video, hours int) *library.
 
 // snapshot は contents を中身に持つプレイリストを返す。タイトルは ID と同じにする。
 func snapshot(playlistID library.PlaylistID, contents ...*library.PlaylistVideo) *library.Snapshot {
-	s := &library.Snapshot{YoutubeID: playlistID, Title: string(playlistID), Videos: map[library.VideoID]*library.Video{}}
+	s := &library.Snapshot{Playlist: &library.Playlist{YoutubeID: playlistID}, Title: string(playlistID), Videos: map[library.VideoID]*library.Video{}}
 	for _, c := range contents {
 		s.Items = append(s.Items, c.Item)
 		s.Videos[c.Video.YoutubeID] = c.Video

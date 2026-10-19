@@ -9,27 +9,18 @@ type PlaylistVideo struct {
 	Video      *Video
 }
 
-// Snapshot は YouTube のプレイリストの現在の中身。
+// Snapshot はプレイリストを同期した結果。保存した Playlist に、YouTube と DB から
+// その時点で読んだものを足したもの。
 type Snapshot struct {
-	YoutubeID PlaylistID
-	Title     string
+	*Playlist
+
+	// YouTube 上のプレイリストの現在のタイトル
+	Title string
 	// Deleted は YouTube 上にプレイリストがもう存在しないときに真になる。
 	Deleted bool
-	Items   []*PlaylistItem
 	Videos  map[VideoID]*Video
 	// 今回の同期で非公開・削除になった動画
 	Hidden []*Video
-}
-
-// Contains はプレイリストにその動画のアイテムがあるかを返す。
-func (s *Snapshot) Contains(videoID VideoID) bool {
-	for _, item := range s.Items {
-		if item.VideoYoutubeID == videoID {
-			return true
-		}
-	}
-
-	return false
 }
 
 // PickRandom は中身から、重複のない視聴可能な動画を最大 n 件選ぶ。

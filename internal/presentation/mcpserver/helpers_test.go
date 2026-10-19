@@ -44,7 +44,11 @@ func date(year int, month time.Month, day, hour int) time.Time {
 // はずのメソッドと、その戻り値を指定する。
 type deps struct {
 	subscriptions *mocks.MockSubscriptionRepository
-	library       *mocks.MockLibraryRepository
+	playlists     *mocks.MockPlaylistRepository
+	videos        *mocks.MockVideoRepository
+	channels      *mocks.MockChannelRepository
+	categories    *mocks.MockCategoryRepository
+	snapshots     *mocks.MockVideoSnapshotRepository
 }
 
 func newDeps(t *testing.T) *deps {
@@ -52,7 +56,11 @@ func newDeps(t *testing.T) *deps {
 
 	return &deps{
 		subscriptions: mocks.NewMockSubscriptionRepository(t),
-		library:       mocks.NewMockLibraryRepository(t),
+		playlists:     mocks.NewMockPlaylistRepository(t),
+		videos:        mocks.NewMockVideoRepository(t),
+		channels:      mocks.NewMockChannelRepository(t),
+		categories:    mocks.NewMockCategoryRepository(t),
+		snapshots:     mocks.NewMockVideoSnapshotRepository(t),
 	}
 }
 
@@ -60,7 +68,8 @@ func newDeps(t *testing.T) *deps {
 func connect(t *testing.T, m *deps) *mcp.ClientSession {
 	t.Helper()
 
-	query := application.NewQueryService(m.subscriptions, application.NewLibraryService(mocks.NewMockYouTube(t), m.library, jst, clock), m.library)
+	library := application.NewLibraryService(mocks.NewMockYouTube(t), m.playlists, m.videos, m.channels, m.categories, m.snapshots, jst, clock)
+	query := application.NewQueryService(m.subscriptions, library, m.categories, m.channels)
 	ts := httptest.NewServer(mcpserver.NewServer("", query, jst, clock).Handler())
 	t.Cleanup(ts.Close)
 
@@ -87,15 +96,15 @@ func (m *deps) playlistHas(playlistID library.PlaylistID, contents ...*library.P
 		videos[c.Video.YoutubeID] = c.Video
 	}
 
-	m.library.EXPECT().FindItems(playlistID).Return(items, nil)
-	m.library.EXPECT().FindVideosInPlaylists(playlistID).Return(videos, nil)
+	m.playlists.EXPECT().Find(playlistID).Return(playlist(playlistID, items...), nil)
+	m.videos.EXPECT().FindInPlaylists(playlistID).Return(videos, nil)
 }
 
 // names は、動画を出力するときに引くチャンネルとカテゴリを期待する。channelIDs は
 // 出力する動画のチャンネル（わからなければ空文字列）を、出力する順に並べたもの。
 func (m *deps) names(channelIDs []library.ChannelID, channels map[library.ChannelID]*library.Channel) {
-	m.library.EXPECT().FindChannels(channelIDs).Return(channels, nil)
-	m.library.EXPECT().FindCategories().Return(categories(), nil)
+	m.channels.EXPECT().Find(channelIDs).Return(channels, nil)
+	m.categories.EXPECT().FindAll().Return(categories(), nil)
 }
 
 // categories は保存済みのカテゴリを返す。
@@ -137,6 +146,11 @@ func call(t *testing.T, session *mcp.ClientSession, name string, arguments map[s
 // sub はギルド 1 の通知設定を返す。
 func sub(id uint, playlistID library.PlaylistID, title string) *subscription.Subscription {
 	return &subscription.Subscription{ID: id, YoutubeID: playlistID, SendChannelID: "ch", Title: title, GuildID: 1}
+}
+
+// playlist は items を持つプレイリストを返す。
+func playlist(playlistID library.PlaylistID, items ...*library.PlaylistItem) *library.Playlist {
+	return &library.Playlist{YoutubeID: playlistID, Items: items}
 }
 
 // item は保存したプレイリストのアイテムを返す。

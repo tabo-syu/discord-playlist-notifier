@@ -9,38 +9,6 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 )
 
-func TestSnapshotContains(t *testing.T) {
-	t.Parallel()
-
-	snapshot := &library.Snapshot{Items: []*library.PlaylistItem{{VideoYoutubeID: "a"}}}
-
-	tests := []struct {
-		name    string
-		videoID library.VideoID
-		want    bool
-	}{
-		{
-			name:    "含む",
-			videoID: "a",
-			want:    true,
-		},
-		{
-			name:    "含まない",
-			videoID: "b",
-			want:    false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			got := snapshot.Contains(tt.videoID)
-
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-
 func TestPickRandom(t *testing.T) {
 	t.Parallel()
 

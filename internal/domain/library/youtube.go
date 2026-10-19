@@ -1,7 +1,7 @@
 package library
 
 // YouTube はプレイリストの中身の取得元。1 日のクォータに上限があるので、
-// 保存済みの中身（Repository）で足りるときはそちらを使う。
+// 保存済みの中身（PlaylistRepository など）で足りるときはそちらを使う。
 type YouTube interface {
 	// FindPlaylist はプレイリストが存在しないか非公開のときに
 	// ErrPlaylistNotFound を返す。アイテム数は取得しない。

@@ -30,24 +30,39 @@ func added(v *library.Video, addedAt time.Time) *library.PlaylistVideo {
 // syncedAt は同期したアイテムが追加された時刻。
 var syncedAt = time.Date(2026, time.October, 18, 12, 0, 0, 0, time.UTC)
 
-// stored はプレイリスト PL の保存済みのアイテムを返す。
+// stored はプレイリスト PL の、syncedAt に追加された保存済みのアイテムを返す。
 func stored(itemID, videoID string) *library.PlaylistItem {
+	return storedAt(itemID, videoID, syncedAt)
+}
+
+// storedAt はプレイリスト PL の、addedAt に追加された保存済みのアイテムを返す。
+func storedAt(itemID, videoID string, addedAt time.Time) *library.PlaylistItem {
 	return &library.PlaylistItem{
 		PlaylistYoutubeID: "PL",
 		ItemID:            library.ItemID(itemID),
 		VideoYoutubeID:    library.VideoID(videoID),
-		AddedAt:           syncedAt,
+		AddedAt:           addedAt,
 	}
 }
 
-// fetched は YouTube から取得したアイテムを返す。
+// fetched は YouTube から取得した、syncedAt に追加されたアイテムを返す。
 func fetched(itemID, videoID string, status library.PrivacyStatus) *library.FetchedItem {
+	return fetchedAt(itemID, videoID, syncedAt, status)
+}
+
+// fetchedAt は YouTube から取得した、addedAt に追加されたアイテムを返す。
+func fetchedAt(itemID, videoID string, addedAt time.Time, status library.PrivacyStatus) *library.FetchedItem {
 	return &library.FetchedItem{
 		ItemID:        library.ItemID(itemID),
 		VideoID:       library.VideoID(videoID),
-		AddedAt:       syncedAt,
+		AddedAt:       addedAt,
 		PrivacyStatus: status,
 	}
+}
+
+// playlist はプレイリスト PL を、指定したアイテムを持つ形で返す。
+func playlist(items ...*library.PlaylistItem) *library.Playlist {
+	return &library.Playlist{YoutubeID: "PL", Items: items}
 }
 
 // recorded は 2026-10-01 0 時 (UTC) から hours 時間後に記録された状態を返す。

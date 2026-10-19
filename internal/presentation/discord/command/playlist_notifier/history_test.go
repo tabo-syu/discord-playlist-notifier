@@ -25,13 +25,13 @@ func TestHistory(t *testing.T) {
 			data: subcommand("history", stringOption("video", "https://youtu.be/aaaaaaaaaaa")),
 			setup: func(m *deps) {
 				m.guildHas(sub(1, "PL", "PL"))
-				m.library.EXPECT().FindItemsByVideos([]library.VideoID{"aaaaaaaaaaa"}).Return([]*library.PlaylistItem{
-					item("PL", "aaaaaaaaaaa", hoursAgo(100)),
+				m.playlists.EXPECT().FindContaining([]library.VideoID{"aaaaaaaaaaa"}).Return([]*library.Playlist{
+					playlist("PL", item("PL", "aaaaaaaaaaa", hoursAgo(100))),
 				}, nil)
-				m.library.EXPECT().FindVideos([]library.VideoID{"aaaaaaaaaaa"}).Return(map[library.VideoID]*library.Video{
+				m.videos.EXPECT().Find([]library.VideoID{"aaaaaaaaaaa"}).Return(map[library.VideoID]*library.Video{
 					"aaaaaaaaaaa": video("aaaaaaaaaaa"),
 				}, nil)
-				m.library.EXPECT().FindSnapshots(library.VideoID("aaaaaaaaaaa"), daysAgo(30)).Return([]*library.VideoSnapshot{
+				m.snapshots.EXPECT().Find(library.VideoID("aaaaaaaaaaa"), daysAgo(30)).Return([]*library.VideoSnapshot{
 					{VideoYoutubeID: "aaaaaaaaaaa", RecordedAt: hoursAgo(24), Views: 100},
 				}, nil)
 			},
@@ -42,8 +42,8 @@ func TestHistory(t *testing.T) {
 			data: subcommand("history", stringOption("video", "aaaaaaaaaaa"), intOption("days", 7)),
 			setup: func(m *deps) {
 				m.guildHas(sub(1, "PL", "PL"))
-				m.library.EXPECT().FindItemsByVideos([]library.VideoID{"aaaaaaaaaaa"}).Return([]*library.PlaylistItem{
-					item("OTHER", "aaaaaaaaaaa", hoursAgo(100)),
+				m.playlists.EXPECT().FindContaining([]library.VideoID{"aaaaaaaaaaa"}).Return([]*library.Playlist{
+					playlist("OTHER", item("OTHER", "aaaaaaaaaaa", hoursAgo(100))),
 				}, nil)
 			},
 			want: command.Text("通知登録されているプレイリストに、その動画は見つかりませんでした。"),

@@ -22,11 +22,8 @@ type FetchedItem struct {
 	PrivacyStatus PrivacyStatus
 }
 
-// Sync はプレイリストの保存済みのアイテムと、YouTube から取得したアイテムを
-// 突き合わせた結果。
-type Sync struct {
-	Added   []*PlaylistItem
-	Removed []*PlaylistItem
+// VideoSync は、YouTube から取得したアイテムの公開状態を保存済みの動画に反映した結果。
+type VideoSync struct {
 	// 取得したアイテムの全ての動画。初めて見る動画も含む
 	Videos map[VideoID]*Video
 	// 非公開・削除になった動画
@@ -37,38 +34,15 @@ type Sync struct {
 	changed map[VideoID]*Video
 }
 
-// Reconcile はプレイリストの保存済みのアイテムと取得したアイテムを突き合わせる。
-// videos には取得したアイテムの保存済みの動画を渡す。このマップは返す Sync が
+// SyncVideos は取得したアイテムの公開状態を、その動画に反映する。複数の動画の
+// 集約をまとめて見るので、どの集約にも属さないドメインサービスにしている。
+// videos には取得したアイテムの保存済みの動画を渡す。このマップは返す VideoSync が
 // 引き継ぎ、初めて見る動画を追加する。
 //
 // 動画の公開状態はプレイリストのアイテムから取る。videos のエンドポイントとは
 // 違い、アイテムは非公開・削除済みの動画も返すため。
-func Reconcile(playlistID PlaylistID, stored []*PlaylistItem, fetched []*FetchedItem, videos map[VideoID]*Video) *Sync {
-	s := &Sync{Videos: videos, changed: map[VideoID]*Video{}}
-
-	storedByID := map[ItemID]*PlaylistItem{}
-	for _, item := range stored {
-		storedByID[item.ItemID] = item
-	}
-
-	fetchedByID := map[ItemID]bool{}
-	for _, f := range fetched {
-		fetchedByID[f.ItemID] = true
-		if _, ok := storedByID[f.ItemID]; !ok {
-			s.Added = append(s.Added, &PlaylistItem{
-				PlaylistYoutubeID: playlistID,
-				ItemID:            f.ItemID,
-				VideoYoutubeID:    f.VideoID,
-				AddedAt:           f.AddedAt,
-			})
-		}
-	}
-
-	for _, item := range stored {
-		if !fetchedByID[item.ItemID] {
-			s.Removed = append(s.Removed, item)
-		}
-	}
+func SyncVideos(fetched []*FetchedItem, videos map[VideoID]*Video) *VideoSync {
+	s := &VideoSync{Videos: videos, changed: map[VideoID]*Video{}}
 
 	needDetails := map[VideoID]bool{}
 
@@ -98,7 +72,7 @@ func Reconcile(playlistID PlaylistID, stored []*PlaylistItem, fetched []*Fetched
 }
 
 // ApplyDetails は取得した詳細を NeedDetails の動画にコピーする。
-func (s *Sync) ApplyDetails(details []*Video) {
+func (s *VideoSync) ApplyDetails(details []*Video) {
 	for _, d := range details {
 		video := s.Videos[d.YoutubeID]
 		video.ApplyDetails(d)
@@ -108,6 +82,6 @@ func (s *Sync) ApplyDetails(details []*Video) {
 }
 
 // ChangedVideos は保存が必要な動画を返す。
-func (s *Sync) ChangedVideos() []*Video {
+func (s *VideoSync) ChangedVideos() []*Video {
 	return slices.Collect(maps.Values(s.changed))
 }

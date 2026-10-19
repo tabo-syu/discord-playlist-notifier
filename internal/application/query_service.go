@@ -17,11 +17,12 @@ import (
 type QueryService struct {
 	subscriptions subscription.Repository
 	library       *LibraryService
-	contents      library.Repository
+	categories    library.CategoryRepository
+	channels      library.ChannelRepository
 }
 
-func NewQueryService(s subscription.Repository, l *LibraryService, c library.Repository) *QueryService {
-	return &QueryService{s, l, c}
+func NewQueryService(s subscription.Repository, l *LibraryService, cat library.CategoryRepository, c library.ChannelRepository) *QueryService {
+	return &QueryService{s, l, cat, c}
 }
 
 // WatchedPlaylist は 1 つ以上のギルドが通知登録しているプレイリスト。
@@ -252,12 +253,12 @@ func (s *QueryService) History(id library.VideoID, since time.Time) (*library.Vi
 
 // Categories は保存済みの全ての動画カテゴリを返す。
 func (s *QueryService) Categories() (map[library.CategoryID]*library.Category, error) {
-	return s.contents.FindCategories()
+	return s.categories.FindAll()
 }
 
 // Channels は指定した ID のうち保存済みのチャンネルを返す。
 func (s *QueryService) Channels(ids []library.ChannelID) (map[library.ChannelID]*library.Channel, error) {
-	return s.contents.FindChannels(ids)
+	return s.channels.Find(ids)
 }
 
 // RandomVideos は通知対象のプレイリスト（id が空なら全て）から、
@@ -309,7 +310,7 @@ func (s *QueryService) channelsNamed(contents []*library.PlaylistVideo, name str
 		}
 	}
 
-	stored, err := s.contents.FindChannels(ids)
+	stored, err := s.channels.Find(ids)
 	if err != nil {
 		return nil, err
 	}

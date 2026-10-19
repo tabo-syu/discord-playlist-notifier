@@ -58,7 +58,7 @@ cmd/migrate/main.go          スキーマを更新して終了する（persisten
 internal/presentation/       外界との入出力（discord・scheduler・notifier・mcpserver・view）。ユーザーに見える日本語はここだけ
 internal/infrastructure/     ドメインが宣言したインターフェースの実装（persistence・youtube）
 internal/application/        ユースケース（リポジトリから集約を読み、ドメインに判断させ、保存する）
-internal/domain/             集約ごとのパッケージ（guild・subscription・library・notification）
+internal/domain/             集約（またはそのまとまり）ごとのパッケージ（guild・subscription・library・notification）
 internal/env/                プロセスの環境変数
 internal/mocks/              mockery が生成した mock（手で編集しない）
 ```
@@ -75,6 +75,13 @@ internal/mocks/              mockery が生成した mock（手で編集しな�
 
 - 集約は互いに ID でのみ参照します（`Subscription.GuildID`、`Subscription.YoutubeID`）。
   GORM の関連付けは使いません。
+- `library` パッケージには集約が 5 つあります。`Playlist`（ルートが `Items` を持つ）・`Video`・
+  `Channel`・`Category`・`VideoSnapshot` で、リポジトリも集約ごとに 1 つです
+  （`library.PlaylistRepository` など）。動画は複数のプレイリストで共有するので `Playlist` の
+  一部にせず、アイテムが ID で参照します。
+- 1 つのトランザクションで変える集約は 1 つです。同期ではプレイリストと動画を別々に保存し、
+  プレイリストを先にします（理由は `LibraryService.syncPlaylist` のコメント）。複数の `Video` を
+  1 つの文でまとめて保存するのは、動画同士に不変条件がないためです。
 - ID や状態は値オブジェクト（`guild.DiscordID`、`library.VideoID` など）です。文字列との
   変換は境界（コマンドハンドラ、`infrastructure`）で行います。
 - 人が入力した ID（Discord のコマンドと MCP のツールの引数）は、`library.ParsePlaylistID`・
@@ -176,7 +183,7 @@ internal/mocks/              mockery が生成した mock（手で編集しな�
 ## YouTube API
 
 クォータは 1 日 10,000 ユニット（list 系は 1 回 1 ユニット）です。YouTube から取る前に、
-DB に保存した中身（`library.Repository`）で済ませられないかを先に検討します。
+DB に保存した中身（`library.PlaylistRepository` など）で済ませられないかを先に検討します。
 
 ## 運用
 
