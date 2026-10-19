@@ -26,13 +26,13 @@ func TestLibraryServiceSync(t *testing.T) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil)
-				m.youtube.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
+				m.source.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
 					"PL": {YoutubeID: "PL", Title: "タイトル", ItemCount: 2},
 				}, nil)
 				m.playlists.EXPECT().Find(library.PlaylistID("PL")).Return(playlist("PL",
 					item("PL", "1", "a", hoursAgo(2)),
 				), nil)
-				m.youtube.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return([]*library.FetchedItem{
+				m.source.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return([]*library.FetchedItem{
 					fetched("1", "a", hoursAgo(2), library.PrivacyPublic),
 					fetched("2", "b", hoursAgo(1), library.PrivacyPublic),
 				}, nil)
@@ -40,10 +40,10 @@ func TestLibraryServiceSync(t *testing.T) {
 					"a": video("a", library.PrivacyPublic, 0, 0),
 				}, nil)
 				m.videos.EXPECT().Find([]library.VideoID{"b"}).Return(map[library.VideoID]*library.Video{}, nil)
-				m.youtube.EXPECT().FetchVideos([]library.VideoID{"b"}).Return([]*library.Video{
-					{YoutubeID: "b", Title: "b"},
-				}, []*library.Channel{}, nil)
-				m.channels.EXPECT().Save([]*library.Channel{}).Return(nil)
+				m.source.EXPECT().FetchVideoDetails([]library.VideoID{"b"}).Return([]*library.VideoDetails{
+					{VideoID: "b", Title: "b"},
+				}, nil)
+				m.channels.EXPECT().Save([]*library.Channel(nil)).Return(nil)
 				saved := m.playlists.EXPECT().Save(playlist("PL",
 					item("PL", "1", "a", hoursAgo(2)),
 					item("PL", "2", "b", hoursAgo(1)),
@@ -77,11 +77,11 @@ func TestLibraryServiceSync(t *testing.T) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil)
-				m.youtube.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
+				m.source.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
 					"PL": {YoutubeID: "PL", Title: "タイトル", ItemCount: 1},
 				}, nil)
 				m.playlists.EXPECT().Find(library.PlaylistID("PL")).Return(playlist("PL"), nil)
-				m.youtube.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return([]*library.FetchedItem{
+				m.source.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return([]*library.FetchedItem{
 					fetched("1", "a", hoursAgo(1), library.PrivacyPublic),
 				}, nil)
 				m.videos.EXPECT().FindInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{}, nil)
@@ -115,14 +115,14 @@ func TestLibraryServiceSync(t *testing.T) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil)
-				m.youtube.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
+				m.source.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
 					"PL": {YoutubeID: "PL", Title: "タイトル", ItemCount: 1},
 				}, nil)
 				m.playlists.EXPECT().Find(library.PlaylistID("PL")).Return(playlist("PL",
 					item("PL", "1", "a", hoursAgo(2)),
 					item("PL", "2", "b", hoursAgo(1)),
 				), nil)
-				m.youtube.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return([]*library.FetchedItem{
+				m.source.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return([]*library.FetchedItem{
 					fetched("1", "a", hoursAgo(2), library.PrivacyPublic),
 				}, nil)
 				m.videos.EXPECT().FindInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
@@ -159,13 +159,13 @@ func TestLibraryServiceSync(t *testing.T) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil)
-				m.youtube.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
+				m.source.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
 					"PL": {YoutubeID: "PL", Title: "タイトル", ItemCount: 1},
 				}, nil)
 				m.playlists.EXPECT().Find(library.PlaylistID("PL")).Return(playlist("PL",
 					item("PL", "1", "a", hoursAgo(2)),
 				), nil)
-				m.youtube.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return([]*library.FetchedItem{
+				m.source.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return([]*library.FetchedItem{
 					fetched("1", "a", hoursAgo(2), library.PrivacyPrivate),
 				}, nil)
 				m.videos.EXPECT().FindInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
@@ -206,13 +206,13 @@ func TestLibraryServiceSync(t *testing.T) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil)
-				m.youtube.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
+				m.source.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
 					"PL": {YoutubeID: "PL", Title: "タイトル", ItemCount: 1},
 				}, nil)
 				m.playlists.EXPECT().Find(library.PlaylistID("PL")).Return(playlist("PL",
 					item("PL", "1", "a", hoursAgo(2)),
 				), nil)
-				m.youtube.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return([]*library.FetchedItem{
+				m.source.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return([]*library.FetchedItem{
 					fetched("1", "a", hoursAgo(2), library.PrivacyPrivate),
 				}, nil)
 				m.videos.EXPECT().FindInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
@@ -231,13 +231,13 @@ func TestLibraryServiceSync(t *testing.T) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil)
-				m.youtube.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
+				m.source.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
 					"PL": {YoutubeID: "PL", Title: "タイトル", ItemCount: 1},
 				}, nil)
 				m.playlists.EXPECT().Find(library.PlaylistID("PL")).Return(playlist("PL",
 					item("PL", "1", "a", hoursAgo(2)),
 				), nil)
-				m.youtube.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return([]*library.FetchedItem{
+				m.source.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return([]*library.FetchedItem{
 					fetched("1", "a", hoursAgo(2), library.PrivacyPrivate),
 				}, nil)
 				m.videos.EXPECT().FindInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
@@ -259,7 +259,7 @@ func TestLibraryServiceSync(t *testing.T) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil)
-				m.youtube.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{}, nil)
+				m.source.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{}, nil)
 			},
 			want: &published{
 				synced: []*library.PlaylistSynced{
@@ -278,11 +278,11 @@ func TestLibraryServiceSync(t *testing.T) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil)
-				m.youtube.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
+				m.source.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
 					"PL": {YoutubeID: "PL", Title: "タイトル", ItemCount: 1},
 				}, nil)
 				m.playlists.EXPECT().Find(library.PlaylistID("PL")).Return(playlist("PL"), nil)
-				m.youtube.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return(nil, errMock)
+				m.source.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return(nil, errMock)
 			},
 			want: &published{},
 		},
@@ -330,13 +330,13 @@ func TestLibraryServiceSyncSkipsFetching(t *testing.T) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil).Times(2)
-				m.youtube.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
+				m.source.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
 					"PL": {YoutubeID: "PL", Title: "タイトル", ItemCount: 1},
 				}, nil).Times(2)
 				m.playlists.EXPECT().Find(library.PlaylistID("PL")).Return(playlist("PL",
 					item("PL", "1", "a", hoursAgo(1)),
 				), nil).Times(2)
-				m.youtube.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return([]*library.FetchedItem{
+				m.source.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return([]*library.FetchedItem{
 					fetched("1", "a", hoursAgo(1), library.PrivacyPublic),
 				}, nil).Once()
 				m.videos.EXPECT().FindInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
@@ -354,13 +354,13 @@ func TestLibraryServiceSyncSkipsFetching(t *testing.T) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil).Times(2)
-				m.youtube.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
+				m.source.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
 					"PL": {YoutubeID: "PL", Title: "タイトル", ItemCount: 1},
 				}, nil).Times(2)
 				m.playlists.EXPECT().Find(library.PlaylistID("PL")).Return(playlist("PL",
 					item("PL", "1", "a", hoursAgo(1)),
 				), nil).Times(2)
-				m.youtube.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return([]*library.FetchedItem{
+				m.source.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return([]*library.FetchedItem{
 					fetched("1", "a", hoursAgo(1), library.PrivacyPublic),
 				}, nil).Times(2)
 				m.videos.EXPECT().FindInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
@@ -378,16 +378,16 @@ func TestLibraryServiceSyncSkipsFetching(t *testing.T) {
 				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil).Times(2)
-				m.youtube.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
+				m.source.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
 					"PL": {YoutubeID: "PL", Title: "タイトル", ItemCount: 1},
 				}, nil).Once()
-				m.youtube.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
+				m.source.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
 					"PL": {YoutubeID: "PL", Title: "タイトル", ItemCount: 2},
 				}, nil).Once()
 				m.playlists.EXPECT().Find(library.PlaylistID("PL")).Return(playlist("PL",
 					item("PL", "1", "a", hoursAgo(1)),
 				), nil).Times(2)
-				m.youtube.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return([]*library.FetchedItem{
+				m.source.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return([]*library.FetchedItem{
 					fetched("1", "a", hoursAgo(1), library.PrivacyPublic),
 				}, nil).Times(2)
 				m.videos.EXPECT().FindInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
@@ -433,10 +433,10 @@ func TestLibraryServiceRefreshVideos(t *testing.T) {
 				m.videos.EXPECT().FindListed().Return(map[library.VideoID]*library.Video{
 					"a": video("a", library.PrivacyPublic, 90_000, 0),
 				}, nil)
-				m.youtube.EXPECT().FetchVideos([]library.VideoID{"a"}).Return([]*library.Video{
-					{YoutubeID: "a", Title: "a", Views: 120_000},
-				}, []*library.Channel{}, nil)
-				m.channels.EXPECT().Save([]*library.Channel{}).Return(nil)
+				m.source.EXPECT().FetchVideoDetails([]library.VideoID{"a"}).Return([]*library.VideoDetails{
+					{VideoID: "a", Title: "a", Views: 120_000},
+				}, nil)
+				m.channels.EXPECT().Save([]*library.Channel(nil)).Return(nil)
 				m.videos.EXPECT().Save([]*library.Video{
 					video("a", library.PrivacyPublic, 120_000, 100_000),
 				}).Return(nil)
@@ -456,10 +456,10 @@ func TestLibraryServiceRefreshVideos(t *testing.T) {
 				m.videos.EXPECT().FindListed().Return(map[library.VideoID]*library.Video{
 					"a": video("a", library.PrivacyPublic, 110_000, 100_000),
 				}, nil)
-				m.youtube.EXPECT().FetchVideos([]library.VideoID{"a"}).Return([]*library.Video{
-					{YoutubeID: "a", Title: "a", Views: 120_000},
-				}, []*library.Channel{}, nil)
-				m.channels.EXPECT().Save([]*library.Channel{}).Return(nil)
+				m.source.EXPECT().FetchVideoDetails([]library.VideoID{"a"}).Return([]*library.VideoDetails{
+					{VideoID: "a", Title: "a", Views: 120_000},
+				}, nil)
+				m.channels.EXPECT().Save([]*library.Channel(nil)).Return(nil)
 				m.videos.EXPECT().Save([]*library.Video{
 					video("a", library.PrivacyPublic, 120_000, 100_000),
 				}).Return(nil)
@@ -476,10 +476,10 @@ func TestLibraryServiceRefreshVideos(t *testing.T) {
 					"a": video("a", library.PrivacyPublic, 100, 0),
 					"b": video("b", library.PrivacyPrivate, 100, 0),
 				}, nil)
-				m.youtube.EXPECT().FetchVideos([]library.VideoID{"a"}).Return([]*library.Video{
-					{YoutubeID: "a", Title: "a", Views: 200},
-				}, []*library.Channel{}, nil)
-				m.channels.EXPECT().Save([]*library.Channel{}).Return(nil)
+				m.source.EXPECT().FetchVideoDetails([]library.VideoID{"a"}).Return([]*library.VideoDetails{
+					{VideoID: "a", Title: "a", Views: 200},
+				}, nil)
+				m.channels.EXPECT().Save([]*library.Channel(nil)).Return(nil)
 				m.videos.EXPECT().Save([]*library.Video{
 					video("a", library.PrivacyPublic, 200, 0),
 				}).Return(nil)
@@ -490,15 +490,36 @@ func TestLibraryServiceRefreshVideos(t *testing.T) {
 			want: &published{},
 		},
 		{
+			name: "取得した詳細から、動画を投稿したチャンネルを保存する",
+			setup: func(m *deps) {
+				m.videos.EXPECT().FindListed().Return(map[library.VideoID]*library.Video{
+					"a": video("a", library.PrivacyPublic, 100, 0),
+				}, nil)
+				m.source.EXPECT().FetchVideoDetails([]library.VideoID{"a"}).Return([]*library.VideoDetails{
+					{VideoID: "a", Title: "a", Views: 100, ChannelID: "UC", ChannelTitle: "チャンネル"},
+				}, nil)
+				m.channels.EXPECT().Save([]*library.Channel{
+					{YoutubeID: "UC", Title: "チャンネル"},
+				}).Return(nil)
+				m.videos.EXPECT().Save([]*library.Video{
+					{YoutubeID: "a", DetailsFetched: true, Title: "a", PrivacyStatus: library.PrivacyPublic, Views: 100, ViewMilestone: new(library.ViewCount(0)), ChannelYoutubeID: "UC"},
+				}).Return(nil)
+				m.snapshots.EXPECT().Add([]*library.VideoSnapshot{
+					{VideoYoutubeID: "a", RecordedAt: now, Title: "a", PrivacyStatus: library.PrivacyPublic, Views: 100},
+				}).Return(nil)
+			},
+			want: &published{},
+		},
+		{
 			name: "履歴の記録に失敗しても、節目に達した動画のイベントは発行する",
 			setup: func(m *deps) {
 				m.videos.EXPECT().FindListed().Return(map[library.VideoID]*library.Video{
 					"a": video("a", library.PrivacyPublic, 90_000, 0),
 				}, nil)
-				m.youtube.EXPECT().FetchVideos([]library.VideoID{"a"}).Return([]*library.Video{
-					{YoutubeID: "a", Title: "a", Views: 120_000},
-				}, []*library.Channel{}, nil)
-				m.channels.EXPECT().Save([]*library.Channel{}).Return(nil)
+				m.source.EXPECT().FetchVideoDetails([]library.VideoID{"a"}).Return([]*library.VideoDetails{
+					{VideoID: "a", Title: "a", Views: 120_000},
+				}, nil)
+				m.channels.EXPECT().Save([]*library.Channel(nil)).Return(nil)
 				m.videos.EXPECT().Save([]*library.Video{
 					video("a", library.PrivacyPublic, 120_000, 100_000),
 				}).Return(nil)
@@ -518,10 +539,10 @@ func TestLibraryServiceRefreshVideos(t *testing.T) {
 				m.videos.EXPECT().FindListed().Return(map[library.VideoID]*library.Video{
 					"a": video("a", library.PrivacyPublic, 90_000, 0),
 				}, nil)
-				m.youtube.EXPECT().FetchVideos([]library.VideoID{"a"}).Return([]*library.Video{
-					{YoutubeID: "a", Title: "a", Views: 120_000},
-				}, []*library.Channel{}, nil)
-				m.channels.EXPECT().Save([]*library.Channel{}).Return(nil)
+				m.source.EXPECT().FetchVideoDetails([]library.VideoID{"a"}).Return([]*library.VideoDetails{
+					{VideoID: "a", Title: "a", Views: 120_000},
+				}, nil)
+				m.channels.EXPECT().Save([]*library.Channel(nil)).Return(nil)
 				m.videos.EXPECT().Save([]*library.Video{
 					video("a", library.PrivacyPublic, 120_000, 100_000),
 				}).Return(errMock)

@@ -15,15 +15,15 @@ import (
 var ErrYouTubeUnavailable = errors.New("youtube is unavailable")
 
 type SubscriptionService struct {
-	youtube       library.YouTube
+	source        library.Source
 	subscriptions subscription.Repository
 	guilds        guild.Repository
 	// 現在時刻。テストで固定できるように外から渡す
 	now func() time.Time
 }
 
-func NewSubscriptionService(y library.YouTube, s subscription.Repository, g guild.Repository, now func() time.Time) *SubscriptionService {
-	return &SubscriptionService{y, s, g, now}
+func NewSubscriptionService(src library.Source, s subscription.Repository, g guild.Repository, now func() time.Time) *SubscriptionService {
+	return &SubscriptionService{src, s, g, now}
 }
 
 func (s *SubscriptionService) FindByGuild(guildID guild.DiscordID) ([]*subscription.Subscription, error) {
@@ -33,7 +33,7 @@ func (s *SubscriptionService) FindByGuild(guildID guild.DiscordID) ([]*subscript
 // Subscribe はプレイリストのチャンネルへの通知を始める。登録済みかは事前に確かめず、
 // リポジトリの Add が ErrAlreadySubscribed を返す（同時に登録しても重複しないように）。
 func (s *SubscriptionService) Subscribe(guildID guild.DiscordID, channelID subscription.ChannelID, playlistID library.PlaylistID) error {
-	playlist, err := s.youtube.FindPlaylist(playlistID)
+	playlist, err := s.source.FindPlaylist(playlistID)
 	if errors.Is(err, library.ErrPlaylistNotFound) {
 		return err
 	}

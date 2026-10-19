@@ -26,7 +26,7 @@ func TestAdd(t *testing.T) {
 			name: "プレイリストを YouTube のタイトルで登録する",
 			data: subcommand("add", stringOption("playlist-id", "PL")),
 			setup: func(m *deps) {
-				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(&library.PlaylistMeta{YoutubeID: "PL", Title: "タイトル"}, nil)
+				m.source.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(&library.PlaylistMeta{YoutubeID: "PL", Title: "タイトル"}, nil)
 				m.guilds.EXPECT().FindByDiscordID(mockGuild).Return(&guild.Guild{ID: 1, DiscordID: "guild"}, nil)
 				m.subscriptions.EXPECT().Add(&subscription.Subscription{
 					YoutubeID:     "PL",
@@ -42,7 +42,7 @@ func TestAdd(t *testing.T) {
 			name: "登録済みのプレイリスト",
 			data: subcommand("add", stringOption("playlist-id", "PL")),
 			setup: func(m *deps) {
-				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(&library.PlaylistMeta{YoutubeID: "PL", Title: "タイトル"}, nil)
+				m.source.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(&library.PlaylistMeta{YoutubeID: "PL", Title: "タイトル"}, nil)
 				m.guilds.EXPECT().FindByDiscordID(mockGuild).Return(&guild.Guild{ID: 1, DiscordID: "guild"}, nil)
 				m.subscriptions.EXPECT().Add(&subscription.Subscription{
 					YoutubeID:     "PL",
@@ -58,7 +58,7 @@ func TestAdd(t *testing.T) {
 			name: "YouTube にないプレイリスト",
 			data: subcommand("add", stringOption("playlist-id", "PL")),
 			setup: func(m *deps) {
-				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(nil, library.ErrPlaylistNotFound)
+				m.source.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(nil, library.ErrPlaylistNotFound)
 			},
 			want: command.Text("該当するプレイリストが見つかりませんでした...\n非公開のプレイリストではありませんか？"),
 		},
@@ -66,7 +66,7 @@ func TestAdd(t *testing.T) {
 			name: "YouTube API が失敗した",
 			data: subcommand("add", stringOption("playlist-id", "PL")),
 			setup: func(m *deps) {
-				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(nil, errMock)
+				m.source.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(nil, errMock)
 			},
 			want: command.Text("YouTube API のサービス状況を確認してください。"),
 		},

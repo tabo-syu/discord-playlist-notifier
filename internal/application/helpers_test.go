@@ -37,7 +37,8 @@ type deps struct {
 	channels      *mocks.MockChannelRepository
 	categories    *mocks.MockCategoryRepository
 	snapshots     *mocks.MockVideoSnapshotRepository
-	youtube       *mocks.MockYouTube
+	source        *mocks.MockLibrarySource
+	live          *mocks.MockLiveVideoSource
 	notifier      *mocks.MockNotifier
 }
 
@@ -52,7 +53,8 @@ func newDeps(t *testing.T) *deps {
 		channels:      mocks.NewMockChannelRepository(t),
 		categories:    mocks.NewMockCategoryRepository(t),
 		snapshots:     mocks.NewMockVideoSnapshotRepository(t),
-		youtube:       mocks.NewMockYouTube(t),
+		source:        mocks.NewMockLibrarySource(t),
+		live:          mocks.NewMockLiveVideoSource(t),
 		notifier:      mocks.NewMockNotifier(t),
 	}
 }
@@ -144,12 +146,12 @@ func (m *deps) expectPick(s *subscription.Subscription) {
 	m.videos.EXPECT().FindInPlaylists(s.YoutubeID).Return(map[library.VideoID]*library.Video{
 		"a": video("a", library.PrivacyPublic, 0, 0),
 	}, nil)
-	m.youtube.EXPECT().FetchLiveVideos([]library.VideoID{"a"}).Return(map[library.VideoID]*library.LiveVideo{}, nil)
+	m.live.EXPECT().FetchLiveVideos([]library.VideoID{"a"}).Return(map[library.VideoID]*application.LiveVideo{}, nil)
 	m.notifier.EXPECT().PostPick(s, &library.PlaylistVideo{
 		PlaylistID: s.YoutubeID,
 		Item:       item(s.YoutubeID, "1", "a", hoursAgo(10)),
 		Video:      video("a", library.PrivacyPublic, 0, 0),
-	}, map[library.VideoID]*library.LiveVideo{}).Return(nil)
+	}, map[library.VideoID]*application.LiveVideo{}).Return(nil)
 }
 
 // synced は、items を持つプレイリスト playlistID を同期し、YouTube 上のタイトルが title
@@ -189,19 +191,19 @@ func newNotificationService(m *deps, now func() time.Time) *application.Notifica
 	events := application.NewEventPublisher()
 	application.Subscribe(events, newNotificationHandlers(m).NotifyNewVideos)
 
-	return application.NewNotificationService(m.subscriptions, library.NewCatalog(m.playlists, m.videos), m.youtube, m.notifier, events, jst, now)
+	return application.NewNotificationService(m.subscriptions, library.NewCatalog(m.playlists, m.videos), m.live, m.notifier, events, jst, now)
 }
 
 // newNotificationHandlers は mock で NotificationHandlers を組み立てる。
 func newNotificationHandlers(m *deps) *application.NotificationHandlers {
-	return application.NewNotificationHandlers(m.subscriptions, library.NewCatalog(m.playlists, m.videos), m.youtube, m.notifier)
+	return application.NewNotificationHandlers(m.subscriptions, library.NewCatalog(m.playlists, m.videos), m.live, m.notifier)
 }
 
 // newLibraryService は mock で LibraryService を組み立てる。events は同期で起きたことを
 // 発行する先で、now は現在時刻を返す。
 func newLibraryService(m *deps, events *application.EventPublisher, now func() time.Time) *application.LibraryService {
 	return application.NewLibraryService(
-		m.youtube,
+		m.source,
 		m.subscriptions,
 		m.playlists,
 		m.videos,

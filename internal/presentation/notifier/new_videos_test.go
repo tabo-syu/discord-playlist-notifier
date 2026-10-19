@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
+
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 
@@ -21,7 +23,7 @@ func TestNotifyNewVideos(t *testing.T) {
 	tests := []struct {
 		name    string
 		news    *subscription.VideosAdded
-		live    map[library.VideoID]*library.LiveVideo
+		live    map[library.VideoID]*application.LiveVideo
 		setup   func(discord *mocks.MockSender)
 		wantErr error
 	}{
@@ -36,7 +38,7 @@ func TestNotifyNewVideos(t *testing.T) {
 					added(published, time.Date(2026, time.October, 18, 0, 0, 0, 0, time.UTC)),
 				},
 			},
-			live: map[library.VideoID]*library.LiveVideo{
+			live: map[library.VideoID]*application.LiveVideo{
 				"a": {
 					ChannelName: "YOASOBI",
 					ChannelIcon: "https://example.com/icon.png",

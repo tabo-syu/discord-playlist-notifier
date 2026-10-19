@@ -43,16 +43,20 @@ packages:
         config:
           structname: MockVideoSnapshotRepository
           filename: video_snapshot_repository.go
-      YouTube:
+      Source:
         config:
-          structname: MockYouTube
-          filename: youtube.go
+          structname: MockLibrarySource
+          filename: library_source.go
   github.com/tabo-syu/discord-playlist-notifier/internal/application:
     interfaces:
       Notifier:
         config:
           structname: MockNotifier
           filename: notifier.go
+      LiveVideoSource:
+        config:
+          structname: MockLiveVideoSource
+          filename: live_video_source.go
   github.com/tabo-syu/discord-playlist-notifier/internal/presentation/notifier:
     interfaces:
       Sender:

@@ -51,7 +51,7 @@ type deps struct {
 	channels      *mocks.MockChannelRepository
 	categories    *mocks.MockCategoryRepository
 	snapshots     *mocks.MockVideoSnapshotRepository
-	youtube       *mocks.MockYouTube
+	source        *mocks.MockLibrarySource
 }
 
 func newDeps(t *testing.T) *deps {
@@ -65,16 +65,16 @@ func newDeps(t *testing.T) *deps {
 		channels:      mocks.NewMockChannelRepository(t),
 		categories:    mocks.NewMockCategoryRepository(t),
 		snapshots:     mocks.NewMockVideoSnapshotRepository(t),
-		youtube:       mocks.NewMockYouTube(t),
+		source:        mocks.NewMockLibrarySource(t),
 	}
 }
 
 // newCommand は mock で組み立てた本物のサービスでコマンドを作る。
 func newCommand(m *deps) *playlist_notifier.PlaylistNotifier {
 	return playlist_notifier.NewPlaylistNotifier(
-		application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds, clock),
+		application.NewSubscriptionService(m.source, m.subscriptions, m.guilds, clock),
 		application.NewLibraryService(
-			m.youtube,
+			m.source,
 			m.subscriptions,
 			m.playlists,
 			m.videos,

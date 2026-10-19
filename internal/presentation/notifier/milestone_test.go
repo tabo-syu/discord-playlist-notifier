@@ -3,6 +3,8 @@ package notifier_test
 import (
 	"testing"
 
+	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
+
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 
@@ -18,7 +20,7 @@ func TestNotifyMilestone(t *testing.T) {
 	tests := []struct {
 		name   string
 		notice *notification.Milestone
-		live   map[library.VideoID]*library.LiveVideo
+		live   map[library.VideoID]*application.LiveVideo
 		setup  func(discord *mocks.MockSender)
 	}{
 		{
@@ -29,7 +31,7 @@ func TestNotifyMilestone(t *testing.T) {
 				Video:      video("a", 1_000_500),
 				Milestone:  1_000_000,
 			},
-			live: map[library.VideoID]*library.LiveVideo{
+			live: map[library.VideoID]*application.LiveVideo{
 				"a": {
 					ChannelName: "YOASOBI",
 					ChannelIcon: "https://example.com/icon.png",

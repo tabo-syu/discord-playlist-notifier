@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 )
@@ -34,7 +35,7 @@ func TestNotificationServiceTakeNewVideos(t *testing.T) {
 					sub(1, "PL", "ch", "古いタイトル", lastNotified),
 				}, nil)
 				saved := m.subscriptions.EXPECT().Update(sub(1, "PL", "ch", "新しいタイトル", now)).Return(nil).Call
-				m.youtube.EXPECT().FetchLiveVideos([]library.VideoID{"new"}).Return(map[library.VideoID]*library.LiveVideo{}, nil)
+				m.live.EXPECT().FetchLiveVideos([]library.VideoID{"new"}).Return(map[library.VideoID]*application.LiveVideo{}, nil)
 				m.notifier.EXPECT().NotifyNewVideos(&subscription.VideosAdded{
 					ChannelID:     "ch",
 					PlaylistID:    "PL",
@@ -42,7 +43,7 @@ func TestNotificationServiceTakeNewVideos(t *testing.T) {
 					Videos: []*library.PlaylistVideo{
 						{PlaylistID: "PL", Item: item("PL", "2", "new", hoursAgo(1)), Video: video("new", library.PrivacyPublic, 0, 0)},
 					},
-				}, map[library.VideoID]*library.LiveVideo{}).Return(nil).NotBefore(saved)
+				}, map[library.VideoID]*application.LiveVideo{}).Return(nil).NotBefore(saved)
 			},
 		},
 		{
@@ -81,7 +82,7 @@ func TestNotificationServiceTakeNewVideos(t *testing.T) {
 				}, nil)
 				m.subscriptions.EXPECT().Update(sub(1, "PL1", "ch", "PL1", now)).Return(errMock)
 				m.subscriptions.EXPECT().Update(sub(2, "PL2", "ch", "PL2", now)).Return(nil)
-				m.youtube.EXPECT().FetchLiveVideos([]library.VideoID{"b"}).Return(map[library.VideoID]*library.LiveVideo{}, nil)
+				m.live.EXPECT().FetchLiveVideos([]library.VideoID{"b"}).Return(map[library.VideoID]*application.LiveVideo{}, nil)
 				m.notifier.EXPECT().NotifyNewVideos(&subscription.VideosAdded{
 					ChannelID:     "ch",
 					PlaylistID:    "PL2",
@@ -89,7 +90,7 @@ func TestNotificationServiceTakeNewVideos(t *testing.T) {
 					Videos: []*library.PlaylistVideo{
 						{PlaylistID: "PL2", Item: item("PL2", "2", "b", hoursAgo(1)), Video: video("b", library.PrivacyPublic, 0, 0)},
 					},
-				}, map[library.VideoID]*library.LiveVideo{}).Return(nil)
+				}, map[library.VideoID]*application.LiveVideo{}).Return(nil)
 			},
 		},
 		{

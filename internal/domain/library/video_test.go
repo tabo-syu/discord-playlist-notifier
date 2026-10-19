@@ -156,25 +156,25 @@ func TestVideoApplyDetails(t *testing.T) {
 	tests := []struct {
 		name    string
 		video   *library.Video
-		details *library.Video
+		details *library.VideoDetails
 		want    *library.Video
 	}{
 		{
-			name: "公開状態と ID 以外をコピーし、詳細を取得済みにする",
+			name: "ID 以外をコピーし、詳細を取得済みにする。公開状態は変えない",
 			video: &library.Video{
 				YoutubeID:     "a",
 				PrivacyStatus: library.PrivacyUnlisted,
 			},
-			details: &library.Video{
-				YoutubeID:        "b",
-				Title:            "曲",
-				Views:            100,
-				Likes:            10,
-				Comments:         1,
-				PrivacyStatus:    library.PrivacyPublic,
-				ChannelYoutubeID: "UC",
-				Tags:             []string{"tag"},
-				CategoryID:       "10",
+			details: &library.VideoDetails{
+				VideoID:      "b",
+				Title:        "曲",
+				Views:        100,
+				Likes:        10,
+				Comments:     1,
+				ChannelID:    "UC",
+				ChannelTitle: "チャンネル",
+				Tags:         []string{"tag"},
+				CategoryID:   "10",
 			},
 			want: &library.Video{
 				YoutubeID:        "a",
