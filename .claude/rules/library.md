@@ -42,6 +42,11 @@ paths:
 
 - `subscription.Subscription` は以前 `Playlist` だったので、テーブル名は `playlists` のままです
   （`persistence` の `subscriptionRecord.TableName()` で固定）。
+- `playlists` の `(guild_id, youtube_id)` には一意の部分インデックス `idx_playlists_guild_youtube`
+  （`WHERE deleted_at IS NULL`）があります。解除した通知設定は論理削除なので、部分インデックスに
+  しないと登録し直せません。`AutoMigrate` は同じ名前のインデックスがあれば定義を比べないので、
+  定義を変えるときは名前も変えます。論理削除していない重複の行があるとインデックスを作れず、
+  `cmd/migrate` が失敗します（重複は手で直します）。
 - 新着動画の通知の基準時刻は、以前は `playlists.updated_at` でした。今は `notified_until` で、
   `persistence.Migrate` が空の行を毎回 `updated_at` で埋めます（何度実行しても同じ結果になる）。
 - 動画の詳細を取得済みかは、以前はタイトルが空でないかで判断していました。今は

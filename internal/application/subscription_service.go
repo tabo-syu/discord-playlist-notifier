@@ -30,7 +30,8 @@ func (s *SubscriptionService) FindByGuild(guildID guild.DiscordID) ([]*subscript
 	return s.subscriptions.FindByGuild(guildID)
 }
 
-// Subscribe はプレイリストのチャンネルへの通知を始める。
+// Subscribe はプレイリストのチャンネルへの通知を始める。登録済みかは事前に確かめず、
+// リポジトリの Add が ErrAlreadySubscribed を返す（同時に登録しても重複しないように）。
 func (s *SubscriptionService) Subscribe(guildID guild.DiscordID, channelID subscription.ChannelID, playlistID library.PlaylistID) error {
 	playlist, err := s.youtube.FindPlaylist(playlistID)
 	if errors.Is(err, library.ErrPlaylistNotFound) {
@@ -39,15 +40,6 @@ func (s *SubscriptionService) Subscribe(guildID guild.DiscordID, channelID subsc
 
 	if err != nil {
 		return ErrYouTubeUnavailable
-	}
-
-	exists, err := s.subscriptions.Exists(guildID, playlist.YoutubeID)
-	if err != nil {
-		return err
-	}
-
-	if exists {
-		return subscription.ErrAlreadySubscribed
 	}
 
 	g, err := s.guilds.FindByDiscordID(guildID)
@@ -60,44 +52,21 @@ func (s *SubscriptionService) Subscribe(guildID guild.DiscordID, channelID subsc
 
 // Unsubscribe はギルドへのプレイリストの通知をやめる。
 func (s *SubscriptionService) Unsubscribe(guildID guild.DiscordID, playlistID library.PlaylistID) error {
-	exists, err := s.subscriptions.Exists(guildID, playlistID)
+	sub, err := s.subscriptions.FindByGuildAndPlaylist(guildID, playlistID)
 	if err != nil {
 		return err
 	}
 
-	if !exists {
-		return subscription.ErrNotSubscribed
-	}
-
-	subscriptions, err := s.subscriptions.FindByGuild(guildID)
-	if err != nil {
-		return err
-	}
-
-	var target *subscription.Subscription
-
-	for _, sub := range subscriptions {
-		if sub.YoutubeID == playlistID {
-			target = sub
-		}
-	}
-
-	return s.subscriptions.DeleteAll([]*subscription.Subscription{target})
+	return s.subscriptions.DeleteAll([]*subscription.Subscription{sub})
 }
 
 func (s *SubscriptionService) SetPickInterval(guildID guild.DiscordID, playlistID library.PlaylistID, interval subscription.PickInterval) error {
-	subscriptions, err := s.subscriptions.FindByGuild(guildID)
+	sub, err := s.subscriptions.FindByGuildAndPlaylist(guildID, playlistID)
 	if err != nil {
 		return err
 	}
 
-	for _, sub := range subscriptions {
-		if sub.YoutubeID == playlistID {
-			sub.ChangePickInterval(interval)
+	sub.ChangePickInterval(interval)
 
-			return s.subscriptions.Update(sub)
-		}
-	}
-
-	return subscription.ErrNotSubscribed
+	return s.subscriptions.Update(sub)
 }

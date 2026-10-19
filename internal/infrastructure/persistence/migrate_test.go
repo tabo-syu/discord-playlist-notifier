@@ -16,6 +16,8 @@ type schema struct {
 	VideosHasPlaylistID bool
 	// playlists.guild_id の外部キーがあるか
 	PlaylistsHasGuildForeignKey bool
+	// playlists の (guild_id, youtube_id) の一意のインデックスがあるか
+	PlaylistsHasUniqueIndex bool
 }
 
 func TestMigrate(t *testing.T) {
@@ -35,6 +37,7 @@ func TestMigrate(t *testing.T) {
 				VideosHasYoutubeID:          true,
 				VideosHasPlaylistID:         false,
 				PlaylistsHasGuildForeignKey: true,
+				PlaylistsHasUniqueIndex:     true,
 			},
 			wantPlaylists: []*persistence.SubscriptionRecord{},
 			wantVideos:    []*persistence.VideoRecord{},
@@ -49,6 +52,7 @@ func TestMigrate(t *testing.T) {
 				VideosHasYoutubeID:          true,
 				VideosHasPlaylistID:         false,
 				PlaylistsHasGuildForeignKey: true,
+				PlaylistsHasUniqueIndex:     true,
 			},
 			wantPlaylists: []*persistence.SubscriptionRecord{},
 			wantVideos:    []*persistence.VideoRecord{},
@@ -62,6 +66,21 @@ func TestMigrate(t *testing.T) {
 				VideosHasYoutubeID:          true,
 				VideosHasPlaylistID:         false,
 				PlaylistsHasGuildForeignKey: true,
+				PlaylistsHasUniqueIndex:     true,
+			},
+			wantPlaylists: []*persistence.SubscriptionRecord{},
+			wantVideos:    []*persistence.VideoRecord{},
+		},
+		{
+			name: "playlists の一意のインデックスがなければ作る",
+			before: []string{
+				"DROP INDEX idx_playlists_guild_youtube",
+			},
+			want: schema{
+				VideosHasYoutubeID:          true,
+				VideosHasPlaylistID:         false,
+				PlaylistsHasGuildForeignKey: true,
+				PlaylistsHasUniqueIndex:     true,
 			},
 			wantPlaylists: []*persistence.SubscriptionRecord{},
 			wantVideos:    []*persistence.VideoRecord{},
@@ -77,6 +96,7 @@ func TestMigrate(t *testing.T) {
 				VideosHasYoutubeID:          true,
 				VideosHasPlaylistID:         false,
 				PlaylistsHasGuildForeignKey: true,
+				PlaylistsHasUniqueIndex:     true,
 			},
 			wantPlaylists: []*persistence.SubscriptionRecord{
 				{ID: 1, CreatedAt: now, UpdatedAt: hoursAgo(6), YoutubeID: "PL", SendChannelID: "ch", Title: "PL", GuildID: 1, NotifiedUntil: hoursAgo(6)},
@@ -93,6 +113,7 @@ func TestMigrate(t *testing.T) {
 				VideosHasYoutubeID:          true,
 				VideosHasPlaylistID:         false,
 				PlaylistsHasGuildForeignKey: true,
+				PlaylistsHasUniqueIndex:     true,
 			},
 			wantPlaylists: []*persistence.SubscriptionRecord{
 				storedSubscriptionRow(1, 1, "PL", "PL"),
@@ -110,6 +131,7 @@ func TestMigrate(t *testing.T) {
 				VideosHasYoutubeID:          true,
 				VideosHasPlaylistID:         false,
 				PlaylistsHasGuildForeignKey: true,
+				PlaylistsHasUniqueIndex:     true,
 			},
 			wantPlaylists: []*persistence.SubscriptionRecord{},
 			wantVideos: []*persistence.VideoRecord{
@@ -127,6 +149,7 @@ func TestMigrate(t *testing.T) {
 				VideosHasYoutubeID:          true,
 				VideosHasPlaylistID:         false,
 				PlaylistsHasGuildForeignKey: true,
+				PlaylistsHasUniqueIndex:     true,
 			},
 			wantPlaylists: []*persistence.SubscriptionRecord{},
 			wantVideos: []*persistence.VideoRecord{
@@ -146,6 +169,7 @@ func TestMigrate(t *testing.T) {
 				VideosHasYoutubeID:          db.Migrator().HasColumn("videos", "youtube_id"),
 				VideosHasPlaylistID:         db.Migrator().HasColumn("videos", "playlist_id"),
 				PlaylistsHasGuildForeignKey: db.Migrator().HasConstraint(&persistence.SubscriptionRecord{}, "fk_guilds_playlists"),
+				PlaylistsHasUniqueIndex:     db.Migrator().HasIndex(&persistence.SubscriptionRecord{}, "idx_playlists_guild_youtube"),
 			})
 			assert.Equal(t, tt.wantPlaylists, rows[persistence.SubscriptionRecord](t, db))
 			assert.Equal(t, tt.wantVideos, rows[persistence.VideoRecord](t, db))

@@ -16,34 +16,54 @@ func guilds() []any {
 	return []any{guildRow("guild"), guildRow("other")}
 }
 
-func TestSubscriptionRepositoryExists(t *testing.T) {
+func TestSubscriptionRepositoryFindByGuildAndPlaylist(t *testing.T) {
 	tests := []struct {
 		name       string
 		stored     []any
 		guildID    guild.DiscordID
 		playlistID library.PlaylistID
-		want       bool
+		want       *subscription.Subscription
+		wantErr    error
 	}{
 		{
-			name:       "ギルドが登録している",
-			stored:     []any{subscriptionRow(1, "PL", "PL")},
+			name:       "ギルドとプレイリストの組で通知設定を返す",
+			stored:     []any{subscriptionRow(1, "PL1", "PL1"), subscriptionRow(1, "PL2", "PL2")},
 			guildID:    "guild",
-			playlistID: "PL",
-			want:       true,
+			playlistID: "PL2",
+			want:       storedSubscription(2, 1, "PL2", "PL2"),
+			wantErr:    nil,
 		},
 		{
-			name:       "別のギルドだけが登録している",
+			name:       "別のギルドだけが登録していれば ErrNotSubscribed を返す",
 			stored:     []any{subscriptionRow(2, "PL", "PL")},
 			guildID:    "guild",
 			playlistID: "PL",
-			want:       false,
+			want:       nil,
+			wantErr:    subscription.ErrNotSubscribed,
 		},
 		{
-			name:       "ギルドを保存していない",
+			name:       "論理削除した通知設定は返さない",
+			stored:     []any{deletedSubscriptionRow(1, "PL", "PL")},
+			guildID:    "guild",
+			playlistID: "PL",
+			want:       nil,
+			wantErr:    subscription.ErrNotSubscribed,
+		},
+		{
+			name:       "ギルドを保存していなければ ErrNotSubscribed を返す",
 			stored:     []any{subscriptionRow(1, "PL", "PL")},
 			guildID:    "unknown",
 			playlistID: "PL",
-			want:       false,
+			want:       nil,
+			wantErr:    subscription.ErrNotSubscribed,
+		},
+		{
+			name:       "論理削除したギルドの通知設定は返さない",
+			stored:     []any{&persistence.GuildRecord{Model: deleted(3), DiscordID: "gone"}, subscriptionRow(3, "PL", "PL")},
+			guildID:    "gone",
+			playlistID: "PL",
+			want:       nil,
+			wantErr:    subscription.ErrNotSubscribed,
 		},
 	}
 	for _, tt := range tests {
@@ -52,9 +72,9 @@ func TestSubscriptionRepositoryExists(t *testing.T) {
 			seed(t, db, guilds()...)
 			seed(t, db, tt.stored...)
 
-			got, err := persistence.NewSubscriptionRepository(db).Exists(tt.guildID, tt.playlistID)
+			got, err := persistence.NewSubscriptionRepository(db).FindByGuildAndPlaylist(tt.guildID, tt.playlistID)
 
-			assert.NoError(t, err)
+			assert.ErrorIs(t, err, tt.wantErr)
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -152,6 +172,7 @@ func TestSubscriptionRepositoryFindByGuild(t *testing.T) {
 func TestSubscriptionRepositoryAdd(t *testing.T) {
 	tests := []struct {
 		name             string
+		stored           []any
 		subscription     *subscription.Subscription
 		want             []*persistence.SubscriptionRecord
 		wantSubscription *subscription.Subscription
@@ -159,6 +180,7 @@ func TestSubscriptionRepositoryAdd(t *testing.T) {
 	}{
 		{
 			name:         "通知設定を保存し、振った ID を書き戻す",
+			stored:       []any{},
 			subscription: &subscription.Subscription{YoutubeID: "PL", SendChannelID: "ch", Title: "PL", PickInterval: subscription.PickWeekly, GuildID: 1, NotifiedUntil: hoursAgo(6)},
 			want: []*persistence.SubscriptionRecord{
 				storedSubscriptionRow(1, 1, "PL", "PL"),
@@ -167,10 +189,79 @@ func TestSubscriptionRepositoryAdd(t *testing.T) {
 		},
 		{
 			name:             "ID のある通知設定は保存しない",
+			stored:           []any{},
 			subscription:     &subscription.Subscription{ID: 5, YoutubeID: "PL", SendChannelID: "ch", Title: "PL", GuildID: 1},
 			want:             []*persistence.SubscriptionRecord{},
 			wantSubscription: &subscription.Subscription{ID: 5, YoutubeID: "PL", SendChannelID: "ch", Title: "PL", GuildID: 1},
 			wantErr:          subscription.ErrAlreadySubscribed,
+		},
+		{
+			// 一意のインデックスが断る。失敗した INSERT も ID の連番を 1 つ進める
+			name:         "同じギルドに同じプレイリストがあれば保存しない",
+			stored:       []any{subscriptionRow(1, "PL", "PL")},
+			subscription: &subscription.Subscription{YoutubeID: "PL", SendChannelID: "other", Title: "PL", PickInterval: subscription.PickWeekly, GuildID: 1, NotifiedUntil: hoursAgo(6)},
+			want: []*persistence.SubscriptionRecord{
+				storedSubscriptionRow(1, 1, "PL", "PL"),
+			},
+			wantSubscription: &subscription.Subscription{YoutubeID: "PL", SendChannelID: "other", Title: "PL", PickInterval: subscription.PickWeekly, GuildID: 1, NotifiedUntil: hoursAgo(6)},
+			wantErr:          subscription.ErrAlreadySubscribed,
+		},
+		{
+			name:         "別のギルドが同じプレイリストを登録していても保存する",
+			stored:       []any{subscriptionRow(2, "PL", "PL")},
+			subscription: &subscription.Subscription{YoutubeID: "PL", SendChannelID: "ch", Title: "PL", PickInterval: subscription.PickWeekly, GuildID: 1, NotifiedUntil: hoursAgo(6)},
+			want: []*persistence.SubscriptionRecord{
+				storedSubscriptionRow(1, 2, "PL", "PL"),
+				storedSubscriptionRow(2, 1, "PL", "PL"),
+			},
+			wantSubscription: storedSubscription(2, 1, "PL", "PL"),
+		},
+		{
+			name:         "解除した（論理削除した）プレイリストは登録し直せる",
+			stored:       []any{deletedSubscriptionRow(1, "PL", "PL")},
+			subscription: &subscription.Subscription{YoutubeID: "PL", SendChannelID: "ch", Title: "PL", PickInterval: subscription.PickWeekly, GuildID: 1, NotifiedUntil: hoursAgo(6)},
+			want: []*persistence.SubscriptionRecord{
+				{Model: deleted(1), YoutubeID: "PL", SendChannelID: "ch", Title: "PL", PickInterval: "weekly", GuildID: 1, NotifiedUntil: hoursAgo(6)},
+				storedSubscriptionRow(2, 1, "PL", "PL"),
+			},
+			wantSubscription: storedSubscription(2, 1, "PL", "PL"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := newDB(t)
+			seed(t, db, guilds()...)
+			seed(t, db, tt.stored...)
+
+			err := persistence.NewSubscriptionRepository(db).Add(tt.subscription)
+
+			assert.ErrorIs(t, err, tt.wantErr)
+			assert.Equal(t, tt.want, rows[persistence.SubscriptionRecord](t, db))
+			assert.Equal(t, tt.wantSubscription, tt.subscription)
+		})
+	}
+}
+
+func TestSubscriptionRepositoryAddConcurrently(t *testing.T) {
+	tests := []struct {
+		name string
+		// 同時に Add する回数
+		n int
+		// 保存された行の数。どの呼び出しが勝つかは決まらないので、行の中身ではなく数を比べる
+		wantSaved int
+		wantErrs  []error
+	}{
+		{
+			name:      "同じギルドに同じプレイリストを同時に登録しても、1 つだけ保存する",
+			n:         5,
+			wantSaved: 1,
+			wantErrs: []error{
+				nil,
+				subscription.ErrAlreadySubscribed,
+				subscription.ErrAlreadySubscribed,
+				subscription.ErrAlreadySubscribed,
+				subscription.ErrAlreadySubscribed,
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -178,11 +269,10 @@ func TestSubscriptionRepositoryAdd(t *testing.T) {
 			db := newDB(t)
 			seed(t, db, guilds()...)
 
-			err := persistence.NewSubscriptionRepository(db).Add(tt.subscription)
+			errs := addConcurrently(persistence.NewSubscriptionRepository(db), tt.n)
 
-			assert.ErrorIs(t, err, tt.wantErr)
-			assert.Equal(t, tt.want, rows[persistence.SubscriptionRecord](t, db))
-			assert.Equal(t, tt.wantSubscription, tt.subscription)
+			assert.ElementsMatch(t, tt.wantErrs, errs)
+			assert.Len(t, rows[persistence.SubscriptionRecord](t, db), tt.wantSaved)
 		})
 	}
 }

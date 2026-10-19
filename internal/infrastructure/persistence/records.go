@@ -44,11 +44,13 @@ func (r *guildRecord) toDomain() *guild.Guild {
 type subscriptionRecord struct {
 	gorm.Model
 
-	YoutubeID     string
+	// 同じギルドに同じプレイリストの通知設定は 1 つだけにする。解除した（論理削除した）
+	// 通知設定を登録し直せるように、論理削除した行は除く。
+	YoutubeID     string `gorm:"uniqueIndex:idx_playlists_guild_youtube,priority:2,where:deleted_at IS NULL"`
 	SendChannelID string
 	Title         string
 	PickInterval  string
-	GuildID       uint
+	GuildID       uint `gorm:"uniqueIndex:idx_playlists_guild_youtube,priority:1,where:deleted_at IS NULL"`
 	NotifiedUntil time.Time
 }
 

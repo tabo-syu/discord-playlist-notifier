@@ -60,23 +60,35 @@ func TestGuildServiceUnregister(t *testing.T) {
 		{
 			name: "ギルドをその通知設定と一緒に削除する",
 			setup: func(m *deps) {
-				m.guilds.EXPECT().Exists(guild.DiscordID("guild")).Return(true, nil)
 				m.guilds.EXPECT().FindByDiscordID(guild.DiscordID("guild")).Return(guildOf(1, "guild"), nil)
 				m.subscriptions.EXPECT().FindByGuild(guild.DiscordID("guild")).Return([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil)
-				m.guilds.EXPECT().Delete(guildOf(1, "guild")).Return(nil)
-				m.subscriptions.EXPECT().DeleteAll([]*subscription.Subscription{
+				deleted := m.subscriptions.EXPECT().DeleteAll([]*subscription.Subscription{
 					sub(1, "PL", "ch", "PL", lastNotified),
-				}).Return(nil)
+				}).Return(nil).Call
+				// 通知設定を先に消す（GuildService.Unregister のコメント）
+				m.guilds.EXPECT().Delete(guildOf(1, "guild")).Return(nil).NotBefore(deleted)
 			},
 			wantErr: nil,
+		},
+		{
+			name: "通知設定を削除できなければ、ギルドを削除しない",
+			setup: func(m *deps) {
+				m.guilds.EXPECT().FindByDiscordID(guild.DiscordID("guild")).Return(guildOf(1, "guild"), nil)
+				m.subscriptions.EXPECT().FindByGuild(guild.DiscordID("guild")).Return([]*subscription.Subscription{
+					sub(1, "PL", "ch", "PL", lastNotified),
+				}, nil)
+				m.subscriptions.EXPECT().DeleteAll([]*subscription.Subscription{
+					sub(1, "PL", "ch", "PL", lastNotified),
+				}).Return(errMock)
+			},
+			wantErr: errMock,
 		},
 		{
 			// 既知の挙動: FindByGuild が空のときにエラーを返すため、途中で止まる
 			name: "通知設定のないギルドは削除されない",
 			setup: func(m *deps) {
-				m.guilds.EXPECT().Exists(guild.DiscordID("guild")).Return(true, nil)
 				m.guilds.EXPECT().FindByDiscordID(guild.DiscordID("guild")).Return(guildOf(1, "guild"), nil)
 				m.subscriptions.EXPECT().FindByGuild(guild.DiscordID("guild")).Return(nil, subscription.ErrNotSubscribed)
 			},
@@ -85,7 +97,7 @@ func TestGuildServiceUnregister(t *testing.T) {
 		{
 			name: "記録していないギルドは削除できない",
 			setup: func(m *deps) {
-				m.guilds.EXPECT().Exists(guild.DiscordID("guild")).Return(false, nil)
+				m.guilds.EXPECT().FindByDiscordID(guild.DiscordID("guild")).Return(nil, guild.ErrNotRegistered)
 			},
 			wantErr: guild.ErrNotRegistered,
 		},

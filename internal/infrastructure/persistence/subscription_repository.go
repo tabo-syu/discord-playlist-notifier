@@ -1,11 +1,14 @@
 package persistence
 
 import (
+	"errors"
+
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type subscriptionRepository struct {
@@ -16,15 +19,21 @@ func NewSubscriptionRepository(db *gorm.DB) *subscriptionRepository {
 	return &subscriptionRepository{db}
 }
 
-func (r *subscriptionRepository) Exists(guildID guild.DiscordID, playlistID library.PlaylistID) (bool, error) {
-	var recs []*subscriptionRecord
+// FindByGuildAndPlaylist は、ギルドとプレイリストの組で通知設定を引く。一意の
+// インデックスがあるので、論理削除していない行は多くても 1 つ。
+func (r *subscriptionRepository) FindByGuildAndPlaylist(guildID guild.DiscordID, playlistID library.PlaylistID) (*subscription.Subscription, error) {
+	var rec subscriptionRecord
 
-	err := r.ofGuild(guildID).Where(subscriptionRecord{YoutubeID: string(playlistID)}).Find(&recs).Error
-	if err != nil {
-		return false, err
+	result := r.ofGuild(guildID).Where(subscriptionRecord{YoutubeID: string(playlistID)}).Take(&rec)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, subscription.ErrNotSubscribed
 	}
 
-	return len(recs) > 0, nil
+	if err := result.Error; err != nil {
+		return nil, err
+	}
+
+	return rec.toDomain(), nil
 }
 
 func (r *subscriptionRepository) FindAll() ([]*subscription.Subscription, error) {
@@ -53,7 +62,10 @@ func (r *subscriptionRepository) FindByGuild(guildID guild.DiscordID) ([]*subscr
 	return mapSlice(recs, (*subscriptionRecord).toDomain), nil
 }
 
-// Add は保存した通知設定に DB が振った ID を s に書き戻す。
+// Add は保存した通知設定に DB が振った ID を s に書き戻す。同じギルドに同じプレイリストが
+// あるかは、事前に確かめると同時に登録したときに重複するので、一意の部分インデックス
+// （subscriptionRecord のタグ）に任せる。ぶつかった行は ON CONFLICT DO NOTHING で
+// 書かず、書かなかったことを ErrAlreadySubscribed にする。
 func (r *subscriptionRepository) Add(s *subscription.Subscription) error {
 	if s.ID != 0 {
 		return subscription.ErrAlreadySubscribed
@@ -61,9 +73,17 @@ func (r *subscriptionRepository) Add(s *subscription.Subscription) error {
 
 	rec := toSubscriptionRecord(s)
 
-	result := r.db.Create(rec)
+	result := r.db.Clauses(clause.OnConflict{
+		Columns:     []clause.Column{{Name: "guild_id"}, {Name: "youtube_id"}},
+		TargetWhere: clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: "deleted_at IS NULL"}}},
+		DoNothing:   true,
+	}).Create(rec)
 	if err := result.Error; err != nil {
 		return err
+	}
+
+	if result.RowsAffected == 0 {
+		return subscription.ErrAlreadySubscribed
 	}
 
 	s.ID = rec.ID
@@ -112,11 +132,11 @@ func (r *subscriptionRepository) DeleteAll(subscriptions []*subscription.Subscri
 	return nil
 }
 
-// ofGuild はクエリをギルドの通知設定に絞り込む。ギルドが見つからないときは
-// ID が 0 になり、何にも一致しない。
+// ofGuild はクエリをギルドの通知設定に絞り込む。ギルドはサブクエリで引くので、
+// 1 回の問い合わせで済み、その失敗もクエリのエラーとして返る。ギルドが見つからない
+// ときは何にも一致しない。
 func (r *subscriptionRepository) ofGuild(guildID guild.DiscordID) *gorm.DB {
-	var g guildRecord
-	r.db.Where(guildRecord{DiscordID: string(guildID)}).Find(&g)
+	guilds := r.db.Model(&guildRecord{}).Select("id").Where(guildRecord{DiscordID: string(guildID)})
 
-	return r.db.Where("guild_id = ?", g.ID)
+	return r.db.Where("guild_id IN (?)", guilds)
 }

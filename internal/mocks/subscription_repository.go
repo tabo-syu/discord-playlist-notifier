@@ -149,72 +149,6 @@ func (_c *MockSubscriptionRepository_DeleteAll_Call) RunAndReturn(run func(subsc
 	return _c
 }
 
-// Exists provides a mock function for the type MockSubscriptionRepository
-func (_mock *MockSubscriptionRepository) Exists(guildID guild.DiscordID, playlistID library.PlaylistID) (bool, error) {
-	ret := _mock.Called(guildID, playlistID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for Exists")
-	}
-
-	var r0 bool
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(guild.DiscordID, library.PlaylistID) (bool, error)); ok {
-		return returnFunc(guildID, playlistID)
-	}
-	if returnFunc, ok := ret.Get(0).(func(guild.DiscordID, library.PlaylistID) bool); ok {
-		r0 = returnFunc(guildID, playlistID)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-	if returnFunc, ok := ret.Get(1).(func(guild.DiscordID, library.PlaylistID) error); ok {
-		r1 = returnFunc(guildID, playlistID)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// MockSubscriptionRepository_Exists_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Exists'
-type MockSubscriptionRepository_Exists_Call struct {
-	*mock.Call
-}
-
-// Exists is a helper method to define mock.On call
-//   - guildID guild.DiscordID
-//   - playlistID library.PlaylistID
-func (_e *MockSubscriptionRepository_Expecter) Exists(guildID any, playlistID any) *MockSubscriptionRepository_Exists_Call {
-	return &MockSubscriptionRepository_Exists_Call{Call: _e.mock.On("Exists", guildID, playlistID)}
-}
-
-func (_c *MockSubscriptionRepository_Exists_Call) Run(run func(guildID guild.DiscordID, playlistID library.PlaylistID)) *MockSubscriptionRepository_Exists_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 guild.DiscordID
-		if args[0] != nil {
-			arg0 = args[0].(guild.DiscordID)
-		}
-		var arg1 library.PlaylistID
-		if args[1] != nil {
-			arg1 = args[1].(library.PlaylistID)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *MockSubscriptionRepository_Exists_Call) Return(b bool, err error) *MockSubscriptionRepository_Exists_Call {
-	_c.Call.Return(b, err)
-	return _c
-}
-
-func (_c *MockSubscriptionRepository_Exists_Call) RunAndReturn(run func(guildID guild.DiscordID, playlistID library.PlaylistID) (bool, error)) *MockSubscriptionRepository_Exists_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // FindAll provides a mock function for the type MockSubscriptionRepository
 func (_mock *MockSubscriptionRepository) FindAll() ([]*subscription.Subscription, error) {
 	ret := _mock.Called()
@@ -328,6 +262,74 @@ func (_c *MockSubscriptionRepository_FindByGuild_Call) Return(subscriptions []*s
 }
 
 func (_c *MockSubscriptionRepository_FindByGuild_Call) RunAndReturn(run func(guildID guild.DiscordID) ([]*subscription.Subscription, error)) *MockSubscriptionRepository_FindByGuild_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// FindByGuildAndPlaylist provides a mock function for the type MockSubscriptionRepository
+func (_mock *MockSubscriptionRepository) FindByGuildAndPlaylist(guildID guild.DiscordID, playlistID library.PlaylistID) (*subscription.Subscription, error) {
+	ret := _mock.Called(guildID, playlistID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindByGuildAndPlaylist")
+	}
+
+	var r0 *subscription.Subscription
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(guild.DiscordID, library.PlaylistID) (*subscription.Subscription, error)); ok {
+		return returnFunc(guildID, playlistID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(guild.DiscordID, library.PlaylistID) *subscription.Subscription); ok {
+		r0 = returnFunc(guildID, playlistID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*subscription.Subscription)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(guild.DiscordID, library.PlaylistID) error); ok {
+		r1 = returnFunc(guildID, playlistID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockSubscriptionRepository_FindByGuildAndPlaylist_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindByGuildAndPlaylist'
+type MockSubscriptionRepository_FindByGuildAndPlaylist_Call struct {
+	*mock.Call
+}
+
+// FindByGuildAndPlaylist is a helper method to define mock.On call
+//   - guildID guild.DiscordID
+//   - playlistID library.PlaylistID
+func (_e *MockSubscriptionRepository_Expecter) FindByGuildAndPlaylist(guildID any, playlistID any) *MockSubscriptionRepository_FindByGuildAndPlaylist_Call {
+	return &MockSubscriptionRepository_FindByGuildAndPlaylist_Call{Call: _e.mock.On("FindByGuildAndPlaylist", guildID, playlistID)}
+}
+
+func (_c *MockSubscriptionRepository_FindByGuildAndPlaylist_Call) Run(run func(guildID guild.DiscordID, playlistID library.PlaylistID)) *MockSubscriptionRepository_FindByGuildAndPlaylist_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 guild.DiscordID
+		if args[0] != nil {
+			arg0 = args[0].(guild.DiscordID)
+		}
+		var arg1 library.PlaylistID
+		if args[1] != nil {
+			arg1 = args[1].(library.PlaylistID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockSubscriptionRepository_FindByGuildAndPlaylist_Call) Return(subscription1 *subscription.Subscription, err error) *MockSubscriptionRepository_FindByGuildAndPlaylist_Call {
+	_c.Call.Return(subscription1, err)
+	return _c
+}
+
+func (_c *MockSubscriptionRepository_FindByGuildAndPlaylist_Call) RunAndReturn(run func(guildID guild.DiscordID, playlistID library.PlaylistID) (*subscription.Subscription, error)) *MockSubscriptionRepository_FindByGuildAndPlaylist_Call {
 	_c.Call.Return(run)
 	return _c
 }

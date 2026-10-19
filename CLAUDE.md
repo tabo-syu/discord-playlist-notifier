@@ -82,6 +82,13 @@ internal/mocks/              mockery が生成した mock（手で編集しな�
 - 1 つのトランザクションで変える集約は 1 つです。同期ではプレイリストと動画を別々に保存し、
   プレイリストを先にします（理由は `LibraryService.syncPlaylist` のコメント）。複数の `Video` を
   1 つの文でまとめて保存するのは、動画同士に不変条件がないためです。
+- 集約をまたぐ削除も 1 つのトランザクションにせず、途中で失敗しても害が残らない順に呼びます。
+  `GuildService.Unregister` は通知設定を消してからギルドを消します（理由はそのコメント）。
+- 「同じギルドに同じプレイリストは 1 つだけ」は 1 つの `Subscription` の中では確かめられない
+  （集合に対する）条件なので、集約ではなく DB の一意の部分インデックス
+  （`idx_playlists_guild_youtube`、論理削除した行を除く）で守ります。`subscription.Repository.Add` が
+  インデックスにぶつかる行を書かずに `ErrAlreadySubscribed` を返すので、登録済みかを事前に確かめません。通知設定を 1 つ引くときは
+  ギルドとプレイリストの組（`FindByGuildAndPlaylist`）で引きます。
 - ID や状態は値オブジェクト（`guild.DiscordID`、`library.VideoID` など）です。文字列との
   変換は境界（コマンドハンドラ、`infrastructure`）で行います。
 - 人が入力した ID（Discord のコマンドと MCP のツールの引数）は、`library.ParsePlaylistID`・

@@ -31,16 +31,14 @@ func (s *GuildService) Register(id guild.DiscordID) error {
 }
 
 // Unregister はボットが退出したギルドを、その通知設定と一緒に削除する。
+//
+// ギルドと通知設定は別の集約なので、1 つのトランザクションにせず、通知設定を先に消す。
+// 通知設定の削除に失敗したときは、何も消していない（GuildDelete を受け取らなかったのと
+// 同じ）状態で、ギルドの削除に失敗したときは、通知設定のないギルドが残るだけになる。
+// 逆の順にすると、通知設定の削除に失敗したとき、ギルドだけが論理削除されて通知設定が残る。
+// その通知設定は送り続けるのに、ギルドを招待し直すと新しい ID のギルドになるので、
+// 一覧にも出ず、コマンドで消せなくなる。
 func (s *GuildService) Unregister(id guild.DiscordID) error {
-	exists, err := s.guilds.Exists(id)
-	if err != nil {
-		return err
-	}
-
-	if !exists {
-		return guild.ErrNotRegistered
-	}
-
 	g, err := s.guilds.FindByDiscordID(id)
 	if err != nil {
 		return err
@@ -51,10 +49,10 @@ func (s *GuildService) Unregister(id guild.DiscordID) error {
 		return err
 	}
 
-	err = s.guilds.Delete(g)
+	err = s.subscriptions.DeleteAll(subscriptions)
 	if err != nil {
 		return err
 	}
 
-	return s.subscriptions.DeleteAll(subscriptions)
+	return s.guilds.Delete(g)
 }

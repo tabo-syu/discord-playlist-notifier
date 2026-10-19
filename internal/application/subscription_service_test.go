@@ -23,7 +23,6 @@ func TestSubscriptionServiceSubscribe(t *testing.T) {
 			name: "YouTube のタイトルで登録し、登録した時刻を新着動画の基準時刻にする",
 			setup: func(m *deps) {
 				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(&library.PlaylistMeta{YoutubeID: "PL", Title: "タイトル"}, nil)
-				m.subscriptions.EXPECT().Exists(guild.DiscordID("guild"), library.PlaylistID("PL")).Return(false, nil)
 				m.guilds.EXPECT().FindByDiscordID(guild.DiscordID("guild")).Return(guildOf(1, "guild"), nil)
 				m.subscriptions.EXPECT().Add(&subscription.Subscription{
 					YoutubeID:     "PL",
@@ -36,10 +35,18 @@ func TestSubscriptionServiceSubscribe(t *testing.T) {
 			wantErr: nil,
 		},
 		{
+			// 登録済みかは事前に確かめず、リポジトリの Add が断る
 			name: "登録済みのプレイリストは登録しない",
 			setup: func(m *deps) {
 				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(&library.PlaylistMeta{YoutubeID: "PL", Title: "タイトル"}, nil)
-				m.subscriptions.EXPECT().Exists(guild.DiscordID("guild"), library.PlaylistID("PL")).Return(true, nil)
+				m.guilds.EXPECT().FindByDiscordID(guild.DiscordID("guild")).Return(guildOf(1, "guild"), nil)
+				m.subscriptions.EXPECT().Add(&subscription.Subscription{
+					YoutubeID:     "PL",
+					SendChannelID: "ch",
+					Title:         "タイトル",
+					GuildID:       1,
+					NotifiedUntil: now,
+				}).Return(subscription.ErrAlreadySubscribed)
 			},
 			wantErr: subscription.ErrAlreadySubscribed,
 		},
@@ -86,11 +93,7 @@ func TestSubscriptionServiceUnsubscribe(t *testing.T) {
 			name:       "指定したプレイリストだけ解除する",
 			playlistID: "PL1",
 			setup: func(m *deps) {
-				m.subscriptions.EXPECT().Exists(guild.DiscordID("guild"), library.PlaylistID("PL1")).Return(true, nil)
-				m.subscriptions.EXPECT().FindByGuild(guild.DiscordID("guild")).Return([]*subscription.Subscription{
-					sub(1, "PL1", "ch", "PL1", lastNotified),
-					sub(2, "PL2", "ch", "PL2", lastNotified),
-				}, nil)
+				m.subscriptions.EXPECT().FindByGuildAndPlaylist(guild.DiscordID("guild"), library.PlaylistID("PL1")).Return(sub(1, "PL1", "ch", "PL1", lastNotified), nil)
 				m.subscriptions.EXPECT().DeleteAll([]*subscription.Subscription{
 					sub(1, "PL1", "ch", "PL1", lastNotified),
 				}).Return(nil)
@@ -101,7 +104,7 @@ func TestSubscriptionServiceUnsubscribe(t *testing.T) {
 			name:       "登録していないプレイリストは解除できない",
 			playlistID: "PL2",
 			setup: func(m *deps) {
-				m.subscriptions.EXPECT().Exists(guild.DiscordID("guild"), library.PlaylistID("PL2")).Return(false, nil)
+				m.subscriptions.EXPECT().FindByGuildAndPlaylist(guild.DiscordID("guild"), library.PlaylistID("PL2")).Return(nil, subscription.ErrNotSubscribed)
 			},
 			wantErr: subscription.ErrNotSubscribed,
 		},
@@ -134,9 +137,7 @@ func TestSubscriptionServiceSetPickInterval(t *testing.T) {
 			name:       "ピックの間隔を変えて保存し、新着動画の基準時刻は変えない",
 			playlistID: "PL",
 			setup: func(m *deps) {
-				m.subscriptions.EXPECT().FindByGuild(guild.DiscordID("guild")).Return([]*subscription.Subscription{
-					sub(1, "PL", "ch", "PL", lastNotified),
-				}, nil)
+				m.subscriptions.EXPECT().FindByGuildAndPlaylist(guild.DiscordID("guild"), library.PlaylistID("PL")).Return(sub(1, "PL", "ch", "PL", lastNotified), nil)
 				m.subscriptions.EXPECT().Update(picking(1, "PL", subscription.PickWeekly)).Return(nil)
 			},
 			wantErr: nil,
@@ -145,9 +146,7 @@ func TestSubscriptionServiceSetPickInterval(t *testing.T) {
 			name:       "登録していないプレイリストは変えられない",
 			playlistID: "OTHER",
 			setup: func(m *deps) {
-				m.subscriptions.EXPECT().FindByGuild(guild.DiscordID("guild")).Return([]*subscription.Subscription{
-					sub(1, "PL", "ch", "PL", lastNotified),
-				}, nil)
+				m.subscriptions.EXPECT().FindByGuildAndPlaylist(guild.DiscordID("guild"), library.PlaylistID("OTHER")).Return(nil, subscription.ErrNotSubscribed)
 			},
 			wantErr: subscription.ErrNotSubscribed,
 		},
