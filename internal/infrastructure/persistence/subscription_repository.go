@@ -3,21 +3,13 @@ package persistence
 import (
 	"errors"
 
-	"github.com/jackc/pgx/v5/pgconn"
-
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
-
-// subscriptionUniqueIndex は、同じギルドに同じプレイリストの通知設定を 1 つだけにする
-// 一意のインデックス（subscriptionRecord のタグ）の名前。
-const subscriptionUniqueIndex = "idx_playlists_guild_youtube"
-
-// uniqueViolation は PostgreSQL の一意制約の違反のエラーコード。
-const uniqueViolation = "23505"
 
 type subscriptionRepository struct {
 	db *gorm.DB
@@ -71,8 +63,9 @@ func (r *subscriptionRepository) FindByGuild(guildID guild.DiscordID) ([]*subscr
 }
 
 // Add は保存した通知設定に DB が振った ID を s に書き戻す。同じギルドに同じプレイリストが
-// あるかは、事前に確かめると同時に登録したときに重複するので、一意のインデックスに任せ、
-// その違反を ErrAlreadySubscribed にする。
+// あるかは、事前に確かめると同時に登録したときに重複するので、一意の部分インデックス
+// （subscriptionRecord のタグ）に任せる。ぶつかった行は ON CONFLICT DO NOTHING で
+// 書かず、書かなかったことを ErrAlreadySubscribed にする。
 func (r *subscriptionRepository) Add(s *subscription.Subscription) error {
 	if s.ID != 0 {
 		return subscription.ErrAlreadySubscribed
@@ -80,13 +73,17 @@ func (r *subscriptionRepository) Add(s *subscription.Subscription) error {
 
 	rec := toSubscriptionRecord(s)
 
-	result := r.db.Create(rec)
-	if isUniqueViolation(result.Error, subscriptionUniqueIndex) {
-		return subscription.ErrAlreadySubscribed
-	}
-
+	result := r.db.Clauses(clause.OnConflict{
+		Columns:     []clause.Column{{Name: "guild_id"}, {Name: "youtube_id"}},
+		TargetWhere: clause.Where{Exprs: []clause.Expression{clause.Expr{SQL: "deleted_at IS NULL"}}},
+		DoNothing:   true,
+	}).Create(rec)
 	if err := result.Error; err != nil {
 		return err
+	}
+
+	if result.RowsAffected == 0 {
+		return subscription.ErrAlreadySubscribed
 	}
 
 	s.ID = rec.ID
@@ -135,18 +132,11 @@ func (r *subscriptionRepository) DeleteAll(subscriptions []*subscription.Subscri
 	return nil
 }
 
-// ofGuild はクエリをギルドの通知設定に絞り込む。ギルドが見つからないときは
-// ID が 0 になり、何にも一致しない。
+// ofGuild はクエリをギルドの通知設定に絞り込む。ギルドはサブクエリで引くので、
+// 1 回の問い合わせで済み、その失敗もクエリのエラーとして返る。ギルドが見つからない
+// ときは何にも一致しない。
 func (r *subscriptionRepository) ofGuild(guildID guild.DiscordID) *gorm.DB {
-	var g guildRecord
-	r.db.Where(guildRecord{DiscordID: string(guildID)}).Find(&g)
+	guilds := r.db.Model(&guildRecord{}).Select("id").Where(guildRecord{DiscordID: string(guildID)})
 
-	return r.db.Where("guild_id = ?", g.ID)
-}
-
-// isUniqueViolation は err が一意のインデックス index の違反かを返す。
-func isUniqueViolation(err error, index string) bool {
-	var pgErr *pgconn.PgError
-
-	return errors.As(err, &pgErr) && pgErr.Code == uniqueViolation && pgErr.ConstraintName == index
+	return r.db.Where("guild_id IN (?)", guilds)
 }

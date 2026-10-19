@@ -87,7 +87,7 @@ internal/mocks/              mockery が生成した mock（手で編集しな�
 - 「同じギルドに同じプレイリストは 1 つだけ」は 1 つの `Subscription` の中では確かめられない
   （集合に対する）条件なので、集約ではなく DB の一意の部分インデックス
   （`idx_playlists_guild_youtube`、論理削除した行を除く）で守ります。`subscription.Repository.Add` が
-  違反を `ErrAlreadySubscribed` にするので、登録済みかを事前に確かめません。通知設定を 1 つ引くときは
+  インデックスにぶつかる行を書かずに `ErrAlreadySubscribed` を返すので、登録済みかを事前に確かめません。通知設定を 1 つ引くときは
   ギルドとプレイリストの組（`FindByGuildAndPlaylist`）で引きます。
 - ID や状態は値オブジェクト（`guild.DiscordID`、`library.VideoID` など）です。文字列との
   変換は境界（コマンドハンドラ、`infrastructure`）で行います。

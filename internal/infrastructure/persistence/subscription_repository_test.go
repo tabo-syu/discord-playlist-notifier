@@ -57,6 +57,14 @@ func TestSubscriptionRepositoryFindByGuildAndPlaylist(t *testing.T) {
 			want:       nil,
 			wantErr:    subscription.ErrNotSubscribed,
 		},
+		{
+			name:       "論理削除したギルドの通知設定は返さない",
+			stored:     []any{&persistence.GuildRecord{Model: deleted(3), DiscordID: "gone"}, subscriptionRow(3, "PL", "PL")},
+			guildID:    "gone",
+			playlistID: "PL",
+			want:       nil,
+			wantErr:    subscription.ErrNotSubscribed,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
