@@ -83,18 +83,16 @@ func Summary(title string, s *library.Stats, loc *time.Location) string {
 		Count int
 	}
 
-	max := 0
+	most := 0
 	for _, m := range s.Monthly {
-		if m.Count > max {
-			max = m.Count
-		}
+		most = max(most, m.Count)
 	}
 
 	bars := make([]bar, 0, len(s.Monthly))
 	for _, m := range s.Monthly {
 		width := 0
-		if max > 0 {
-			width = (m.Count*20 + max - 1) / max
+		if most > 0 {
+			width = (m.Count*20 + most - 1) / most
 		}
 
 		bars = append(bars, bar{m.Month, strings.Repeat("█", width), m.Count})

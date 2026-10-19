@@ -27,14 +27,14 @@ func Number[T ~int | ~uint64](n T) string {
 	return sb.String()
 }
 
-// Truncate は s を最大 max 文字（バイトではない）に切り詰め、コードブロックは閉じたままにする。
-func Truncate(s string, max int) string {
+// Truncate は s を最大 limit 文字（バイトではない）に切り詰め、コードブロックは閉じたままにする。
+func Truncate(s string, limit int) string {
 	runes := []rune(s)
-	if len(runes) <= max {
+	if len(runes) <= limit {
 		return s
 	}
 
-	cut := string(runes[:max-10])
+	cut := string(runes[:limit-10])
 	if strings.Count(cut, "```")%2 == 1 {
 		cut += "\n```"
 	}

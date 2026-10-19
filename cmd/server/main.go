@@ -59,7 +59,7 @@ func init() {
 		log.Fatalf("Could not connect the db: %v", err)
 	}
 
-	if err := persistence.Migrate(db); err != nil {
+	if err = persistence.Migrate(db); err != nil {
 		log.Fatalf("Could not migrate tables: %v", err)
 	}
 

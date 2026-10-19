@@ -1,4 +1,4 @@
-package view
+package view_test
 
 import (
 	"flag"
@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/view"
 )
 
 // go test ./internal/presentation/view/ -update で期待する出力を書き直す
@@ -49,8 +50,8 @@ func TestText(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]string{
-		"summary_empty": Summary("お気に入り", &library.Stats{}, jst),
-		"summary_no_ranking": Summary("お気に入り", &library.Stats{
+		"summary_empty": view.Summary("お気に入り", &library.Stats{}, jst),
+		"summary_no_ranking": view.Summary("お気に入り", &library.Stats{
 			Total: 3, Available: 1, Private: 1, Deleted: 1,
 			AddedThisMonth: 0, AddedLast30Days: 2,
 			// UTC では前の日なので、タイムゾーンを変換していることを確かめる
@@ -60,7 +61,7 @@ func TestText(t *testing.T) {
 				{Month: time.Date(2026, time.October, 1, 0, 0, 0, 0, jst), Count: 0},
 			},
 		}, jst),
-		"summary": Summary("お気に入り", &library.Stats{
+		"summary": view.Summary("お気に入り", &library.Stats{
 			Total: 1234, Available: 1200, Private: 30, Deleted: 4,
 			AddedThisMonth: 5, AddedLast30Days: 12,
 			FirstAddedAt: at(time.March, 4, 3),
@@ -72,9 +73,9 @@ func TestText(t *testing.T) {
 			},
 		}, jst),
 
-		"trending_not_enough": Trending(&library.Trending{From: at(time.October, 1, 0), To: at(time.October, 1, 0)}, jst),
-		"trending_no_videos":  Trending(&library.Trending{From: at(time.September, 18, 0), To: at(time.October, 17, 18)}, jst),
-		"trending": Trending(&library.Trending{
+		"trending_not_enough": view.Trending(&library.Trending{From: at(time.October, 1, 0), To: at(time.October, 1, 0)}, jst),
+		"trending_no_videos":  view.Trending(&library.Trending{From: at(time.September, 18, 0), To: at(time.October, 17, 18)}, jst),
+		"trending": view.Trending(&library.Trending{
 			From: at(time.September, 18, 0), To: at(time.October, 17, 18),
 			Videos: []*library.TrendingVideo{
 				{Video: song1, Increase: 12_345, Snapshots: []*library.VideoSnapshot{snapshot(at(time.September, 18, 0), 1_000, 0, 0), snapshot(at(time.October, 17, 18), 13_345, 0, 0)}},
@@ -82,24 +83,24 @@ func TestText(t *testing.T) {
 			},
 		}, jst),
 
-		"history_not_enough": History(&library.VideoHistory{Video: song1, Snapshots: []*library.VideoSnapshot{snapshot(at(time.October, 1, 0), 1, 1, 1)}}, 30),
-		"history": History(&library.VideoHistory{Video: song2, Snapshots: []*library.VideoSnapshot{
+		"history_not_enough": view.History(&library.VideoHistory{Video: song1, Snapshots: []*library.VideoSnapshot{snapshot(at(time.October, 1, 0), 1, 1, 1)}}, 30),
+		"history": view.History(&library.VideoHistory{Video: song2, Snapshots: []*library.VideoSnapshot{
 			snapshot(at(time.October, 1, 0), 1_000, 500, 12),
 			snapshot(at(time.October, 2, 0), 1_100, 600, 12),
 			// コメントが減る場合
 			snapshot(at(time.October, 3, 0), 2_345, 600, 9),
 		}}, 7),
 
-		"random_empty": Random(nil),
-		"random":       Random([]*library.PlaylistVideo{added(song1, at(time.May, 1, 0)), added(song2, at(time.June, 1, 0))}),
+		"random_empty": view.Random(nil),
+		"random":       view.Random([]*library.PlaylistVideo{added(song1, at(time.May, 1, 0)), added(song2, at(time.June, 1, 0))}),
 
-		"wrapped_empty": Wrapped(&library.Wrapped{Year: 2026, PreviousYearAdded: 3}, jst, InMessage),
-		"wrapped_no_ranking": Wrapped(&library.Wrapped{
+		"wrapped_empty": view.Wrapped(&library.Wrapped{Year: 2026, PreviousYearAdded: 3}, jst, view.InMessage),
+		"wrapped_no_ranking": view.Wrapped(&library.Wrapped{
 			Year: 2026, Added: 1, PreviousYearAdded: 0,
 			BusiestMonth: library.MonthCount{Month: time.Date(2026, time.February, 1, 0, 0, 0, 0, jst), Count: 1},
-		}, jst, InMessage),
-		"wrapped_message": wrapped(InMessage),
-		"wrapped_embed":   wrapped(InEmbed),
+		}, jst, view.InMessage),
+		"wrapped_message": wrapped(view.InMessage),
+		"wrapped_embed":   wrapped(view.InEmbed),
 	}
 
 	for name, got := range tests {
@@ -118,8 +119,8 @@ func TestText(t *testing.T) {
 	}
 }
 
-func wrapped(target Target) string {
-	return Wrapped(&library.Wrapped{
+func wrapped(target view.Target) string {
+	return view.Wrapped(&library.Wrapped{
 		Year: 2026, Added: 1500, PreviousYearAdded: 1200,
 		BusiestMonth: library.MonthCount{Month: time.Date(2026, time.December, 1, 0, 0, 0, 0, jst), Count: 230},
 		TopViewed:    []*library.Video{song1, song2},

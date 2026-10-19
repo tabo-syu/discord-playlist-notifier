@@ -14,14 +14,16 @@ Discord のテキストチャンネルに Embed を投稿する Discord ボッ�
 ## コマンド
 
 ```bash
-# 整形 / 静的チェック / テスト（Taskfile.yml、Task v3 が必要）
-task fmt            # gofumpt + goimports で整形する
-task lint           # golangci-lint（.golangci.yml）
-task lint:fix       # 自動で直せる指摘（空行など）を直す
-task test           # go test ./...。リポジトリのテストが Testcontainers で PostgreSQL を立てるので Docker が必要
-task test:short     # go test -short ./...。Docker なしで、DB のテストだけ飛ばす
-task check          # build・lint・test をまとめて実行する。コミット前はこれ
-task mock           # mock を生成し直す（インターフェースを変えたとき。go tool mockery）
+# 整形 / 静的チェック / テスト（Taskfile.yml）
+go tool task fmt          # gofumpt + goimports で整形する
+go tool task lint         # golangci-lint（.golangci.yml）
+go tool task lint:fix     # 自動で直せる指摘（空行など）を直す
+go tool task tidy         # go mod tidy
+go tool task test         # go test ./...。リポジトリのテストが Testcontainers で PostgreSQL を立てるので Docker が必要
+go tool task test:short   # go test -short ./...。Docker なしで、DB のテストだけ飛ばす
+go tool task check        # build・go mod tidy のずれ・lint・test をまとめて確かめる。コミット前はこれ
+go tool task mock         # mock を生成し直す（インターフェースを変えたとき。go tool mockery）
+go tool task hooks        # lefthook の Git フックを入れる（clone したら 1 回だけ）
 
 # スタック全体（ボット + PostgreSQL）を起動する。通常はこちらを使う
 cp .env.example .env   # コピー後、実際の値を記入する
@@ -38,6 +40,14 @@ golangci-lint は `Taskfile.yml` の中で `go run ...@v2.15.0` としてバー�
 されるので、go.mod の Go のバージョンより古い Go でビルドしたバイナリが動かない問題も
 避けられます）。上げるときは `Taskfile.yml` のバージョンを書き換えます。CI はありません。
 
+Task・mockery・lefthook は `go.mod` の `tool` で版を固定しているので、`go tool task` の
+ように呼べばインストールは要りません（`task` を入れてあれば `task check` でも同じです）。
+
+`lefthook.yml` の Git フックは、コミットの前に、ステージした Go のファイルを整形して
+ステージし直し、`go mod tidy` のずれと lint を確かめます。プッシュの前には
+`go tool task test` を実行します（Docker が必要）。一時的に飛ばすときは
+`LEFTHOOK=0 git commit ...` です。
+
 `.golangci.yml` で revive は使いません（ALL_CAPS の定数名と、英語の定型コメントを
 強制するため）。testifylint の `require-error` は「テストの書き方」と衝突するので
 外しています。`add.go` と `delete.go` の `switch err` は「既知の挙動」なので
@@ -51,7 +61,13 @@ golangci-lint は `Taskfile.yml` の中で `go run ...@v2.15.0` としてバー�
 - exhaustive — 値オブジェクトの `switch` の `case` の漏れ。`default` があれば対象外
 - funcorder — コンストラクタは型の直後、公開メソッドの後に非公開メソッドを置く
 - recvcheck — 値とポインタのレシーバを混ぜない（GORM の `TableName` は除く）
-- modernize、prealloc、embeddedstructfieldcheck、unparam（テストは除く）、paralleltest
+- testpackage — テストは外部のテストパッケージ（`xxx_test`）で書く
+- tagliatelle — json タグは snake_case（MCP のツールの入出力）
+- govet の shadow — 内側のスコープで `err` などを宣言し直して、外側の値を隠さない
+  （外側に `err` があれば `if err = f(); ...` と代入する）
+- predeclared — `max` などの組み込みの名前を変数に使わない
+- modernize、prealloc、embeddedstructfieldcheck、forcetypeassert、unparam（テストは除く）、
+  paralleltest、tparallel、usetesting
 
 ## アーキテクチャ
 
@@ -294,12 +310,12 @@ YouTube プレイリストの中身は、サーバーごとの通知設定（`su
 - エラーは `internal/domain/errors.go` に置いた**センチネル値**で、発生源
   （Discord / YouTube / DB）ごとにグループ分けされています。リポジトリと
   アプリケーションサービスがこれを返し、コマンド層がユーザー向けの文言に変換します。
-- 整形は gofumpt + goimports（`task fmt`）です。import は、このモジュール
+- 整形は gofumpt + goimports（`go tool task fmt`）です。import は、このモジュール
   （`github.com/tabo-syu/discord-playlist-notifier/...`）のものを外部のパッケージと
   空行で分けます（goimports が強制します）。
 - 空行は nlreturn と wsl_v5 が決めます（`return` / `if` / `for` の前、ブロックの後などに
-  空行を入れ、続けて書く `var` は `var (...)` にまとめる）。`task fmt` では直らないので、
-  `task lint:fix` で直します。
+  空行を入れ、続けて書く `var` は `var (...)` にまとめる）。`go tool task fmt` では直らないので、
+  `go tool task lint:fix` で直します。
 - ログは標準ライブラリの `log` を使い、フィールドをスペース区切りで並べます
   （`log.Println("Guild record created:", guildId)`）。構造化ロガーは使いません。
 
@@ -532,8 +548,8 @@ for _, tt := range tests {
 - 定期実行のユースケースのように何も返さないメソッドは、`setup` の期待（保存と送信の
   引数）だけで確かめ、ループの中に `assert` を書きません。
 
-変更の検証は最低でも `task check`（build・lint・test）で行ってください
-（Docker が使えないときは `go build ./... && task lint && task test:short` で、DB のテストを
+変更の検証は最低でも `go tool task check`（build・tidy・lint・test）で行ってください
+（Docker が使えないときは `go build ./... && go tool task lint && go tool task test:short` で、DB のテストを
 飛ばしたことを明示します）。
 Discord や YouTube の挙動に関わる変更は実際の認証情報とテスト用サーバーが
 必要です。検証できていない場合は、検証したと述べずにその旨を明示してください。
