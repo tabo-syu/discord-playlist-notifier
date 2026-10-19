@@ -15,7 +15,6 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command/playlist_notifier"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/mcpserver"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/notifier"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/scheduler"
 
@@ -113,20 +112,6 @@ func main() {
 		return
 	}
 	defer scheduler.Stop()
-
-	// MCP サーバーは参照しかしないので、起動できなくてもボットは動き続ける
-	if env.MCP_ADDR != "" {
-		mcp := mcpserver.NewServer(env.MCP_ADDR, application.NewQueryService(sbr, ls, lr), location, time.Now)
-		if err := mcp.Serve(); err != nil {
-			log.Println("Could not start the MCP server cause:", err)
-		} else {
-			defer func() {
-				if err := mcp.Stop(); err != nil {
-					log.Println("Could not stop the MCP server cause:", err)
-				}
-			}()
-		}
-	}
 
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt)

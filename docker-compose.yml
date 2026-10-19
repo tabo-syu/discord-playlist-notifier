@@ -8,6 +8,17 @@ services:
       - .:/go/src/bot
     env_file:
       - .env
+    depends_on:
+      - db
+
+  mcp:
+    build: .
+    command: [ "go", "run", "cmd/mcp/main.go" ]
+    restart: unless-stopped
+    volumes:
+      - .:/go/src/bot
+    env_file:
+      - .env
     environment:
       MCP_ADDR: ":8080"
     # The MCP server is reached only through playlist-api, which other
@@ -17,8 +28,10 @@ services:
       playlist-api:
         aliases:
           - playlist-notifier
+    # The bot migrates the schema; this only orders the startup.
     depends_on:
       - db
+      - bot
 
   db:
     image: "postgres:14.4-alpine"

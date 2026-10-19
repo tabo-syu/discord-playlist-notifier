@@ -389,13 +389,16 @@ stateDiagram-v2
 3. アプリケーションを実行します:
    ```bash
    go run cmd/server/main.go
+   # MCP サーバーは別のプロセスです（MCP_ADDR が必要）
+   go run cmd/mcp/main.go
    ```
 
 ### プロジェクト構造
 
 DDD のレイヤードアーキテクチャで構成しています。依存は外側から内側への一方向です。
 
-- `cmd/server/`: アプリケーションのエントリーポイント（依存の組み立て）
+- `cmd/server/`: ボットのエントリーポイント（依存の組み立て）
+- `cmd/mcp/`: MCP サーバーのエントリーポイント
 - `internal/domain/`: ドメインモデル（集約ごとのパッケージ）、リポジトリのインターフェース、エラー
   - `guild/`: ボットが参加しているサーバー
   - `subscription/`: サーバーごとのプレイリストの通知設定
@@ -408,8 +411,8 @@ DDD のレイヤードアーキテクチャで構成しています。依存は�
 ### MCP サーバー
 
 ほかのボット（Claude Code など）から、通知登録されているプレイリストの中身を調べられるように、
-読み取り専用の MCP サーバーを内蔵しています。`docker compose` で起動すると、Docker の
-`playlist-api` ネットワーク上の `http://playlist-notifier:8080/mcp` で待ち受けます
+読み取り専用の MCP サーバーを用意しています。ボットとは別のコンテナ（`mcp`）で動き、
+`docker compose` で起動すると、Docker の `playlist-api` ネットワーク上の `http://playlist-notifier:8080/mcp` で待ち受けます
 （ホストにはポートを公開しません）。
 
 | ツール | 内容 |

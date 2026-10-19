@@ -25,14 +25,15 @@ go tool task check        # build・go mod tidy のずれ・lint・test をま�
 go tool task mock         # mock を生成し直す（インターフェースを変えたとき。go tool mockery）
 go tool task hooks        # lefthook の Git フックを入れる（clone したら 1 回だけ）
 
-# スタック全体（ボット + PostgreSQL）を起動する。通常はこちらを使う
+# スタック全体（ボット + MCP サーバー + PostgreSQL）を起動する。通常はこちらを使う
 cp .env.example .env   # コピー後、実際の値を記入する
 docker compose up -d
-docker compose logs -f bot
+docker compose logs -f bot mcp
 
-# ボットを直接実行する。到達可能な PostgreSQL と、シェルにエクスポートされた
+# ボットや MCP サーバーを直接実行する。到達可能な PostgreSQL と、シェルにエクスポートされた
 # 全ての環境変数が必要（アプリは .env を読み込まない。「設定」の節を参照）
 go run cmd/server/main.go
+go run cmd/mcp/main.go   # MCP_ADDR も必要。スキーマはボットが作るので、先にボットを起動しておく
 ```
 
 golangci-lint は `Taskfile.yml` の中で `go run ...@v2.15.0` としてバージョンを固定して
@@ -76,7 +77,8 @@ DDD でよく用いられるレイヤードアーキテクチャです。依存�
 domain のモデルに残しています）。
 
 ```
-cmd/server/main.go                   コンポジションルート — 全ての組み立てと依存注入
+cmd/server/main.go                   ボットのコンポジションルート — 全ての組み立てと依存注入
+cmd/mcp/main.go                      MCP サーバーのコンポジションルート（読み取りに要るものだけを組み立てる）
         │
         ├── internal/presentation/           外界との入出力（ユーザーに見える日本語はここだけ）
         │       ├── discord/                 Discord ゲートウェイ: セッション、イベント、コマンドの登録
@@ -137,12 +139,13 @@ cmd/server/main.go                   コンポジションルート — 全て�
 
 ### 依存の組み立て
 
-依存関係を構築している場所は `cmd/server/main.go` だけです。`init()` が 4 つの
+依存関係を構築している場所は `cmd/server/main.go`（ボット）と `cmd/mcp/main.go`
+（MCP サーバー）だけです。以下はボットの説明です。`init()` が 4 つの
 パッケージレベルのシングルトン（`sr` gocron、`db` GORM、`dc` discordgo、
 `yt` YouTube サービス）を構築し、`persistence.Migrate` でスキーマを更新します。
 失敗時は全て `log.Fatalf` で落とします。その後 `main()` が infrastructure →
 application → presentation の順に組み立て、`SIGINT` を待ってブロックします。
-`LibraryService`、`NotificationService`、`PlaylistNotifier`、MCP サーバーには現在時刻の関数
+`LibraryService`、`NotificationService`、`PlaylistNotifier`（と MCP サーバー）には現在時刻の関数
 （`time.Now`）を渡します。
 テストで時刻を固定するためで、サービスの中では `time.Now()` を直接呼びません。
 新しい依存を追加する場合はここに書きます。DI コンテナや設定フレームワークの
@@ -202,9 +205,17 @@ Go 側で別のテンプレート（`summary_empty` など）を選びます。�
 
 ### MCP サーバー（`presentation/mcpserver` と `application.QueryService`）
 
-`MCP_ADDR` が設定されているときだけ、Streamable HTTP の MCP サーバーを
-`MCP_ADDR` の `/mcp` で起動します（公式 SDK `github.com/modelcontextprotocol/go-sdk`、
-ステートレス）。起動に失敗してもログを出すだけで、ボット本体は動き続けます。
+ボットとは別のプロセス（`cmd/mcp/main.go`、compose の `mcp` サービス）で、Streamable HTTP の
+MCP サーバーを `MCP_ADDR` の `/mcp` で起動します（公式 SDK `github.com/modelcontextprotocol/go-sdk`、
+ステートレス）。起動に失敗したら `log.Fatalf` で落ちます。
+
+- DB に接続するだけで、Discord と YouTube には接続しません。`LibraryService` には
+  YouTube のクライアントとして `nil` を渡しています（`QueryService` が使う読み取りの
+  メソッドは YouTube を呼ばないため）。`QueryService` から YouTube を呼ぶメソッドを
+  使うようにするなら、ここも変える必要があります。
+- スキーマの更新（`persistence.Migrate`）はボットだけが行います。compose の
+  `depends_on: bot` は起動の順番を決めるだけなので、ボットのマイグレーションが
+  終わる前にクエリが来ると失敗することがあります。
 
 - ツールは全て**読み取り専用**です: `list_playlists`、`find_videos`、`playlist_stats`、
   `playlist_wrapped`、`random_videos`、`video_history`。ツールや引数の説明は日本語です。
@@ -213,7 +224,7 @@ Go 側で別のテンプレート（`summary_empty` など）を選びます。�
   プレイリストだけで、Discord のギルド ID やチャンネル ID は返しません。
 - 出力は構造化された JSON で、SDK が出力スキーマで検証します。nil のスライスは
   `null` になってスキーマ違反になるので、必ず空のスライスを返してください。
-- 公開範囲は Docker ネットワークで絞っています。`docker-compose.yml` でボットを
+- 公開範囲は Docker ネットワークで絞っています。`docker-compose.yml` で `mcp` だけを
   `playlist-api` ネットワークにも接続し、そこでは `playlist-notifier` という別名で
   公開します（URL は `http://playlist-notifier:8080/mcp`）。DB は既定のネットワークにしか
   いないので、`playlist-api` に参加した他のプロジェクトからは届きません。ホストには
@@ -357,7 +368,7 @@ Docker の外で実行する場合は、自分で環境変数をエクスポー�
 | `DB_TIMEZONE` | IANA のタイムゾーン名。DSN と gocron のロケーションの両方に使われる |
 | `DISCORD_ACCESS_TOKEN` | `env.DISCORD_TOKEN` に読み込まれる |
 | `YOUTUBE_APIKEY` | `env.YOUTUBE_TOKEN` に読み込まれる |
-| `MCP_ADDR` | MCP サーバーの待ち受けアドレス（例 `:8080`）。空なら起動しない。`docker-compose.yml` の `environment:` で設定している |
+| `MCP_ADDR` | MCP サーバー（`cmd/mcp`）の待ち受けアドレス（例 `:8080`）。`docker-compose.yml` の `mcp` の `environment:` で設定している。ボットは読まない |
 
 `DISCORD_ACCESS_TOKEN` と `YOUTUBE_APIKEY` は、環境変数名と Go の識別子名が一致していない点に注意してください。
 
@@ -585,5 +596,5 @@ Discord や YouTube の挙動に関わる変更は実際の認証情報とテス
   関連付けから導出していました。集約を ID で参照するようにしたため、
   `persistence.Migrate` が明示的に作成します。
 - Dockerfile は `go run` を実行します（バイナリのビルドもマルチステージ
-  ビルドもしません）。また `docker-compose.yml` はソースをコンテナに
+  ビルドもしません）。`mcp` は同じイメージで `command:` を上書きして `cmd/mcp` を実行します。また `docker-compose.yml` はソースをコンテナに
   バインドマウントします。
