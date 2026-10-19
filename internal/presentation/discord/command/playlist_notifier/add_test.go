@@ -27,7 +27,6 @@ func TestAdd(t *testing.T) {
 			data: subcommand("add", stringOption("playlist-id", "PL")),
 			setup: func(m *deps) {
 				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(&library.PlaylistMeta{YoutubeID: "PL", Title: "タイトル"}, nil)
-				m.subscriptions.EXPECT().Exists(mockGuild, library.PlaylistID("PL")).Return(false, nil)
 				m.guilds.EXPECT().FindByDiscordID(mockGuild).Return(&guild.Guild{ID: 1, DiscordID: "guild"}, nil)
 				m.subscriptions.EXPECT().Add(&subscription.Subscription{
 					YoutubeID:     "PL",
@@ -44,7 +43,14 @@ func TestAdd(t *testing.T) {
 			data: subcommand("add", stringOption("playlist-id", "PL")),
 			setup: func(m *deps) {
 				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(&library.PlaylistMeta{YoutubeID: "PL", Title: "タイトル"}, nil)
-				m.subscriptions.EXPECT().Exists(mockGuild, library.PlaylistID("PL")).Return(true, nil)
+				m.guilds.EXPECT().FindByDiscordID(mockGuild).Return(&guild.Guild{ID: 1, DiscordID: "guild"}, nil)
+				m.subscriptions.EXPECT().Add(&subscription.Subscription{
+					YoutubeID:     "PL",
+					SendChannelID: "ch",
+					Title:         "タイトル",
+					GuildID:       1,
+					NotifiedUntil: now,
+				}).Return(subscription.ErrAlreadySubscribed)
 			},
 			want: command.Text("既に通知登録されているプレイリストです。"),
 		},

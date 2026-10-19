@@ -1,12 +1,23 @@
 package persistence
 
 import (
+	"errors"
+
+	"github.com/jackc/pgx/v5/pgconn"
+
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 
 	"gorm.io/gorm"
 )
+
+// subscriptionUniqueIndex は、同じギルドに同じプレイリストの通知設定を 1 つだけにする
+// 一意のインデックス（subscriptionRecord のタグ）の名前。
+const subscriptionUniqueIndex = "idx_playlists_guild_youtube"
+
+// uniqueViolation は PostgreSQL の一意制約の違反のエラーコード。
+const uniqueViolation = "23505"
 
 type subscriptionRepository struct {
 	db *gorm.DB
@@ -16,15 +27,21 @@ func NewSubscriptionRepository(db *gorm.DB) *subscriptionRepository {
 	return &subscriptionRepository{db}
 }
 
-func (r *subscriptionRepository) Exists(guildID guild.DiscordID, playlistID library.PlaylistID) (bool, error) {
-	var recs []*subscriptionRecord
+// FindByGuildAndPlaylist は、ギルドとプレイリストの組で通知設定を引く。一意の
+// インデックスがあるので、論理削除していない行は多くても 1 つ。
+func (r *subscriptionRepository) FindByGuildAndPlaylist(guildID guild.DiscordID, playlistID library.PlaylistID) (*subscription.Subscription, error) {
+	var rec subscriptionRecord
 
-	err := r.ofGuild(guildID).Where(subscriptionRecord{YoutubeID: string(playlistID)}).Find(&recs).Error
-	if err != nil {
-		return false, err
+	result := r.ofGuild(guildID).Where(subscriptionRecord{YoutubeID: string(playlistID)}).Take(&rec)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, subscription.ErrNotSubscribed
 	}
 
-	return len(recs) > 0, nil
+	if err := result.Error; err != nil {
+		return nil, err
+	}
+
+	return rec.toDomain(), nil
 }
 
 func (r *subscriptionRepository) FindAll() ([]*subscription.Subscription, error) {
@@ -53,7 +70,9 @@ func (r *subscriptionRepository) FindByGuild(guildID guild.DiscordID) ([]*subscr
 	return mapSlice(recs, (*subscriptionRecord).toDomain), nil
 }
 
-// Add は保存した通知設定に DB が振った ID を s に書き戻す。
+// Add は保存した通知設定に DB が振った ID を s に書き戻す。同じギルドに同じプレイリストが
+// あるかは、事前に確かめると同時に登録したときに重複するので、一意のインデックスに任せ、
+// その違反を ErrAlreadySubscribed にする。
 func (r *subscriptionRepository) Add(s *subscription.Subscription) error {
 	if s.ID != 0 {
 		return subscription.ErrAlreadySubscribed
@@ -62,6 +81,10 @@ func (r *subscriptionRepository) Add(s *subscription.Subscription) error {
 	rec := toSubscriptionRecord(s)
 
 	result := r.db.Create(rec)
+	if isUniqueViolation(result.Error, subscriptionUniqueIndex) {
+		return subscription.ErrAlreadySubscribed
+	}
+
 	if err := result.Error; err != nil {
 		return err
 	}
@@ -119,4 +142,11 @@ func (r *subscriptionRepository) ofGuild(guildID guild.DiscordID) *gorm.DB {
 	r.db.Where(guildRecord{DiscordID: string(guildID)}).Find(&g)
 
 	return r.db.Where("guild_id = ?", g.ID)
+}
+
+// isUniqueViolation は err が一意のインデックス index の違反かを返す。
+func isUniqueViolation(err error, index string) bool {
+	var pgErr *pgconn.PgError
+
+	return errors.As(err, &pgErr) && pgErr.Code == uniqueViolation && pgErr.ConstraintName == index
 }

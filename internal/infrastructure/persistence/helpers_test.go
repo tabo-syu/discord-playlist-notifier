@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -210,6 +211,30 @@ func storedSubscription(id, guildID uint, playlistID library.PlaylistID, title s
 		GuildID:       guildID,
 		NotifiedUntil: hoursAgo(6),
 	}
+}
+
+// addConcurrently は、ギルド 1 にプレイリスト「PL」の通知設定を、n 個の goroutine から
+// 同時に Add し、それぞれの結果を返す。
+func addConcurrently(r subscription.Repository, n int) []error {
+	var (
+		wg    sync.WaitGroup
+		start = make(chan struct{})
+		errs  = make([]error, n)
+	)
+
+	for i := range n {
+		wg.Go(func() {
+			<-start
+
+			errs[i] = r.Add(&subscription.Subscription{YoutubeID: "PL", SendChannelID: "ch", Title: "PL", GuildID: 1, NotifiedUntil: hoursAgo(6)})
+		})
+	}
+
+	// 全ての goroutine を待たせてから一斉に始める
+	close(start)
+	wg.Wait()
+
+	return errs
 }
 
 // playlist は items を持つプレイリストを返す。

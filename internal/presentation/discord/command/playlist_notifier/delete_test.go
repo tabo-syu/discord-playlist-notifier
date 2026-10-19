@@ -25,8 +25,7 @@ func TestDelete(t *testing.T) {
 			name: "指定したプレイリストだけ登録を解除する",
 			data: subcommand("delete", stringOption("playlist-id", "PL1")),
 			setup: func(m *deps) {
-				m.subscriptions.EXPECT().Exists(mockGuild, library.PlaylistID("PL1")).Return(true, nil)
-				m.guildHas(sub(1, "PL1", "PL1"), sub(2, "PL2", "PL2"))
+				m.subscriptions.EXPECT().FindByGuildAndPlaylist(mockGuild, library.PlaylistID("PL1")).Return(sub(1, "PL1", "PL1"), nil)
 				m.subscriptions.EXPECT().DeleteAll([]*subscription.Subscription{sub(1, "PL1", "PL1")}).Return(nil)
 			},
 			want: command.Text("指定されたプレイリストを削除しました。"),
@@ -35,7 +34,7 @@ func TestDelete(t *testing.T) {
 			name: "登録していないプレイリスト",
 			data: subcommand("delete", stringOption("playlist-id", "PL2")),
 			setup: func(m *deps) {
-				m.subscriptions.EXPECT().Exists(mockGuild, library.PlaylistID("PL2")).Return(false, nil)
+				m.subscriptions.EXPECT().FindByGuildAndPlaylist(mockGuild, library.PlaylistID("PL2")).Return(nil, subscription.ErrNotSubscribed)
 			},
 			want: command.Text("通知登録されていないプレイリストです。"),
 		},

@@ -6,6 +6,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command/playlist_notifier"
@@ -24,7 +25,7 @@ func TestPick(t *testing.T) {
 			name: "毎日投稿する",
 			data: subcommand("pick", stringOption("playlist-id", "PL"), stringOption("interval", "daily")),
 			setup: func(m *deps) {
-				m.guildHas(picking(subscription.PickNone))
+				m.subscriptions.EXPECT().FindByGuildAndPlaylist(mockGuild, library.PlaylistID("PL")).Return(picking(subscription.PickNone), nil)
 				m.subscriptions.EXPECT().Update(picking(subscription.PickDaily)).Return(nil)
 			},
 			want: command.Text("毎日 12:00 に「今日の一本」を投稿します！\nhttps://www.youtube.com/playlist?list=PL"),
@@ -33,7 +34,7 @@ func TestPick(t *testing.T) {
 			name: "毎週投稿する",
 			data: subcommand("pick", stringOption("playlist-id", "PL"), stringOption("interval", "weekly")),
 			setup: func(m *deps) {
-				m.guildHas(picking(subscription.PickNone))
+				m.subscriptions.EXPECT().FindByGuildAndPlaylist(mockGuild, library.PlaylistID("PL")).Return(picking(subscription.PickNone), nil)
 				m.subscriptions.EXPECT().Update(picking(subscription.PickWeekly)).Return(nil)
 			},
 			want: command.Text("毎週月曜の 12:00 に「今週の一本」を投稿します！\nhttps://www.youtube.com/playlist?list=PL"),
@@ -42,7 +43,7 @@ func TestPick(t *testing.T) {
 			name: "毎月投稿する",
 			data: subcommand("pick", stringOption("playlist-id", "PL"), stringOption("interval", "monthly")),
 			setup: func(m *deps) {
-				m.guildHas(picking(subscription.PickNone))
+				m.subscriptions.EXPECT().FindByGuildAndPlaylist(mockGuild, library.PlaylistID("PL")).Return(picking(subscription.PickNone), nil)
 				m.subscriptions.EXPECT().Update(picking(subscription.PickMonthly)).Return(nil)
 			},
 			want: command.Text("毎月 1 日の 12:00 に「今月の一本」を投稿します！\nhttps://www.youtube.com/playlist?list=PL"),
@@ -51,7 +52,7 @@ func TestPick(t *testing.T) {
 			name: "投稿をやめる",
 			data: subcommand("pick", stringOption("playlist-id", "PL"), stringOption("interval", "off")),
 			setup: func(m *deps) {
-				m.guildHas(picking(subscription.PickDaily))
+				m.subscriptions.EXPECT().FindByGuildAndPlaylist(mockGuild, library.PlaylistID("PL")).Return(picking(subscription.PickDaily), nil)
 				m.subscriptions.EXPECT().Update(picking(subscription.PickNone)).Return(nil)
 			},
 			want: command.Text("一本の投稿をやめました。\nhttps://www.youtube.com/playlist?list=PL"),
@@ -60,7 +61,7 @@ func TestPick(t *testing.T) {
 			name: "登録していないプレイリスト",
 			data: subcommand("pick", stringOption("playlist-id", "OTHER"), stringOption("interval", "daily")),
 			setup: func(m *deps) {
-				m.guildHas(picking(subscription.PickNone))
+				m.subscriptions.EXPECT().FindByGuildAndPlaylist(mockGuild, library.PlaylistID("OTHER")).Return(nil, subscription.ErrNotSubscribed)
 			},
 			want: command.Text("通知登録されていないプレイリストです。"),
 		},
