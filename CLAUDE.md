@@ -42,6 +42,8 @@ cp .env.example .env && docker compose up -d && docker compose logs -f bot mcp
 - Task・mockery・lefthook は `go.mod` の `tool`、golangci-lint は `Taskfile.yml` の
   `go run ...@v2.15.0` で版を固定しているので、インストールは要りません。CI はありません。
 - lefthook はコミット前に整形・tidy・lint、プッシュ前に `go tool task test` を実行します。
+- Claude Code の hook（`.claude/settings.json`）は、セッションの開始時に lefthook と Go の依存を入れ、
+  終わるときに Go のコードを変えていれば `go tool task check` を実行し、通るまで終わらせません。
 
 ## アーキテクチャ
 
