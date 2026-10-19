@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 )
 
@@ -162,7 +161,7 @@ func (s *LibraryService) LiveVideos(videoIDs []library.VideoID) (map[library.Vid
 }
 
 // History は since 以降に記録された動画の状態を返す。動画が指定した
-// プレイリストのどれかに含まれていなければ domain.ErrDBRecordNotFound を
+// プレイリストのどれかに含まれていなければ library.ErrVideoNotFound を
 // 返す。
 func (s *LibraryService) History(playlistIDs []library.PlaylistID, id library.VideoID, since time.Time) (*library.VideoHistory, error) {
 	containing, err := s.PlaylistsContaining([]library.VideoID{id})
@@ -171,7 +170,7 @@ func (s *LibraryService) History(playlistIDs []library.PlaylistID, id library.Vi
 	}
 
 	if !slices.ContainsFunc(containing[id], func(p library.PlaylistID) bool { return slices.Contains(playlistIDs, p) }) {
-		return nil, domain.ErrDBRecordNotFound
+		return nil, library.ErrVideoNotFound
 	}
 
 	videos, err := s.library.FindVideos([]library.VideoID{id})
@@ -181,7 +180,7 @@ func (s *LibraryService) History(playlistIDs []library.PlaylistID, id library.Vi
 
 	video, ok := videos[id]
 	if !ok || !video.HasDetails() {
-		return nil, domain.ErrDBRecordNotFound
+		return nil, library.ErrVideoNotFound
 	}
 
 	snapshots, err := s.library.FindSnapshots(id, since)

@@ -6,7 +6,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
@@ -42,21 +41,21 @@ func TestSubscriptionServiceSubscribe(t *testing.T) {
 				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(&library.PlaylistMeta{YoutubeID: "PL", Title: "タイトル"}, nil)
 				m.subscriptions.EXPECT().Exists(guild.DiscordID("guild"), library.PlaylistID("PL")).Return(true, nil)
 			},
-			wantErr: domain.ErrDBRecordAlreadyCreated,
+			wantErr: subscription.ErrAlreadySubscribed,
 		},
 		{
 			name: "YouTube にないプレイリストは登録しない",
 			setup: func(m *deps) {
-				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(nil, domain.ErrYouTubePlaylistNotFound)
+				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(nil, library.ErrPlaylistNotFound)
 			},
-			wantErr: domain.ErrYouTubePlaylistNotFound,
+			wantErr: library.ErrPlaylistNotFound,
 		},
 		{
 			name: "YouTube API の失敗は一般的なエラーにする",
 			setup: func(m *deps) {
 				m.youtube.EXPECT().FindPlaylist(library.PlaylistID("PL")).Return(nil, errMock)
 			},
-			wantErr: domain.ErrYouTubeGeneralError,
+			wantErr: application.ErrYouTubeUnavailable,
 		},
 	}
 	for _, tt := range tests {
@@ -104,7 +103,7 @@ func TestSubscriptionServiceUnsubscribe(t *testing.T) {
 			setup: func(m *deps) {
 				m.subscriptions.EXPECT().Exists(guild.DiscordID("guild"), library.PlaylistID("PL2")).Return(false, nil)
 			},
-			wantErr: domain.ErrDBRecordNotFound,
+			wantErr: subscription.ErrNotSubscribed,
 		},
 	}
 	for _, tt := range tests {
@@ -150,7 +149,7 @@ func TestSubscriptionServiceSetPickInterval(t *testing.T) {
 					sub(1, "PL", "ch", "PL", lastNotified),
 				}, nil)
 			},
-			wantErr: domain.ErrDBRecordNotFound,
+			wantErr: subscription.ErrNotSubscribed,
 		},
 	}
 	for _, tt := range tests {

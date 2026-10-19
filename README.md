@@ -208,7 +208,7 @@ YouTube Data API には 1 日 10,000 ユニットの上限があります。こ�
 - YouTube API キーが有効で、YouTube Data API v3 が有効になっているか確認してください。
 - ログ（`docker compose logs bot`）にエラーが出ていないか確認してください。
 
-プレイリストが 1 つも登録されていない間は、ログに 5 分ごと `Could not notify cause: record not found` が出ます。これはエラーではありません。
+プレイリストが 1 つも登録されていない間は、ログに 5 分ごと `Could not notify cause: playlist is not subscribed` が出ます。これはエラーではありません。
 
 ### データベースにつながらない
 

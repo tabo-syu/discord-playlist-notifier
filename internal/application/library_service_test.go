@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 )
 
@@ -574,7 +573,7 @@ func TestLibraryServiceHistory(t *testing.T) {
 				}, nil)
 			},
 			want:    nil,
-			wantErr: domain.ErrDBRecordNotFound,
+			wantErr: library.ErrVideoNotFound,
 		},
 		{
 			name: "詳細を取得していない動画は返さない",
@@ -587,7 +586,7 @@ func TestLibraryServiceHistory(t *testing.T) {
 				}, nil)
 			},
 			want:    nil,
-			wantErr: domain.ErrDBRecordNotFound,
+			wantErr: library.ErrVideoNotFound,
 		},
 	}
 	for _, tt := range tests {

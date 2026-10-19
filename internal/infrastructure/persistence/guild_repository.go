@@ -1,6 +1,8 @@
 package persistence
 
 import (
+	"errors"
+
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 
 	"gorm.io/gorm"
@@ -43,10 +45,16 @@ func (r *guildRepository) Add(g *guild.Guild) error {
 	return nil
 }
 
+// FindByDiscordID は、ギルドを記録していないときに GORM のエラーではなく
+// guild.ErrNotRegistered を返す。
 func (r *guildRepository) FindByDiscordID(id guild.DiscordID) (*guild.Guild, error) {
 	var rec guildRecord
 
 	result := r.db.Where(&guildRecord{DiscordID: string(id)}).Take(&rec)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, guild.ErrNotRegistered
+	}
+
 	if err := result.Error; err != nil {
 		return nil, err
 	}

@@ -4,7 +4,7 @@ package library
 // 保存済みの中身（Repository）で足りるときはそちらを使う。
 type YouTube interface {
 	// FindPlaylist はプレイリストが存在しないか非公開のときに
-	// domain.ErrYouTubePlaylistNotFound を返す。アイテム数は取得しない。
+	// ErrPlaylistNotFound を返す。アイテム数は取得しない。
 	FindPlaylist(id PlaylistID) (*PlaylistMeta, error)
 	// FetchPlaylistMetas はもう存在しないプレイリストを結果から除く。
 	FetchPlaylistMetas(ids ...PlaylistID) (map[PlaylistID]*PlaylistMeta, error)

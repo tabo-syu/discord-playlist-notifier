@@ -4,11 +4,15 @@ import (
 	"errors"
 	"time"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 )
+
+// ErrYouTubeUnavailable は YouTube からプレイリストを取得できず、ユースケースを
+// 続けられなかったことを表す。外部サービスの可用性は業務のルールではないので、
+// ドメインではなくアプリケーション層で表す。
+var ErrYouTubeUnavailable = errors.New("youtube is unavailable")
 
 type SubscriptionService struct {
 	youtube       library.YouTube
@@ -29,12 +33,12 @@ func (s *SubscriptionService) FindByGuild(guildID guild.DiscordID) ([]*subscript
 // Subscribe はプレイリストのチャンネルへの通知を始める。
 func (s *SubscriptionService) Subscribe(guildID guild.DiscordID, channelID subscription.ChannelID, playlistID library.PlaylistID) error {
 	playlist, err := s.youtube.FindPlaylist(playlistID)
-	if errors.Is(err, domain.ErrYouTubePlaylistNotFound) {
+	if errors.Is(err, library.ErrPlaylistNotFound) {
 		return err
 	}
 
 	if err != nil {
-		return domain.ErrYouTubeGeneralError
+		return ErrYouTubeUnavailable
 	}
 
 	exists, err := s.subscriptions.Exists(guildID, playlist.YoutubeID)
@@ -43,7 +47,7 @@ func (s *SubscriptionService) Subscribe(guildID guild.DiscordID, channelID subsc
 	}
 
 	if exists {
-		return domain.ErrDBRecordAlreadyCreated
+		return subscription.ErrAlreadySubscribed
 	}
 
 	g, err := s.guilds.FindByDiscordID(guildID)
@@ -62,7 +66,7 @@ func (s *SubscriptionService) Unsubscribe(guildID guild.DiscordID, playlistID li
 	}
 
 	if !exists {
-		return domain.ErrDBRecordNotFound
+		return subscription.ErrNotSubscribed
 	}
 
 	subscriptions, err := s.subscriptions.FindByGuild(guildID)
@@ -95,5 +99,5 @@ func (s *SubscriptionService) SetPickInterval(guildID guild.DiscordID, playlistI
 		}
 	}
 
-	return domain.ErrDBRecordNotFound
+	return subscription.ErrNotSubscribed
 }

@@ -6,7 +6,6 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
@@ -48,7 +47,7 @@ func (c *PlaylistNotifier) pick(guildId string, playlistId string, choice string
 
 	err := c.subscriptions.SetPickInterval(guild.DiscordID(guildId), library.PlaylistID(playlistId), interval)
 	switch {
-	case errors.Is(err, domain.ErrDBRecordNotFound):
+	case errors.Is(err, subscription.ErrNotSubscribed):
 		return "通知登録されていないプレイリストです。"
 	case err != nil:
 		return "エラー！システムに問題があります！"

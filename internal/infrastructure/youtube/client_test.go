@@ -31,7 +31,7 @@ func TestFindPlaylist(t *testing.T) {
 			},
 		},
 		{
-			name: "存在しないか非公開のプレイリストは ErrYouTubePlaylistNotFound",
+			name: "存在しないか非公開のプレイリストは ErrPlaylistNotFound",
 			responses: map[string][]response{
 				"/playlists": {ok(`{"items": []}`)},
 			},

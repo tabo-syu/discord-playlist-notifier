@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 )
@@ -84,7 +83,7 @@ type VideoPage struct {
 // タイトル順に返す。1 つもなければ空のスライスを返す。
 func (s *QueryService) Playlists() ([]*WatchedPlaylist, error) {
 	subscriptions, err := s.subscriptions.FindAll()
-	if errors.Is(err, domain.ErrDBRecordNotFound) {
+	if errors.Is(err, subscription.ErrNotSubscribed) {
 		return []*WatchedPlaylist{}, nil
 	}
 
@@ -132,7 +131,7 @@ func (s *QueryService) Overviews() ([]*PlaylistOverview, error) {
 	return overviews, nil
 }
 
-// Playlist は通知対象のプレイリストを返す。なければ domain.ErrDBRecordNotFound を返す。
+// Playlist は通知対象のプレイリストを返す。なければ subscription.ErrNotSubscribed を返す。
 func (s *QueryService) Playlist(id library.PlaylistID) (*WatchedPlaylist, error) {
 	playlists, err := s.Playlists()
 	if err != nil {
@@ -145,7 +144,7 @@ func (s *QueryService) Playlist(id library.PlaylistID) (*WatchedPlaylist, error)
 		}
 	}
 
-	return nil, domain.ErrDBRecordNotFound
+	return nil, subscription.ErrNotSubscribed
 }
 
 // FindVideos は通知対象のプレイリストのアイテムのうち、条件に一致するものを返す。
@@ -241,7 +240,7 @@ func (s *QueryService) Wrapped(id library.PlaylistID, year int) (*library.Wrappe
 }
 
 // History は通知対象のプレイリストにある動画の、since 以降に記録された状態を
-// 返す。なければ domain.ErrDBRecordNotFound を返す。
+// 返す。なければ library.ErrVideoNotFound を返す。
 func (s *QueryService) History(id library.VideoID, since time.Time) (*library.VideoHistory, error) {
 	ids, err := s.scope("")
 	if err != nil {

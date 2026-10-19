@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"gorm.io/gorm"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/infrastructure/persistence"
@@ -87,12 +86,11 @@ func TestGuildRepositoryFindByDiscordID(t *testing.T) {
 			want:      &guild.Guild{ID: 2, DiscordID: "guild"},
 		},
 		{
-			// GORM のエラーをそのまま返す
-			name:      "保存していない",
+			name:      "保存していなければ ErrNotRegistered",
 			stored:    []any{guildRow("other")},
 			discordID: "guild",
 			want:      nil,
-			wantErr:   gorm.ErrRecordNotFound,
+			wantErr:   guild.ErrNotRegistered,
 		},
 	}
 	for _, tt := range tests {

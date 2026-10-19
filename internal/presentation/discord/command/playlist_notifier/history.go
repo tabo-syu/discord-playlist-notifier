@@ -7,9 +7,9 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/discord/command"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/view"
 )
@@ -55,7 +55,7 @@ func (c *PlaylistNotifier) history(guildId string, video string, days int) *comm
 	}
 
 	subscriptions, err := c.subscriptions.FindByGuild(guild.DiscordID(guildId))
-	if errors.Is(err, domain.ErrDBRecordNotFound) {
+	if errors.Is(err, subscription.ErrNotSubscribed) {
 		return command.Text("通知登録されているプレイリストが存在しません。")
 	}
 
@@ -71,7 +71,7 @@ func (c *PlaylistNotifier) history(guildId string, video string, days int) *comm
 	since := c.now().AddDate(0, 0, -days)
 
 	history, err := c.library.History(ids, videoID, since)
-	if errors.Is(err, domain.ErrDBRecordNotFound) {
+	if errors.Is(err, library.ErrVideoNotFound) {
 		return command.Text("通知登録されているプレイリストに、その動画は見つかりませんでした。")
 	}
 

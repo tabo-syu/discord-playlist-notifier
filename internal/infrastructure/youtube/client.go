@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 
 	ytapi "google.golang.org/api/youtube/v3"
@@ -48,7 +47,7 @@ func (c *client) FindPlaylist(id library.PlaylistID) (*library.PlaylistMeta, err
 	}
 
 	if len(lists.Items) == 0 {
-		return nil, domain.ErrYouTubePlaylistNotFound
+		return nil, library.ErrPlaylistNotFound
 	}
 
 	playlist := lists.Items[0]

@@ -58,7 +58,7 @@ cmd/migrate/main.go          スキーマを更新して終了する（persisten
 internal/presentation/       外界との入出力（discord・scheduler・notifier・mcpserver・view）。ユーザーに見える日本語はここだけ
 internal/infrastructure/     ドメインが宣言したインターフェースの実装（persistence・youtube）
 internal/application/        ユースケース（リポジトリから集約を読み、ドメインに判断させ、保存する）
-internal/domain/             集約ごとのパッケージ（guild・subscription・library・notification）と errors.go
+internal/domain/             集約ごとのパッケージ（guild・subscription・library・notification）
 internal/env/                プロセスの環境変数
 internal/mocks/              mockery が生成した mock（手で編集しない）
 ```
@@ -111,8 +111,12 @@ internal/mocks/              mockery が生成した mock（手で編集しな�
   外から型を参照したいときも、構造体は非公開のままインターフェースで受けます。
 - コンストラクタは構築済みの依存を受け取る `NewX(...)` で、複合リテラルに位置指定で
   代入します（`return &Server{s, rg, e, rt}`）。
-- エラーは `internal/domain/errors.go` のセンチネル値（Discord / YouTube / DB ごと）を返し、
-  コマンド層がユーザー向けの文言に変換します。
+- エラーは、何が起きたかをユビキタス言語で表すセンチネル値を返し、コマンド層がユーザー向けの
+  文言に変換します。業務の失敗は関係する集約の `errors.go`（`subscription.ErrNotSubscribed`
+  など）、外部サービスに繋がらないなどユースケースの失敗は `application`
+  （`application.ErrYouTubeUnavailable`）に置きます。リポジトリは「ない」「もうある」を
+  集約のエラーに訳します。それ以外の技術的な失敗（接続できないなど）は、そのまま
+  か `fmt.Errorf("...: %w", err)` で包んで上へ返します。
 - 内側のスコープで `err` を宣言し直さず、外側に `err` があれば `if err = f(); ...` と
   代入します（govet の shadow）。
 - 空行は nlreturn と wsl_v5 が決めます。指摘は `go tool task lint:fix` で直します。
@@ -186,9 +190,9 @@ Discord や YouTube の実際の挙動は、本物の認証情報とテスト用
 関係するときは把握したうえで作業します。
 
 - `subscription.Repository` の `FindAll` と `FindByGuild` は、結果が空のときに空の
-  スライスではなく `domain.ErrDBRecordNotFound` を返します。そのため、どこにも
+  スライスではなく `subscription.ErrNotSubscribed` を返します。そのため、どこにも
   プレイリストが登録されていない状態では、スケジューラが 5 分ごとに
-  `Could not notify cause: record not found` を出力し続けます。
+  `Could not notify cause: playlist is not subscribed` を出力し続けます。
 - 上記の影響で、プレイリストを 1 つも持たないギルドでは
   `GuildService.Unregister` が途中で return し、`GuildDelete` の際にギルドの
   レコードが削除されません。
