@@ -1,6 +1,13 @@
 # CLAUDE.md
 
-このリポジトリで作業する AI アシスタント向けのガイドです。
+このリポジトリで作業する AI アシスタント向けのガイドです。人向けの説明（機能、データの
+ライフサイクル、トラブルシューティング）は `README.md` にあります。
+
+<!--
+メンテナー向け: このファイルは毎回のセッションで全文が読み込まれるので、200 行未満に保つ。
+一部のディレクトリにだけ関係する内容は .claude/rules/ に paths 付きで書く。
+「この行を消したら Claude が間違えるか？」で残すかを決める。
+-->
 
 ## このプロジェクトについて
 
@@ -13,577 +20,157 @@ Discord のテキストチャンネルに Embed を投稿する Discord ボッ�
 
 ## コマンド
 
+変更を終えたら `go tool task check`（build・go mod tidy のずれ・lint・test）を通してから
+完了と報告します。Docker が使えないときは
+`go build ./... && go tool task lint && go tool task test:short` を実行し、DB のテストを
+飛ばしたことを報告に書きます。
+
 ```bash
-# 整形 / 静的チェック / テスト（Taskfile.yml）
 go tool task fmt          # gofumpt + goimports で整形する
 go tool task lint         # golangci-lint（.golangci.yml）
-go tool task lint:fix     # 自動で直せる指摘（空行など）を直す
-go tool task tidy         # go mod tidy
-go tool task test         # go test ./...。リポジトリのテストが Testcontainers で PostgreSQL を立てるので Docker が必要
-go tool task test:short   # go test -short ./...。Docker なしで、DB のテストだけ飛ばす
-go tool task check        # build・go mod tidy のずれ・lint・test をまとめて確かめる。コミット前はこれ
-go tool task mock         # mock を生成し直す（インターフェースを変えたとき。go tool mockery）
+go tool task lint:fix     # 空行など、自動で直せる指摘を直す（fmt では直らない）
+go tool task test         # Testcontainers で PostgreSQL を立てるので Docker が必要
+go tool task test:short   # Docker なしで、DB のテストだけ飛ばす
+go tool task check        # コミット前はこれ
+go tool task mock         # インターフェースを変えたら mock を生成し直す
 go tool task hooks        # lefthook の Git フックを入れる（clone したら 1 回だけ）
 
-# スタック全体（ボット + PostgreSQL）を起動する。通常はこちらを使う
-cp .env.example .env   # コピー後、実際の値を記入する
-docker compose up -d
-docker compose logs -f bot
-
-# ボットを直接実行する。到達可能な PostgreSQL と、シェルにエクスポートされた
-# 全ての環境変数が必要（アプリは .env を読み込まない。「設定」の節を参照）
-go run cmd/server/main.go
+# スタック全体（ボット + PostgreSQL）を起動する。通常はこちら
+cp .env.example .env && docker compose up -d && docker compose logs -f bot
 ```
 
-golangci-lint は `Taskfile.yml` の中で `go run ...@v2.15.0` としてバージョンを固定して
-呼ぶので、別にインストールする必要はなく、go.mod にも入りません（手元の Go でビルド
-されるので、go.mod の Go のバージョンより古い Go でビルドしたバイナリが動かない問題も
-避けられます）。上げるときは `Taskfile.yml` のバージョンを書き換えます。CI はありません。
-
-Task・mockery・lefthook は `go.mod` の `tool` で版を固定しているので、`go tool task` の
-ように呼べばインストールは要りません（`task` を入れてあれば `task check` でも同じです）。
-
-`lefthook.yml` の Git フックは、コミットの前に、ステージした Go のファイルを整形して
-ステージし直し、`go mod tidy` のずれと lint を確かめます。プッシュの前には
-`go tool task test` を実行します（Docker が必要）。一時的に飛ばすときは
-`LEFTHOOK=0 git commit ...` です。
-
-`.golangci.yml` で revive は使いません（ALL_CAPS の定数名と、英語の定型コメントを
-強制するため）。testifylint の `require-error` は「テストの書き方」と衝突するので
-外しています。`add.go` と `delete.go` の `switch err` は「既知の挙動」なので
-`//nolint:errorlint` を付けて残しています。
-
-ほかに、次のルールを入れています。
-
-- depguard — 「アーキテクチャ」の依存の向きを強制します（domain は他のレイヤを、
-  application は infrastructure と presentation を import しない。`internal/mocks` は
-  テストからだけ import する）
-- exhaustive — 値オブジェクトの `switch` の `case` の漏れ。`default` があれば対象外
-- funcorder — コンストラクタは型の直後、公開メソッドの後に非公開メソッドを置く
-- recvcheck — 値とポインタのレシーバを混ぜない（GORM の `TableName` は除く）
-- testpackage — テストは外部のテストパッケージ（`xxx_test`）で書く
-- tagliatelle — json タグは snake_case（MCP のツールの入出力）
-- govet の shadow — 内側のスコープで `err` などを宣言し直して、外側の値を隠さない
-  （外側に `err` があれば `if err = f(); ...` と代入する）
-- predeclared — `max` などの組み込みの名前を変数に使わない
-- modernize、prealloc、embeddedstructfieldcheck、forcetypeassert、unparam（テストは除く）、
-  paralleltest、tparallel、usetesting
+- Task・mockery・lefthook は `go.mod` の `tool`、golangci-lint は `Taskfile.yml` の
+  `go run ...@v2.15.0` で版を固定しているので、インストールは要りません。CI はありません。
+- lefthook はコミット前に整形・tidy・lint、プッシュ前に `go tool task test` を実行します。
 
 ## アーキテクチャ
 
-DDD でよく用いられるレイヤードアーキテクチャです。依存は外側から内側への
-一方向で、`domain` は他のどのレイヤも import しません（GORM のタグだけは
-domain のモデルに残しています）。
+DDD のレイヤードアーキテクチャです。依存は外側から内側への一方向で、depguard が
+強制します（`domain` は他のレイヤを、`application` は `infrastructure` と `presentation` を
+import しない。`internal/mocks` はテストからだけ import する）。
 
 ```
-cmd/server/main.go                   コンポジションルート — 全ての組み立てと依存注入
-        │
-        ├── internal/presentation/           外界との入出力（ユーザーに見える日本語はここだけ）
-        │       ├── discord/                 Discord ゲートウェイ: セッション、イベント、コマンドの登録
-        │       │     └── command/           コマンド定義とハンドラ
-        │       ├── scheduler/               gocron でユースケースを定期実行する
-        │       ├── notifier/                application.Notifier の実装: Embed を組み立てて投稿
-        │       ├── mcpserver/               読み取り専用の MCP サーバー（claude-bot などの外部クライアント向け）
-        │       └── view/                    コマンドと定期投稿で共有する文言の整形
-        │
-        ├── internal/infrastructure/         ドメインが宣言したインターフェースの実装
-        │       ├── persistence/             リポジトリの GORM 実装とマイグレーション
-        │       └── youtube/                 library.YouTube の YouTube Data API v3 実装
-        │
-        ├── internal/application/            ユースケース（リポジトリから集約を読み、ドメインに判断させ、保存する）
-        │
-        ├── internal/domain/                 ドメインモデル（集約ごとのパッケージ）
-        │       ├── guild/                   ボットが参加しているサーバー
-        │       ├── subscription/            サーバーごとのプレイリストの通知設定
-        │       ├── library/                 プレイリストの中身（アイテムと動画）。全サーバーで共有
-        │       ├── notification/            どのチャンネルに何を通知するかを決めるドメインサービス
-        │       └── errors.go                センチネルエラー（package domain）
-        │
-        ├── internal/env/                    プロセスの環境変数
-        │
-        └── internal/mocks/                  mockery が生成したテスト用の mock（本番のコードからは import しない）
+cmd/server/main.go           コンポジションルート — 全ての組み立てと依存注入
+internal/presentation/       外界との入出力（discord・scheduler・notifier・mcpserver・view）。ユーザーに見える日本語はここだけ
+internal/infrastructure/     ドメインが宣言したインターフェースの実装（persistence・youtube）
+internal/application/        ユースケース（リポジトリから集約を読み、ドメインに判断させ、保存する）
+internal/domain/             集約ごとのパッケージ（guild・subscription・library・notification）と errors.go
+internal/env/                プロセスの環境変数
+internal/mocks/              mockery が生成した mock（手で編集しない）
 ```
 
-アプリを駆動する経路は独立して 3 つあります。
+アプリを駆動する経路は 3 つです。
 
-1. **対話的な経路** — Discord ゲートウェイのイベント → `presentation/discord` →
-   `application`（`GuildService`、`SubscriptionService`、`LibraryService`）→ リポジトリ
-2. **定期実行の経路** — `presentation/scheduler` が `application.NotificationService`
-   のメソッドを呼ぶ → リポジトリと `LibraryService` → `application.Notifier`
-   （実装は `presentation/notifier`）が Discord に投稿。
-   5 分ごとに `NotifyUpdates`、6 時間ごとに `RefreshVideos`（再生数などの更新と
-   節目の通知）、毎日 12:00 に `PostPicks`、12/31 21:00 に `PostWrapped` が動きます。
-   動画のカテゴリ名だけは `LibraryService.RefreshCategories` を起動時と 1 日ごとに直接呼びます
-3. **MCP の経路** — 外部のクライアントが MCP のツールを呼ぶ → `presentation/mcpserver`
-   → `application.QueryService` → リポジトリ（読み取りのみ）
+1. **対話的な経路** — Discord のイベント → `presentation/discord` → `GuildService`・
+   `SubscriptionService`・`LibraryService` → リポジトリ
+2. **定期実行の経路** — `presentation/scheduler` → `NotificationService` → リポジトリと
+   `LibraryService` → `application.Notifier`（実装は `presentation/notifier`）が Discord に投稿
+3. **MCP の経路** — 外部のクライアント → `presentation/mcpserver` → `QueryService`（読み取りのみ）
 
 ### ドメインモデル
 
-集約は互いに **ID でのみ参照**します（`Subscription.GuildID`、
-`Subscription.YoutubeID`）。GORM の関連付け（`Guild.Playlists` など）は
-使いません。
-
-- ID や状態は値オブジェクト（独自の型）です: `guild.DiscordID`、
-  `subscription.ChannelID`、`subscription.PickInterval`、`library.PlaylistID`、
-  `library.VideoID`、`library.ItemID`、`library.PrivacyStatus`、`library.ViewCount`。
-  文字列との変換は境界（コマンドハンドラ、`infrastructure`）で行います。
-- フィールドは GORM のために公開していますが、**状態を変える操作はメソッドに
-  まとめ、直接代入しません**（`Subscription.MarkNotified`、`Rename`、
-  `ChangePickInterval`、`Video.ChangePrivacy`、`ApplyDetails`、`UpdateMilestone` など）。
-- 各モデルは `TableName()` でテーブル名を固定しています。`subscription.Subscription`
-  は以前 `Playlist` という名前だったので、テーブル名は `playlists` のままです。
-- リポジトリのインターフェースは各集約のパッケージ（`repository.go`）で宣言し、
-  外部サービスのインターフェース（`library.YouTube`）もドメイン側で宣言します。
+- 集約は互いに ID でのみ参照します（`Subscription.GuildID`、`Subscription.YoutubeID`）。
+  GORM の関連付けは使いません。
+- ID や状態は値オブジェクト（`guild.DiscordID`、`library.VideoID` など）です。文字列との
+  変換は境界（コマンドハンドラ、`infrastructure`）で行います。
+- フィールドは GORM のために公開していますが、状態は直接代入せず、メソッド
+  （`Subscription.MarkNotified`、`Video.ChangePrivacy` など）を通して変えます。
+- リポジトリと外部サービスのインターフェース（`library.YouTube`）は各集約の
+  パッケージで宣言します。
 
 ### 依存の組み立て
 
-依存関係を構築している場所は `cmd/server/main.go` だけです。`init()` が 4 つの
-パッケージレベルのシングルトン（`sr` gocron、`db` GORM、`dc` discordgo、
-`yt` YouTube サービス）を構築し、`persistence.Migrate` でスキーマを更新します。
-失敗時は全て `log.Fatalf` で落とします。その後 `main()` が infrastructure →
-application → presentation の順に組み立て、`SIGINT` を待ってブロックします。
-`LibraryService`、`NotificationService`、`PlaylistNotifier`、MCP サーバーには現在時刻の関数
-（`time.Now`）を渡します。
-テストで時刻を固定するためで、サービスの中では `time.Now()` を直接呼びません。
-新しい依存を追加する場合はここに書きます。DI コンテナや設定フレームワークの
-類はありません。スケジューラの `*time.Location`（`DB_TIMEZONE`）を、日付の
-表示や月・年の区切りに使う全ての箇所へコンストラクタで渡します。
+依存を組み立てるのは `cmd/server/main.go` だけです。DI コンテナはありません。新しい依存も
+ここに追加します。
 
-### `internal/presentation/discord`
-
-- `server.go` — discordgo のセッションを保持し、3 つのハンドラを登録します。
-  `GuildCreate`（スラッシュコマンドの登録 + ギルドレコードの作成）、
-  `GuildDelete`（ギルドレコードの削除）、`InteractionCreate`（コマンドハンドラへのルーティング）。
-- `registrar.go` — コマンドを**ギルドごとに**登録し（グローバル登録ではなく
-  ギルド ID 付きの `ApplicationCommandCreate`）、`Stop()` で削除できるように
-  メモリ上に保持します。結果として、コマンドはボットの稼働中しか存在せず、
-  `GuildCreate` のたび（＝再接続のたび）に登録し直されます。
-- `router.go` — トップレベルのコマンド名から `command.HandleType` へのマップ。
-- `event.go` — ゲートウェイイベントと `application.GuildService` をつなぐ薄いアダプタ。
-
-### `internal/presentation/discord/command`
-
-`Command` は全てのコマンドが実装するインターフェースです（`Handle`、
-`GetCommand`、`SetCommand`）。ハンドラのシグネチャは次のとおりです。
-
-```go
-func(request *discordgo.ApplicationCommandInteractionData, guildId, channelId string) *command.Response
-```
-
-**ハンドラは応答（`command.Response`: 本文と添付ファイル）を組み立てて返すだけで、
-Discord のセッションには一切触れません。** 文字列だけなら `command.Text(...)` で包みます。
-返された応答を `InteractionResponse` にくるむのは `server.go` の役目です。
-この形を保ってください。ハンドラが容易にテストできるのはこの設計のおかげです。
-
-サブコマンドの構成は `playlist_notifier/` が手本になります。
-`playlist_notifier.go` がトップレベルのコマンドを宣言し、`data.Options[0].Name`
-でディスパッチします。各サブコマンドは自身のファイルを持ち、
-`*discordgo.ApplicationCommandOption` の変数と `*PlaylistNotifier` のメソッドを
-同じファイルにまとめます（`add.go`、`list.go`、`delete.go`、`source.go`）。
-`history.go` と `trending.go` は、推移のグラフを PNG で添付する例です（描画は `view.HistoryChart` と `view.TrendingChart`、
-`github.com/wcharczuk/go-chart/v2`）。見た目（夜空の色、丸ゴシックの日本語フォント、
-光る線、凡例、目盛り）は `view/chart.go` にまとめています。フォントは
-`view/fonts/` の M PLUS Rounded 1c（OFL、`OFL.txt`）を `go:embed` で埋め込んでいます。
-go-chart の `LegendThin` は枠の色の指定を無視し、値札は点の右にしか置けないので、
-凡例（`history`）と、`trending` の線の端の値札・グラフの下の表は自前で描きます。
-ハンドラはアプリケーションサービスだけを呼び、文字列の引数を値オブジェクトに
-変換して渡します。
-
-`summary`・`trending`・`history`・`random`・`wrapped` の本文は `text/template` で書いた
-`view/templates/*.md.tmpl`（`go:embed`）が整形します。`view/text.go` はテンプレートに
-渡すデータの用意（棒グラフの長さなどの計算）とテンプレート関数（`number`、`date`、
-`link`、`rank`、`first`、`last`、`change`）だけを持ち、文言はテンプレート側に書きます。
-テンプレートは 1 ファイルに 1 つで、中身がないときなどメッセージの形ごと変わる場合は
-Go 側で別のテンプレート（`summary_empty` など）を選びます。テンプレートの中の分岐は、
-「あるときだけ出す」部分（ランキングなど）の `{{with}}` / `{{if}}` に限ります。
-`date` のタイムゾーンと `link` の書き方（`InMessage` / `InEmbed`）は整形のたびに
-差し替えます。改行は `{{-` / `-}}` で制御するので、変更したらゴールデンテスト
-（「テスト」の節）で出力を確かめてください。
-
-### MCP サーバー（`presentation/mcpserver` と `application.QueryService`）
-
-`MCP_ADDR` が設定されているときだけ、Streamable HTTP の MCP サーバーを
-`MCP_ADDR` の `/mcp` で起動します（公式 SDK `github.com/modelcontextprotocol/go-sdk`、
-ステートレス）。起動に失敗してもログを出すだけで、ボット本体は動き続けます。
-
-- ツールは全て**読み取り専用**です: `list_playlists`、`find_videos`、`playlist_stats`、
-  `playlist_wrapped`、`random_videos`、`video_history`。ツールや引数の説明は日本語です。
-- `QueryService` は DB に保存した中身だけを読み、YouTube API は呼びません
-  （クォータを使いません）。見せるのは、どこかのギルドが通知登録している
-  プレイリストだけで、Discord のギルド ID やチャンネル ID は返しません。
-- 出力は構造化された JSON で、SDK が出力スキーマで検証します。nil のスライスは
-  `null` になってスキーマ違反になるので、必ず空のスライスを返してください。
-- 公開範囲は Docker ネットワークで絞っています。`docker-compose.yml` でボットを
-  `playlist-api` ネットワークにも接続し、そこでは `playlist-notifier` という別名で
-  公開します（URL は `http://playlist-notifier:8080/mcp`）。DB は既定のネットワークにしか
-  いないので、`playlist-api` に参加した他のプロジェクトからは届きません。ホストには
-  ポートを公開していません。認証はないので、公開範囲を広げるときは注意してください。
-
-### 定期実行（`presentation/scheduler` と `application.NotificationService`）
-
-- `scheduler.go` — ジョブの間隔の設定だけを持ちます。各ジョブは `guard` で
-  包まれ、`recover` で panic を捕まえて 1 回の失敗でボット全体が落ちないように
-  しています。
-- `NotificationService.NotifyUpdates`: 全ての通知設定を読み込む →
-  `LibraryService.Sync` でプレイリストの中身を DB に同期する → 非公開・削除に
-  なった動画を通知する → `notification.FindNewVideos` で差分を取る →
-  `UpdatedAt` を更新する → 投稿する、という流れです。順序に意味があります。
-  タイムスタンプの永続化はメッセージ送信の**前**に行われ、更新に成功した
-  通知設定だけが通知対象になります。通知を取りこぼす可能性と引き換えに、
-  二重通知が起きないようにしています。
-- `presentation/notifier` — `discordgo.MessageEmbed`（ラベルは日本語）を組み立て、
-  動画 1 件につき 1 通の `ChannelMessageSendEmbed` を送ります。動画を知らせる通知は
-  通知ごとに違う部分（色・見出し・フィールド・画像の大きさ）だけを `videoNotice` に
-  並べ、タイトル・URL・サムネイル・投稿者は `video.go` の `sendVideo` が組み立てます。
-  1 ファイルに通知 1 種類です。
-
-### プレイリストの中身の保存（`domain/library` と `LibraryService`）
-
-YouTube プレイリストの中身は、サーバーごとの通知設定（`subscription.Subscription`）
-とは別に、YouTube のプレイリスト ID 単位でテーブルに保存し、動画の状態の履歴も残します。
-
-- `playlist_items`（`library.PlaylistItem`）— プレイリストの各アイテム。
-  `AddedAt` はプレイリストに追加された時刻です。
-- `videos`（`library.Video`）— 動画ごとの最新の情報（タイトル、再生数、
-  高評価数、コメント数、公開状態、投稿日時、長さ、タグ、カテゴリ、チャンネルの ID）。
-  長さ・タグ・カテゴリは MCP の `find_videos` で絞り込みに使います。
-  `videos.list` の part を増やしてもクォータは変わらないので、同じ呼び出しで取ります。
-  非公開や削除になっても、タイトルなどの詳細は消さずに
-  残します。`Available()` が真の動画だけをユーザーに見せます。サムネイルは
-  動画 ID から作れるので保存しません（`Thumbnail()`）。
-- `channels`（`library.Channel`）— 動画を投稿したチャンネルの名前。`videos` は
-  `ChannelYoutubeID` で参照します。`LibraryService` が動画の詳細を取るたびに
-  `videos.list` の結果から作るか名前を上書きし、失敗してもログを出すだけです。
-- `categories`（`library.Category`）— YouTube の動画カテゴリ。`videoCategories.list`
-  （日本・日本語、1 ユニット）で起動時と 1 日ごとに上書きします。`videos` は
-  `CategoryID` で参照します。地域ごとに一覧が違うので、固定の一覧は持ちません。
-- `video_snapshots`（`library.VideoSnapshot`）— 動画の状態の履歴（タイトル、
-  公開状態、再生数、高評価数、コメント数）。`RefreshVideos` が 6 時間ごとに、
-  更新した全動画の分を同じ時刻で 1 行ずつ追記します。`/playlist-notifier history`、
-  `/playlist-notifier trending` と MCP の `video_history` が読み出します。値は `videos.list` の
-  結果から取るので、クォータは増えません。記録に失敗してもログを出すだけで、
-  節目の通知は続けます。古い行を消す処理はありません。
-
-通知の Embed に出す投稿者（チャンネル名とアイコン）は、通知を送る直前に
-`LibraryService.LiveVideos` で取得し（最新の再生数も一緒に取れます）、
-取得に失敗したときは投稿者なしで送ります。`channels` のチャンネル名は検索用で、
-アイコンは保存しません。
-
-`LibraryService.Sync` はまず `playlists.list` でアイテム数を確認し、アイテム数が
-変わったとき、または前回の全件取得から `FULL_SYNC_INTERVAL`（1 時間）が
-経ったときだけアイテムを全件取得します。保存済みのアイテムと取得したアイテムの
-突き合わせ（追加・除外・公開状態の変化・詳細が必要な動画）は
-`library.Reconcile` が行います。動画の詳細（`videos.list`）は、まだ
-詳細を持っていない動画の分だけ取得します。動画の公開状態はアイテムの
-`status.privacyStatus` から取ります（`videos.list` は非公開・削除済みの動画を
-返さないため）。全件取得の状態はメモリ上にあるので、再起動直後は全件取得します。
-
-`Sync` と `RefreshVideos` は同じ `videos` を書き換えるので、
-`LibraryService` の mutex で直列化しています。
-
-### 「新しい動画」の判定方法
-
-保存済みのアイテムと、通知済みかどうかを突き合わせる処理はありません。
-基準となるのは `Subscription.UpdatedAt` です。`notification.FindNewVideos` は
-同期結果のアイテムのうち `Subscription.IsNew(item)`
-（`!item.AddedAt.Before(s.UpdatedAt)`）が真で、動画が `Available()` なものを
-新着とみなし、追加時刻の古い順に並べます。
-`After` ではなく `!Before` なのは意図的で、基準時刻とちょうど同時刻に追加された
-動画を含めるためです。`UpdatedAt` を過去に戻せば、その時刻以降の動画を再通知できます。
-プレイリストに追加された時刻は `PlaylistItem.AddedAt`、動画自体の投稿時刻は
-`Video.PublishedAt` です。
-
-`videos` テーブルは以前、通知した動画の履歴でした。古い形のテーブル
-（`playlist_id` カラムがある）は、起動時に `persistence.Migrate` が一度だけ削除します。
+- 現在時刻は `time.Now` をコンストラクタで渡します。テストで時刻を固定するためで、
+  サービスの中では `time.Now()` を直接呼びません。
+- 日付の表示や月・年の区切りには、スケジューラの `*time.Location`（`DB_TIMEZONE`）を
+  コンストラクタで渡して使います。
 
 ## 規約
 
 ### Go のスタイル
 
-- **インターフェースを受け取り、構造体を返す**（コミット `0a14cd7`）。
-  インターフェースは使う側（ドメインの各集約、`application.Notifier`）で宣言し、
-  コンストラクタは非公開の具象型を返します（`*subscriptionRepository`、`*client`、
-  `*notifier`、`*registrar`、`*router`、`*scheduler`、`*event`）。これに倣ってください。
-  型名を参照したいという理由だけで構造体を公開しないこと。
-- コンストラクタは構築済みの依存を受け取る `NewX(...)` の形で、複合リテラルに
-  位置指定で代入します（`return &Server{s, rg, e, rt}`）。
-- エラーは `internal/domain/errors.go` に置いた**センチネル値**で、発生源
-  （Discord / YouTube / DB）ごとにグループ分けされています。リポジトリと
-  アプリケーションサービスがこれを返し、コマンド層がユーザー向けの文言に変換します。
-- 整形は gofumpt + goimports（`go tool task fmt`）です。import は、このモジュール
-  （`github.com/tabo-syu/discord-playlist-notifier/...`）のものを外部のパッケージと
-  空行で分けます（goimports が強制します）。
-- 空行は nlreturn と wsl_v5 が決めます（`return` / `if` / `for` の前、ブロックの後などに
-  空行を入れ、続けて書く `var` は `var (...)` にまとめる）。`go tool task fmt` では直らないので、
-  `go tool task lint:fix` で直します。
-- ログは標準ライブラリの `log` を使い、フィールドをスペース区切りで並べます
-  （`log.Println("Guild record created:", guildId)`）。構造化ロガーは使いません。
+- インターフェースを受け取り、構造体を返します。インターフェースは使う側で宣言し、
+  コンストラクタは非公開の具象型（`*subscriptionRepository` など）を返します。
+  外から型を参照したいときも、構造体は非公開のままインターフェースで受けます。
+- コンストラクタは構築済みの依存を受け取る `NewX(...)` で、複合リテラルに位置指定で
+  代入します（`return &Server{s, rg, e, rt}`）。
+- エラーは `internal/domain/errors.go` のセンチネル値（Discord / YouTube / DB ごと）を返し、
+  コマンド層がユーザー向けの文言に変換します。
+- 内側のスコープで `err` を宣言し直さず、外側に `err` があれば `if err = f(); ...` と
+  代入します（govet の shadow）。
+- 空行は nlreturn と wsl_v5 が決めます。指摘は `go tool task lint:fix` で直します。
+- ログは標準ライブラリの `log` で、フィールドをスペース区切りで並べます
+  （`log.Println("Guild record created:", guildId)`）。
 
 ### 言語
 
-- **ユーザーの目に触れる文言は日本語**です。スラッシュコマンドの説明、コマンドの
-  応答文字列、Embed のフィールドラベルが該当します。既存のトーンに合わせて
-  ください（例: `"エラー！システムに問題があります！"`）。
-- **コードコメントは日本語**です（識別子や固有名詞はそのまま）。**ログは英語**です。
-- `README.md` は日本語です。コミットの件名は `[種別] 概要` の形式で、概要は
-  日本語と英語が混在しています。履歴に出てくる種別は `feat`、`fix`、`chore`、
-  `doc`、`refactor`、`add`、`update` です。
-
-### スラッシュコマンドを追加する
-
-1. `internal/presentation/discord/command/` 配下に `command.Command` を実装するパッケージを作る。
-2. `cmd/server/main.go` の `commands` スライスに追加する。router と registrar は
-   どちらもこのスライスから導出されるので、他に変更すべき箇所はありません。
+- ユーザーの目に触れる文言（コマンドの説明・応答、Embed のラベル）は日本語で、既存の
+  トーン（`"エラー！システムに問題があります！"`）に合わせます。
+- コードコメントは日本語（識別子や固有名詞はそのまま）、ログは英語です。
+- コミットの件名は `[種別] 概要` です。種別は `feat`、`fix`、`chore`、`doc`、`refactor`、
+  `add`、`update` から選びます。
 
 ### 永続化するフィールドを追加する
 
-`internal/domain/` の各集約の構造体に追加します。スキーマの変更は
-`internal/infrastructure/persistence/migrate.go` の `db.AutoMigrate(...)` が適用
-します。新しいモデルを追加したらここにも追加し、モデルには `TableName()` を
-定義してください。**マイグレーションファイルはありません。** AutoMigrate はカラムの
-追加しか行わないため、リネームや削除はデータベースに対して手動で行う必要があります。
+`internal/domain/` の構造体に追加すれば、起動時に `persistence.Migrate` の `AutoMigrate` が
+カラムを足します。マイグレーションファイルはありません。新しいモデルは `Migrate` に
+追加し、`TableName()` を定義します。リネームと削除は AutoMigrate がしないので、DB に
+手で行う必要があることをユーザーに伝えます。
+
+### テスト
+
+テストを書く・直すときは、先に同じパッケージの `helpers_test.go` を開きます
+（`.claude/rules/testing.md` の書き方が読み込まれます）。カバレッジ 100% は目指さず、
+壊れると通知の二重送信・取りこぼしや集計の誤りにつながるロジックを優先します。
 
 ## 設定
 
-`internal/env/env.go` は全ての変数を**パッケージ初期化時**にパッケージレベルの
-`var` へ読み込みます。Go 側に dotenv の読み込み処理はありません。`.env` を
-読むのは `docker compose`（`env_file:`）であって、バイナリではありません。
-Docker の外で実行する場合は、自分で環境変数をエクスポートする必要があります。
-変数が未設定の場合はエラーにならず、空文字列になります。
+`internal/env/env.go` は全ての変数をパッケージ初期化時に読み込みます。アプリは `.env` を
+読まない（読むのは `docker compose` の `env_file:`）ので、Docker の外で `go run` するときは
+環境変数を自分でエクスポートします。未設定の変数は空文字列になります。
 
 | 変数 | 用途 |
 |---|---|
-| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | PostgreSQL の DSN の構成要素（`sslmode=disable`） |
-| `DB_TIMEZONE` | IANA のタイムゾーン名。DSN と gocron のロケーションの両方に使われる |
-| `DISCORD_ACCESS_TOKEN` | `env.DISCORD_TOKEN` に読み込まれる |
-| `YOUTUBE_APIKEY` | `env.YOUTUBE_TOKEN` に読み込まれる |
-| `MCP_ADDR` | MCP サーバーの待ち受けアドレス（例 `:8080`）。空なら起動しない。`docker-compose.yml` の `environment:` で設定している |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | PostgreSQL の DSN（`sslmode=disable`） |
+| `DB_TIMEZONE` | IANA のタイムゾーン名。DSN と gocron のロケーションの両方に使う |
+| `DISCORD_ACCESS_TOKEN` | `env.DISCORD_TOKEN` に読み込まれる（名前が違う） |
+| `YOUTUBE_APIKEY` | `env.YOUTUBE_TOKEN` に読み込まれる（名前が違う） |
+| `MCP_ADDR` | MCP サーバーの待ち受けアドレス（例 `:8080`）。空なら起動しない |
 
-`DISCORD_ACCESS_TOKEN` と `YOUTUBE_APIKEY` は、環境変数名と Go の識別子名が一致していない点に注意してください。
+実際のトークンはコード・テスト・コミットメッセージ・PR の説明に書かず、`.env`
+（gitignore 済み）だけに置きます。
 
-`.env`（gitignore 済み）をコミットしないこと。また、実際のトークンをコード、
-テスト、コミットメッセージ、PR の説明に貼り付けないこと。
+## YouTube API
 
-## YouTube API の使い方
+クォータは 1 日 10,000 ユニット（list 系は 1 回 1 ユニット）です。YouTube から取る前に、
+DB に保存した中身（`library.Repository`）で済ませられないかを先に検討します。
 
-`internal/infrastructure/youtube/client.go` は全ての呼び出しを `MAX_BATCH_SIZE = 50` でバッチ化し
-（プレイリスト、動画、チャンネル）、プレイリストアイテムは
-`MAX_RESULTS_PER_PAGE = 50` でページングします。API のレスポンスは一部の
-フィールドが欠けることがあるので、nil を考慮して読みます。タイムスタンプの
-パースには `YOUTUBE_TIMEFORMAT = "2006-01-02T15:04:05Z"` を使います。
+## 検証できないこと
 
-主な制約はクォータ（標準で 1 日 10,000 ユニット、list 系は 1 回 1 ユニット）です。
-YouTube から直接データを取る前に、DB に保存した中身（`library.Repository`）で
-済ませられないか検討してください。
-
-プレイリストアイテムの `snippet.channelId` は、ドキュメント上は「追加した
-ユーザー」ですが、実際には常にプレイリストの所有者を返します。追加者は
-取得できません。
-
-## テスト
-
-テストは層ごとに少しずつ増やしています。カバレッジ 100% は目指さず、壊れると
-通知の二重送信・取りこぼしや集計の誤りにつながるロジックを優先します。
-今あるのは次の 9 つです。
-
-- **ドメイン**（`internal/domain/library`、`notification`、`subscription`）— 純粋な
-  関数とメソッドのテスト。境界の値（基準時刻ちょうど、タイムゾーンをまたぐ
-  月・年の区切り、節目ちょうどの再生数）とチャンネルごとの重複の排除を固定しています。
-- **アプリケーション**（`internal/application`）— リポジトリ・YouTube・`Notifier` を
-  mock に差し替えて、ユースケースの流れを確かめます。
-  基準時刻を送信の前に保存すること、保存に失敗した通知設定には送らないこと、
-  `FULL_SYNC_INTERVAL` 以内は全件取得しないこと、詳細を持っていない動画だけ
-  `videos.list` を呼ぶこと、定期投稿（ピック・年間のまとめ）の曜日や年を JST で
-  決めること、MCP の `QueryService` が通知登録されたプレイリストしか見せないことと
-  `FindVideos` の絞り込み・並び順・ページング などを固定しています。保存や送信は
-  「期待した引数で呼ばれたこと」で確かめます（`Update(sub(..., now))` など）。
-  ログは各パッケージの `TestMain` で捨てています。
-- **コマンドハンドラ**（`command/playlist_notifier`）— 本物のアプリケーションサービスを
-  mock で組み立て、`Handle` に Discord の入力を渡して、返した
-  `*command.Response` を比べます。テストのファイルはサブコマンドのファイルと
-  1 対 1 にしています（`add.go` と `add_test.go`）。オプションの検証、エラーの文言、
-  どのプレイリストを表示するかを確かめ、本文の整形は view のゴールデンテストに任せて
-  中身のないプレイリストで確かめます。グラフの PNG は比べられないので、グラフを
-  添付しない場合だけを確かめています。
-- **MCP のツール**（`presentation/mcpserver`）— mock で組み立てたサーバーの
-  `Handler()` を `httptest` で立て、SDK のクライアントで実際にツールを呼びます。
-  SDK が出力スキーマで検証するので、nil のスライスを返すとテストが失敗します。
-  出力は JSON の文字列で書き、`assert.JSONEq` で比べます。エラーのときは出力が
-  `null` で、エラーの文言を `wantError` と比べます。日時を JST で返すことを確かめる
-  ため、テストデータの時刻は UTC で書きます。
-- **通知の Embed**（`presentation/notifier`）— `notifier.New` は `*discordgo.Session` ではなく
-  `ChannelMessageSendEmbed` だけを持つ `notifier.Sender` を受け取ります。テストでは
-  `mocks.MockSender` に、送るはずの宛先と `*discordgo.MessageEmbed` を丸ごと期待します。
-- **リポジトリ**（`infrastructure/persistence`）— Testcontainers（`modules/postgres`）で
-  `docker-compose.yml` と同じ `postgres:14.4-alpine` を 1 つ立て、`persistence.Migrate`
-  でスキーマを作ってから、本物の GORM のリポジトリをテストします。コンテナは
-  `TestMain` がパッケージで 1 つだけ立て、各テストは `newDB(t)` で全てのテーブルを
-  `TRUNCATE ... RESTART IDENTITY` してから使うので、ID は 1 から振られます。GORM の
-  `NowFunc` を `now` に固定しているので、`CreatedAt`・`UpdatedAt` も期待値に書けます。
-  読み出した時刻は UTC にそろえています（`time.Date(..., time.UTC)` と比べられるように）。
-  前提の行は `seed(t, db, ...)`（ID なしで作ると、作った順に 1, 2, ... が振られる）、
-  書き込んだ結果は `rows[T](t, db)`（論理削除も含めて ID の順）で読みます。
-  `go test -short` では DB のテストを飛ばします。
-- **YouTube クライアント**（`infrastructure/youtube`）— `httptest` で偽の YouTube Data API を
-  立て、`option.WithEndpoint` でクライアントを向けます。偽の API はエンドポイント
-  （`/playlists` など）ごとに、呼ばれた順に JSON を返し（`ok(...)` / `failure()`）、受けた
-  リクエストを「/エンドポイント キー=値 ...」の文字列で記録します。返した値に加え、
-  記録したリクエストを `wantRequests` と比べて、50 件ごとの分割・ページング・part を
-  確かめます。エラーは文言（`message(err)`）を `wantErr` と比べます。
-- **ルーター**（`presentation/discord`）— コマンド名からハンドラを引くことを、
-  `mocks.MockCommand` で確かめます。Discord のセッションに触れるその他の部分と、
-  スケジューラ（gocron への登録だけ）、グラフの PNG はテストしていません。
-- **view のテキスト** — `text_test.go` が固定のデータで整形した結果を
-  `view/testdata/*.golden` と比べます（ゴールデンテスト）。文言を変えたら
-  `go test ./internal/presentation/view/ -update` で期待値を書き直し、golden の差分で
-  見た目を確認してください。
-
-### テストの書き方
-
-読むときに頭を使わずに済むよう、全てのテストを同じ形で書きます。
-
-```go
-func TestComputeWrapped(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name     string                   // 何を確かめるか（日本語の文）
-		contents []*library.PlaylistVideo // 入力。名前は引数と同じにする
-		want     *library.Wrapped         // 期待値。複数なら wantXxx
-	}{
-		{
-			name:     "...",
-			contents: ...,
-			want: &library.Wrapped{
-				Year:  2026,
-				Added: 3,
-				...
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			got := library.ComputeWrapped(tt.contents, 2026, jst)
-
-			assert.Equal(t, tt.want, got)
-		})
-	}
-}
-```
-
-- 1 つの関数・メソッドにつき 1 つのテーブル（`[]struct` + `t.Run(tt.name, ...)`）。
-  ケースが 1 つでもこの形にします。
-- テストケースは 1 フィールド 1 行で書きます。フィールドの値の構造体（`want` の
-  `&library.Stats{...}` など）も同じです。スライスやマップの要素は 1 要素 1 行にします
-  （`{Month: ..., Count: 0},` のような表の行として読めるように）。
-- ケースは 1 つのことだけを確かめ、入力は最小限にします。`name` で何を確かめるかを書きます。
-- テスト関数と `t.Run` の中の先頭で `t.Parallel()` を呼びます（paralleltest）。
-  ケース同士で状態を共有しないこと（mock はケースごとに作る）。ただしリポジトリの
-  テスト（`infrastructure/persistence`）は 1 つの DB をテストごとに `TRUNCATE` して
-  使うので並列にせず、`.golangci.yml` で paralleltest の対象から外しています。
-- ループの中身は「呼ぶ → 空行 → `assert`」だけで、`if` などの分岐は書きません。
-  mock を使うテストは、その前に「mock を作る → `tt.setup(m)` → サービスを組み立てる
-  → 空行」を置きます（下の「mock」を参照）。
-- 期待値は加工せず、戻り値の型そのものを書きます（ID の一覧などに変換して比べない）。
-  状態を変えるメソッドは、呼んだ後のレシーバーを `want` に書きます。
-- 比べ方は `assert.Equal(t, tt.want, got)` が基本です。順序が決まらない結果
-  （マップの順に依存するもの）だけ `assert.ElementsMatch`、ランダムな結果は
-  `assert.Len` / `assert.Subset` を使います。エラーは `assert.ErrorIs(t, err, tt.wantErr)`（成功なら `wantErr: nil`）、
-  続けられないエラーは `require` にします。
-- テストデータを作る関数（`video`、`added`、`sub` など）はパッケージごとに
-  `helpers_test.go` に置き、何を返すかをコメントに書きます。
-- 外部のテストパッケージ（`package library_test` など）から、公開された API だけを使います。
-- 「既知の挙動」の節にある挙動は、直さずに今の挙動のまま固定します。
-- view のゴールデンテストだけは例外で、ケース名から golden のファイル名を決めるため
-  `map[string]string`（ケース名 → 整形した結果）のテーブルにしています。
-
-### mock
-
-依存先のインターフェース（リポジトリ、`library.YouTube`、`application.Notifier`、
-`notifier.Sender`）の mock は、mockery（testify の `mock.Mock` を使う）で
-`internal/mocks` に生成します。生成するインターフェースは `.mockery.yml` に並べて
-あります。インターフェースを変えたら `go tool mockery` で生成し直し、生成した
-ファイルは手で編集しません。mockery は `go.mod` の `tool` で版を固定しています。
-
-```go
-tests := []struct {
-	name  string
-	setup func(m *deps) // 呼ばれるはずのメソッドと戻り値
-	want  ...
-}{
-	{
-		name: "...",
-		setup: func(m *deps) {
-			m.subscriptions.EXPECT().FindByGuild(guild.DiscordID("guild")).Return(subs, nil)
-			m.subscriptions.EXPECT().UpdatePickInterval(picking(subscription.PickDaily)).Return(nil)
-		},
-		want: ...,
-	},
-}
-for _, tt := range tests {
-	t.Run(tt.name, func(t *testing.T) {
-		t.Parallel()
-
-		m := newDeps(t)
-		tt.setup(m)
-		s := application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds)
-
-		err := s.SetPickInterval(...)
-
-		assert.ErrorIs(t, err, tt.wantErr)
-	})
-}
-```
-
-- パッケージごとに、使う mock をまとめた `deps` と `newDeps(t)` を `helpers_test.go` に
-  置きます。`mocks.NewMockX(t)` は、期待した呼び出しがなければテストの終わりに失敗させます。
-- `setup` には、そのケースで呼ばれる全てのメソッドを、引数と戻り値つきで書きます。
-  期待していない呼び出しはテストを失敗させます。何も呼ばれないケースは `func(m *deps) {}` です。
-- 引数は型を合わせて書きます（`"PL"` ではなく `library.PlaylistID("PL")`）。mock は
-  型も含めて比べるので、型が違うと一致しません。nil のスライスも型付きで書きます
-  （`[]*library.Video(nil)`）。
-- 同じ引数で何度も呼ばれるメソッドは、何度でも同じ値を返します。回数を確かめたいとき
-  （全件取得を省くかなど）は `.Times(n)` / `.Once()`、順序を確かめたいときは
-  `.NotBefore(...)` を使います。呼ばれても呼ばれなくてもよい期待（複数のケースで共有する
-  mock の準備など）には `.Maybe()` を付けます。順序の決まらない引数（マップから組み立てたスライス）は
-  `sameElements(want)` で比べます。
-- 何度も同じ組み合わせで期待する呼び出し（同期で何も変わらない、ギルドの通知設定、
-  プレイリストの中身など）は `m.expectUnchangedSync(...)`・`m.guildHas(...)`・
-  `m.playlistHas(...)` のような `deps` のメソッドにまとめ、何を期待するかをコメントに書きます。
-- mock が返した値をサービスが書き換えるとき（同期で動画の公開状態を変えるなど）は、
-  その値をケースごとに `video(...)` などで新しく作ります。読むだけのユースケース
-  （`QueryService` や MCP のツール）では、テスト関数の先頭で作った値を使い回して構いません。
-- 定期実行のユースケースのように何も返さないメソッドは、`setup` の期待（保存と送信の
-  引数）だけで確かめ、ループの中に `assert` を書きません。
-
-変更の検証は最低でも `go tool task check`（build・tidy・lint・test）で行ってください
-（Docker が使えないときは `go build ./... && go tool task lint && go tool task test:short` で、DB のテストを
-飛ばしたことを明示します）。
-Discord や YouTube の挙動に関わる変更は実際の認証情報とテスト用サーバーが
-必要です。検証できていない場合は、検証したと述べずにその旨を明示してください。
+Discord や YouTube の実際の挙動は、本物の認証情報とテスト用サーバーがないと確かめられ
+ません。確かめていない場合は、報告にその旨を書きます。
 
 ## 既知の挙動
 
-いずれも既存の挙動です。ついでに「修正」しないでください。ただし把握しておく
-必要があります。
+いずれも既存の挙動で、テストもこの挙動のまま固定しています。頼まれない限り直さず、
+関係するときは把握したうえで作業します。
 
 - `subscription.Repository` の `FindAll` と `FindByGuild` は、結果が空のときに空の
   スライスではなく `domain.ErrDBRecordNotFound` を返します。そのため、どこにも
   プレイリストが登録されていない状態では、スケジューラが 5 分ごとに
   `Could not notify cause: record not found` を出力し続けます。
 - 上記の影響で、プレイリストを 1 つも持たないギルドでは
-  `application.GuildService.Unregister` が途中で return するため、`GuildDelete` の際に
-  ギルドのレコードが削除されません。
-- `add.go` と `delete.go` はエラーを `switch err { case ... }`（完全一致）で
-  比較していますが、`list.go` は `errors.Is` を使っています。前者では
-  ラップされたエラーが `default` に流れます。
-- `subscription.Repository.DeleteAll` は通知設定を論理削除（`gorm.Model`）します。
-  `playlist_items` と `videos` は他のサーバーと共有しているので削除しません。
-- `playlists.guild_id` の外部キー `fk_guilds_playlists` は、以前は GORM が
-  関連付けから導出していました。集約を ID で参照するようにしたため、
-  `persistence.Migrate` が明示的に作成します。
-- Dockerfile は `go run` を実行します（バイナリのビルドもマルチステージ
-  ビルドもしません）。また `docker-compose.yml` はソースをコンテナに
-  バインドマウントします。
+  `GuildService.Unregister` が途中で return し、`GuildDelete` の際にギルドの
+  レコードが削除されません。
+- `add.go` と `delete.go` はエラーを `switch err`（完全一致、`//nolint:errorlint`）で
+  比較し、`list.go` は `errors.Is` を使っています。前者ではラップされたエラーが
+  `default` に流れます。
+- `subscription.Repository.DeleteAll` は通知設定を論理削除します。`playlist_items` と
+  `videos` は他のサーバーと共有しているので削除しません。
+- `playlists.guild_id` の外部キー `fk_guilds_playlists` は、集約を ID で参照するように
+  したため `persistence.Migrate` が明示的に作成します。
+- Dockerfile は `go run` を実行し（バイナリのビルドはしない）、`docker-compose.yml` は
+  ソースをコンテナにバインドマウントします。
