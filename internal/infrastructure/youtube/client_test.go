@@ -429,6 +429,25 @@ func TestFetchLiveVideos(t *testing.T) {
 				"/channels id=UC1,UC2 maxResults=2 part=id,snippet",
 			},
 		},
+		{
+			name: "同じ動画を 2 回指定しても、1 回だけ取得する",
+			ids:  []library.VideoID{"a", "a"},
+			responses: map[string][]response{
+				"/videos": {ok(`{"items": [
+					{"id": "a", "snippet": {"channelId": "UC1", "channelTitle": "YOASOBI"}, "statistics": {"viewCount": "100"}}
+				]}`)},
+				"/channels": {ok(`{"items": [
+					{"id": "UC1", "snippet": {}}
+				]}`)},
+			},
+			want: map[library.VideoID]*library.LiveVideo{
+				"a": {ChannelName: "YOASOBI", ChannelIcon: "", Views: 100},
+			},
+			wantRequests: []string{
+				"/videos id=a maxResults=1 part=id,snippet,statistics",
+				"/channels id=UC1 maxResults=1 part=id,snippet",
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -131,31 +131,9 @@ func date(year int, month time.Month, day, hour int) time.Time {
 	return time.Date(year, month, day, hour, 0, 0, 0, jst)
 }
 
-// expectUnchangedSync は、保存済みの中身から何も変わっていないプレイリストを初めて同期する
-// ときの呼び出しを期待する。YouTube は items と同じアイテムを、videos の公開状態で返す。
-// FetchPlaylistMetas は全てのプレイリストをまとめて取得するので、ここでは期待しない。
-func (m *deps) expectUnchangedSync(playlistID library.PlaylistID, items []*library.PlaylistItem, videos map[library.VideoID]*library.Video) {
-	fetchedItems := make([]*library.FetchedItem, 0, len(items))
-	for _, item := range items {
-		fetchedItems = append(fetchedItems, fetched(item.ItemID, item.VideoYoutubeID, item.AddedAt, videos[item.VideoYoutubeID].PrivacyStatus))
-	}
-
-	m.playlists.EXPECT().Find(playlistID).Return(playlist(playlistID, items...), nil)
-	m.youtube.EXPECT().FetchPlaylistItems(playlistID).Return(fetchedItems, nil)
-	m.videos.EXPECT().FindInPlaylists(playlistID).Return(videos, nil)
-	m.videos.EXPECT().Find([]library.VideoID(nil)).Return(map[library.VideoID]*library.Video{}, nil)
-	m.playlists.EXPECT().Save(playlist(playlistID, items...)).Return(nil)
-	m.videos.EXPECT().Save([]*library.Video(nil)).Return(nil)
-}
-
 // playlist は items を持つプレイリストを返す。
 func playlist(playlistID library.PlaylistID, items ...*library.PlaylistItem) *library.Playlist {
 	return &library.Playlist{YoutubeID: playlistID, Items: items}
-}
-
-// meta は YouTube から取得したプレイリストの情報を返す。
-func meta(playlistID library.PlaylistID, title string, itemCount int64) *library.PlaylistMeta {
-	return &library.PlaylistMeta{YoutubeID: playlistID, Title: title, ItemCount: itemCount}
 }
 
 // expectPick は、プレイリストの唯一の動画「a」を s のピックとして投稿するときの呼び出しを期待する。
@@ -174,26 +152,65 @@ func (m *deps) expectPick(s *subscription.Subscription) {
 	}, map[library.VideoID]*library.LiveVideo{}).Return(nil)
 }
 
+// synced は、items を持つプレイリスト playlistID を同期し、YouTube 上のタイトルが title
+// だったイベントを返す。videos はそのアイテムの動画。
+func synced(playlistID library.PlaylistID, title string, items []*library.PlaylistItem, videos map[library.VideoID]*library.Video) *library.PlaylistSynced {
+	return &library.PlaylistSynced{
+		Snapshot: &library.Snapshot{Playlist: playlist(playlistID, items...), Title: title, Videos: videos},
+	}
+}
+
+// published は、テストの EventPublisher に発行されたイベントを種類ごとに記録する。
+type published struct {
+	hidden  []*library.VideoHidden
+	synced  []*library.PlaylistSynced
+	reached []*library.MilestoneReached
+}
+
+// record は、p に発行されたイベントを記録するハンドラを登録し、その記録を返す。
+func record(p *application.EventPublisher) *published {
+	got := &published{}
+
+	application.Subscribe(p, func(events []*library.VideoHidden) { got.hidden = append(got.hidden, events...) })
+	application.Subscribe(p, func(events []*library.PlaylistSynced) { got.synced = append(got.synced, events...) })
+	application.Subscribe(p, func(events []*library.MilestoneReached) { got.reached = append(got.reached, events...) })
+
+	return got
+}
+
 // newQueryService は mock で QueryService を組み立てる。
 func newQueryService(m *deps) *application.QueryService {
-	return application.NewQueryService(m.subscriptions, newLibraryService(m, clock), m.categories, m.channels)
+	return application.NewQueryService(m.subscriptions, library.NewCatalog(m.playlists, m.videos), m.snapshots, m.categories, m.channels, jst, clock)
 }
 
 // newNotificationService は mock で NotificationService を組み立てる。cmd/bot/main.go と
-// 同じく、通知のハンドラにドメインイベントを購読させる。now は現在時刻を返す。
+// 同じく、新着の通知のハンドラに VideosAdded を購読させる。now は現在時刻を返す。
 func newNotificationService(m *deps, now func() time.Time) *application.NotificationService {
-	ls := newLibraryService(m, now)
-
 	events := application.NewEventPublisher()
-	h := application.NewNotificationHandlers(m.subscriptions, ls, m.notifier)
-	application.Subscribe(events, h.NotifyHiddenVideos)
-	application.Subscribe(events, h.NotifyMilestones)
-	application.Subscribe(events, h.NotifyNewVideos)
+	application.Subscribe(events, newNotificationHandlers(m).NotifyNewVideos)
 
-	return application.NewNotificationService(m.subscriptions, ls, m.notifier, events, jst, now)
+	return application.NewNotificationService(m.subscriptions, library.NewCatalog(m.playlists, m.videos), m.youtube, m.notifier, events, jst, now)
 }
 
-// newLibraryService は mock で LibraryService を組み立てる。now は現在時刻を返す。
-func newLibraryService(m *deps, now func() time.Time) *application.LibraryService {
-	return application.NewLibraryService(m.youtube, m.playlists, m.videos, m.channels, m.categories, m.snapshots, jst, now)
+// newNotificationHandlers は mock で NotificationHandlers を組み立てる。
+func newNotificationHandlers(m *deps) *application.NotificationHandlers {
+	return application.NewNotificationHandlers(m.subscriptions, library.NewCatalog(m.playlists, m.videos), m.youtube, m.notifier)
+}
+
+// newLibraryService は mock で LibraryService を組み立てる。events は同期で起きたことを
+// 発行する先で、now は現在時刻を返す。
+func newLibraryService(m *deps, events *application.EventPublisher, now func() time.Time) *application.LibraryService {
+	return application.NewLibraryService(
+		m.youtube,
+		m.subscriptions,
+		m.playlists,
+		m.videos,
+		m.channels,
+		m.categories,
+		m.snapshots,
+		library.NewCatalog(m.playlists, m.videos),
+		events,
+		jst,
+		now,
+	)
 }

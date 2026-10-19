@@ -73,7 +73,19 @@ func newDeps(t *testing.T) *deps {
 func newCommand(m *deps) *playlist_notifier.PlaylistNotifier {
 	return playlist_notifier.NewPlaylistNotifier(
 		application.NewSubscriptionService(m.youtube, m.subscriptions, m.guilds, clock),
-		application.NewLibraryService(m.youtube, m.playlists, m.videos, m.channels, m.categories, m.snapshots, jst, clock),
+		application.NewLibraryService(
+			m.youtube,
+			m.subscriptions,
+			m.playlists,
+			m.videos,
+			m.channels,
+			m.categories,
+			m.snapshots,
+			library.NewCatalog(m.playlists, m.videos),
+			application.NewEventPublisher(),
+			jst,
+			clock,
+		),
 		jst,
 		clock,
 	)

@@ -378,7 +378,7 @@ erDiagram
 | `/playlist-notifier add` | コマンド | | 作成 | | |
 | `/playlist-notifier delete` | コマンド | | 論理削除 | | |
 | `/playlist-notifier pick` | コマンド | | `pick_interval` を更新 | | |
-| `NotifyUpdates`（新着の通知） | 5 分 | | `notified_until`・`title` を更新 | 追加・物理削除 | 作成・公開状態と詳細を更新 |
+| `Sync`（同期と新着の通知） | 5 分 | | `notified_until`・`title` を更新 | 追加・物理削除 | 作成・公開状態と詳細を更新 |
 | `RefreshVideos`（再生数の更新） | 6 時間 | | | | 詳細・節目を更新（`video_snapshots` に追記） |
 | `PostPicks` / `PostWrapped` | 毎日 / 年末 | | | | （読むだけ） |
 | `RefreshCategories`（カテゴリ名の更新） | 起動時と 1 日 | | | | （`categories` を上書き） |
@@ -427,10 +427,10 @@ stateDiagram-v2
     保存済み --> [*]: 全件取得で YouTube 側から消えている（物理削除）
 ```
 
-- 5 分ごとの `NotifyUpdates` が、どこかのサーバーが登録しているプレイリストを同期します（`LibraryService.Sync`）。
+- 5 分ごとの `LibraryService.Sync` が、どこかのサーバーが登録しているプレイリストを同期します。同期の結果を受けて、`NotificationService.TakeNewVideos` が新着を通知します。
 - **全件取得**は、次のどちらかのときだけ行います。それ以外は保存済みのアイテムをそのまま使います。
   - YouTube 上のアイテム数が前回と変わった
-  - 前回の全件取得から 1 時間（`FULL_SYNC_INTERVAL`）経った
+  - 前回の全件取得から 1 時間（`library.FULL_SYNC_INTERVAL`）経った
 - 全件取得の結果と保存済みのアイテムを `item_id` で突き合わせ、増えたものを追加し、消えたものを**物理削除**します（`library.Playlist.Reconcile`）。
 - 同じ動画をいったん外して入れ直すと、YouTube 上で別のアイテム（別の `item_id`、新しい `added_at`）になるので、新しい行として追加され、新着として通知されます。
 - 「いつ全件取得したか」はメモリ上にしかないので、**再起動直後は全件取得**します。

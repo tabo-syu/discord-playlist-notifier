@@ -9,15 +9,17 @@ import (
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 )
 
-// NotificationService は定期実行するユースケースを持つ。返す相手がいないので、
-// 失敗はエラーとして返さずログに出す。
+// NotificationService は通知のユースケースを持つ。返す相手がいないので、失敗は
+// エラーとして返さずログに出す。
 //
-// 動画の非公開・節目・新着はドメインイベントとして events に発行し、通知は
-// それを購読したハンドラ（NotificationHandlers）が送る。定期のまとめとピックは
-// ドメインで起きたことではなく、時刻が来たら投稿するものなので、ここから直接送る。
+// 新着は、LibraryService が発行した同期の結果（PlaylistSynced）を TakeNewVideos で
+// 受け取り、通知設定を進めて VideosAdded を発行する。通知はそれを購読したハンドラ
+// （NotificationHandlers）が送る。定期のまとめとピックはドメインで起きたことでは
+// なく、時刻が来たら投稿するものなので、スケジューラから呼ばれてここから直接送る。
 type NotificationService struct {
 	subscriptions subscription.Repository
-	library       *LibraryService
+	catalog       *library.Catalog
+	youtube       library.YouTube
 	notifier      Notifier
 	events        *EventPublisher
 	// 投稿の基準にする日付や年のタイムゾーン
@@ -26,37 +28,28 @@ type NotificationService struct {
 	now func() time.Time
 }
 
-func NewNotificationService(s subscription.Repository, l *LibraryService, n Notifier, e *EventPublisher, loc *time.Location, now func() time.Time) *NotificationService {
-	return &NotificationService{s, l, n, e, loc, now}
+func NewNotificationService(s subscription.Repository, c *library.Catalog, y library.YouTube, n Notifier, e *EventPublisher, loc *time.Location, now func() time.Time) *NotificationService {
+	return &NotificationService{s, c, y, n, e, loc, now}
 }
 
-// NotifyUpdates は通知登録された全てのプレイリストを同期し、非公開・削除に
-// なった動画と、前回の通知以降に追加された動画のイベントを発行する。
+// TakeNewVideos は PlaylistSynced のハンドラで、同期したプレイリストの通知設定ごとに
+// 前回の通知以降に追加された動画を選び、基準時刻を進めて保存してから、VideosAdded を
+// 発行する。
 //
-// 新着のイベントは、通知設定の基準時刻を保存できた後にだけ発行する。全ての通知設定を
-// 保存してから発行するので、送信は必ず保存の後になる。通知を取りこぼすことは
-// あっても、二重には送らない。
-func (s *NotificationService) NotifyUpdates() {
+// 全ての通知設定を保存してから発行するので、送信は必ず保存の後になる。通知を
+// 取りこぼすことはあっても、二重には送らない。
+func (s *NotificationService) TakeNewVideos(events []*library.PlaylistSynced) {
+	snapshots := map[library.PlaylistID]*library.Snapshot{}
+	for _, e := range events {
+		snapshots[e.Snapshot.YoutubeID] = e.Snapshot
+	}
+
 	subscriptions, err := s.subscriptions.FindAll()
 	if err != nil {
-		log.Println("Could not notify cause:", err)
+		log.Println("Could not take new videos cause:", err)
 
 		return
 	}
-
-	var ids []library.PlaylistID
-	for _, sub := range subscriptions {
-		ids = append(ids, sub.YoutubeID)
-	}
-
-	snapshots, hidden, err := s.library.Sync(ids)
-	if err != nil {
-		log.Println("Could not notify cause:", err)
-
-		return
-	}
-	// 動画は Sync の中で保存済み
-	Publish(s.events, hidden)
 
 	now := s.now()
 
@@ -98,19 +91,6 @@ func (s *NotificationService) NotifyUpdates() {
 	Publish(s.events, saved)
 }
 
-// RefreshVideos は保存済みの全動画の詳細を更新し、再生数の新しい節目に
-// 達した動画のイベントを発行する。
-func (s *NotificationService) RefreshVideos() {
-	reached, err := s.library.RefreshVideos()
-	if err != nil {
-		log.Println("Could not refresh videos cause:", err)
-
-		return
-	}
-	// 動画は RefreshVideos の中で保存済み
-	Publish(s.events, reached)
-}
-
 // PostWrapped は、今年動画が追加された通知登録済みの全プレイリストについて、
 // その年のまとめを投稿する。
 func (s *NotificationService) PostWrapped() {
@@ -127,14 +107,15 @@ func (s *NotificationService) PostWrapped() {
 
 	year := s.now().In(s.location).Year()
 	for _, sub := range subscriptions {
-		w, err := s.library.Wrapped(sub.YoutubeID, year)
+		contents, err := s.catalog.Contents([]library.PlaylistID{sub.YoutubeID})
 		if err != nil {
 			log.Println("Could not load playlist:", sub.YoutubeID, "cause:", err)
 
 			continue
 		}
 
-		if w.Added == 0 {
+		w := library.ComputeWrapped(contents, year, s.location)
+		if w.Empty() {
 			continue
 		}
 
@@ -166,13 +147,14 @@ func (s *NotificationService) PostPicks() {
 			continue
 		}
 
-		picked, err := s.library.RandomVideos([]library.PlaylistID{sub.YoutubeID}, 1)
+		contents, err := s.catalog.Contents([]library.PlaylistID{sub.YoutubeID})
 		if err != nil {
 			log.Println("Could not pick a video for playlist:", sub.YoutubeID, "cause:", err)
 
 			continue
 		}
 
+		picked := library.PickRandom(contents, 1)
 		if len(picked) == 0 {
 			log.Println("No video to pick for playlist:", sub.YoutubeID)
 
@@ -180,7 +162,7 @@ func (s *NotificationService) PostPicks() {
 		}
 
 		// チャンネルは保存していないのでここで取得する。失敗したらチャンネルなしで送る。
-		live, err := s.library.LiveVideos([]library.VideoID{picked[0].Video.YoutubeID})
+		live, err := s.youtube.FetchLiveVideos([]library.VideoID{picked[0].Video.YoutubeID})
 		if err != nil {
 			log.Println("Could not fetch the channel for pick cause:", err)
 		}

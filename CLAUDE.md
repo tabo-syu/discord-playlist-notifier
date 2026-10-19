@@ -67,10 +67,12 @@ internal/mocks/              mockery が生成した mock（手で編集しな�
 
 1. **対話的な経路** — Discord のイベント → `presentation/discord` → `GuildService`・
    `SubscriptionService`・`LibraryService` → リポジトリ
-2. **定期実行の経路** — `presentation/scheduler` → `NotificationService` → リポジトリと
-   `LibraryService` → 起きたこと（ドメインイベント）を `EventPublisher` に発行 →
-   `NotificationHandlers` → `application.Notifier`（実装は `presentation/notifier`）が Discord に投稿。
-   年末のまとめとピックはイベントではなく、`NotificationService` が直接 `Notifier` を呼ぶ
+2. **定期実行の経路** — `presentation/scheduler` → `LibraryService`（`Sync`・`RefreshVideos`）が
+   保存した後に、起きたこと（ドメインイベント）を `EventPublisher` に発行 → 購読したハンドラ。
+   同期の結果（`PlaylistSynced`）は `NotificationService.TakeNewVideos` が受けて通知設定を進め、
+   `VideosAdded` を発行する。非公開・節目・新着は `NotificationHandlers` →
+   `application.Notifier`（実装は `presentation/notifier`）が Discord に投稿。
+   年末のまとめとピックはイベントではなく、スケジューラが呼ぶ `NotificationService` が直接 `Notifier` を呼ぶ
 3. **MCP の経路** — 外部のクライアント → `presentation/mcpserver` → `QueryService`（読み取りのみ）
 
 ### ドメインモデル
@@ -115,6 +117,13 @@ internal/mocks/              mockery が生成した mock（手で編集しな�
   `application.Publish` で配ります。ハンドラは配られたイベントをまとめて受け取り、要るものは
   自分で読みます。通知の種類を足すときは、`NotificationHandlers` にハンドラを足して
   `cmd/bot/main.go` で `application.Subscribe` します。判断の経緯は issue #73 にあります。
+  同期の結果（`library.PlaylistSynced`）だけは、複数の集約から組み立てるので、集約ではなく
+  `LibraryService.Sync` がプレイリストと動画を保存した後に発行します（issue #74）。
+- アプリケーションサービスは「読む → ドメインに判断させる → 保存する → イベントを配る」の順序だけを
+  持ち、業務の判断（全件取得するか `library.FullSync.Due`、見せてよい動画か `Catalog.FindVideo`、
+  まとめるものがあるか `Wrapped.Empty` など）はドメインに置きます。アプリケーションサービスは
+  互いを呼びません。読み取りの共通部分はドメインサービスの `library.Catalog`（`Playlist` と `Video` を
+  またいで読む）を共有し、書き込みの連鎖はドメインイベントでつなぎます（issue #74）。
 
 ### 依存の組み立て
 

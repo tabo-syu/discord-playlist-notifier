@@ -16,6 +16,7 @@ type YouTube interface {
 	// 返す。
 	FetchCategories() ([]*Category, error)
 	// FetchLiveVideos は指定した動画のチャンネルと現在の再生数を、動画 ID を
-	// キーにして返す。見られない動画は結果に含まれない。
+	// キーにして返す。見られない動画は結果に含まれない。同じ ID を 2 回指定しても
+	// 1 回だけ取得する。
 	FetchLiveVideos(ids []VideoID) (map[VideoID]*LiveVideo, error)
 }

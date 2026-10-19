@@ -1,10 +1,32 @@
 package library_test
 
 import (
+	"errors"
+	"testing"
 	"time"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/mocks"
 )
+
+// errMock は mock に失敗させるときに返すエラー。
+var errMock = errors.New("mock error")
+
+// deps は Catalog が使うリポジトリの mock をまとめる。各テストケースの setup で、
+// 呼ばれるはずのメソッドと、その戻り値を指定する。
+type deps struct {
+	playlists *mocks.MockPlaylistRepository
+	videos    *mocks.MockVideoRepository
+}
+
+func newDeps(t *testing.T) *deps {
+	t.Helper()
+
+	return &deps{
+		playlists: mocks.NewMockPlaylistRepository(t),
+		videos:    mocks.NewMockVideoRepository(t),
+	}
+}
 
 var jst = time.FixedZone("Asia/Tokyo", 9*60*60)
 
@@ -73,4 +95,19 @@ func recorded(hours int, views library.ViewCount) *library.VideoSnapshot {
 // hoursLater は 2026-10-01 0 時 (UTC) から hours 時間後の時刻を返す。
 func hoursLater(hours int) time.Time {
 	return time.Date(2026, time.October, 1, 0, 0, 0, 0, time.UTC).Add(time.Duration(hours) * time.Hour)
+}
+
+// listed はプレイリスト playlistID の、hoursLater(hours) に追加された保存済みのアイテムを返す。
+func listed(playlistID library.PlaylistID, itemID, videoID string, hours int) *library.PlaylistItem {
+	return &library.PlaylistItem{
+		PlaylistYoutubeID: playlistID,
+		ItemID:            library.ItemID(itemID),
+		VideoYoutubeID:    library.VideoID(videoID),
+		AddedAt:           hoursLater(hours),
+	}
+}
+
+// playlistOf はプレイリスト id を、指定したアイテムを持つ形で返す。
+func playlistOf(id library.PlaylistID, items ...*library.PlaylistItem) *library.Playlist {
+	return &library.Playlist{YoutubeID: id, Items: items}
 }

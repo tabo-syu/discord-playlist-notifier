@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/env"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/infrastructure/persistence"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/infrastructure/youtube"
@@ -81,19 +82,23 @@ func main() {
 	car := persistence.NewCategoryRepository(db)
 	vsr := persistence.NewVideoSnapshotRepository(db)
 
+	// アプリケーションサービスは互いを呼ばず、読み取りの共通部分はこのドメインサービスを共有する
+	catalog := library.NewCatalog(pr, vr)
+	events := application.NewEventPublisher()
+
 	ss := application.NewSubscriptionService(yc, sbr, gr, time.Now)
 	gs := application.NewGuildService(gr, sbr)
-	ls := application.NewLibraryService(yc, pr, vr, cr, car, vsr, location, time.Now)
+	ls := application.NewLibraryService(yc, sbr, pr, vr, cr, car, vsr, catalog, events, location, time.Now)
 	nt := notifier.New(dc, location)
+	ns := application.NewNotificationService(sbr, catalog, yc, nt, events, location, time.Now)
 
 	// ドメインイベントのハンドラ。通知の種類を足すときは、ここに登録を足す
-	events := application.NewEventPublisher()
-	nh := application.NewNotificationHandlers(sbr, ls, nt)
+	nh := application.NewNotificationHandlers(sbr, catalog, yc, nt)
 	application.Subscribe(events, nh.NotifyHiddenVideos)
 	application.Subscribe(events, nh.NotifyMilestones)
 	application.Subscribe(events, nh.NotifyNewVideos)
-
-	ns := application.NewNotificationService(sbr, ls, nt, events, location, time.Now)
+	// 同期の結果から新着を選び、通知設定を進める（VideosAdded を発行する）
+	application.Subscribe(events, ns.TakeNewVideos)
 
 	commands := []command.Command{playlist_notifier.NewPlaylistNotifier(ss, ls, location, time.Now)}
 

@@ -85,21 +85,13 @@ func (s *Subscription) TakeNewVideos(latest *library.Snapshot, at time.Time) *Vi
 		return added[i].Item.AddedAt.Before(added[j].Item.AddedAt)
 	})
 
-	s.Rename(latest.Title)
-	s.MarkNotified(at)
+	// 次の回は、この時刻以降に追加された動画を新着にする。基準時刻を変えるのは
+	// ここだけで、過去に戻すと、その時刻以降の動画をもう一度通知する。
+	s.NotifiedUntil = at
+	// タイトルは YouTube 上のものに合わせる
+	s.Title = latest.Title
 
 	return &VideosAdded{ChannelID: s.SendChannelID, PlaylistID: s.YoutubeID, PlaylistTitle: s.Title, Videos: added}
-}
-
-// MarkNotified は新着動画の通知の基準時刻を進める。過去に戻すと、
-// その時刻以降に追加された動画をもう一度通知する。
-func (s *Subscription) MarkNotified(at time.Time) {
-	s.NotifiedUntil = at
-}
-
-// Rename は YouTube 上のプレイリストのタイトルに合わせる。
-func (s *Subscription) Rename(title string) {
-	s.Title = title
 }
 
 func (s *Subscription) ChangePickInterval(interval PickInterval) {

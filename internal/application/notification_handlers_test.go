@@ -3,7 +3,6 @@ package application_test
 import (
 	"testing"
 
-	"github.com/tabo-syu/discord-playlist-notifier/internal/application"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/notification"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
@@ -91,7 +90,7 @@ func TestNotificationHandlersNotifyHiddenVideos(t *testing.T) {
 
 			m := newDeps(t)
 			tt.setup(m)
-			h := application.NewNotificationHandlers(m.subscriptions, newLibraryService(m, clock), m.notifier)
+			h := newNotificationHandlers(m)
 
 			h.NotifyHiddenVideos(tt.events)
 		})
@@ -143,7 +142,7 @@ func TestNotificationHandlersNotifyMilestones(t *testing.T) {
 
 			m := newDeps(t)
 			tt.setup(m)
-			h := application.NewNotificationHandlers(m.subscriptions, newLibraryService(m, clock), m.notifier)
+			h := newNotificationHandlers(m)
 
 			h.NotifyMilestones(tt.events)
 		})
@@ -199,6 +198,30 @@ func TestNotificationHandlersNotifyNewVideos(t *testing.T) {
 				}, map[library.VideoID]*library.LiveVideo{}).Return(nil)
 			},
 		},
+		{
+			name: "チャンネルを取得できなくても、チャンネルなしで送る",
+			events: []*subscription.VideosAdded{
+				{
+					ChannelID:     "ch",
+					PlaylistID:    "PL",
+					PlaylistTitle: "PL",
+					Videos: []*library.PlaylistVideo{
+						{PlaylistID: "PL", Item: item("PL", "1", "a", hoursAgo(1)), Video: video("a", library.PrivacyPublic, 0, 0)},
+					},
+				},
+			},
+			setup: func(m *deps) {
+				m.youtube.EXPECT().FetchLiveVideos([]library.VideoID{"a"}).Return(nil, errMock)
+				m.notifier.EXPECT().NotifyNewVideos(&subscription.VideosAdded{
+					ChannelID:     "ch",
+					PlaylistID:    "PL",
+					PlaylistTitle: "PL",
+					Videos: []*library.PlaylistVideo{
+						{PlaylistID: "PL", Item: item("PL", "1", "a", hoursAgo(1)), Video: video("a", library.PrivacyPublic, 0, 0)},
+					},
+				}, map[library.VideoID]*library.LiveVideo(nil)).Return(nil)
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -206,7 +229,7 @@ func TestNotificationHandlersNotifyNewVideos(t *testing.T) {
 
 			m := newDeps(t)
 			tt.setup(m)
-			h := application.NewNotificationHandlers(m.subscriptions, newLibraryService(m, clock), m.notifier)
+			h := newNotificationHandlers(m)
 
 			h.NotifyNewVideos(tt.events)
 		})

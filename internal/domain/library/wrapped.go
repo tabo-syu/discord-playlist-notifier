@@ -16,6 +16,12 @@ type Wrapped struct {
 	Last      *PlaylistVideo
 }
 
+// Empty は、その年にアイテムが 1 つも追加されず、まとめるものがないかを返す。
+// 定期のまとめは、まとめるものがなければ投稿しない。
+func (w *Wrapped) Empty() bool {
+	return w.Added == 0
+}
+
 // ComputeWrapped は指定した年（loc での年）に追加されたアイテムを集計する。
 // contents は Contents が返すとおり、追加された時刻の順に並んでいること。
 func ComputeWrapped(contents []*PlaylistVideo, year int, loc *time.Location) *Wrapped {

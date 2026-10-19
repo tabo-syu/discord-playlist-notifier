@@ -25,8 +25,10 @@ func (s *scheduler) Start() error {
 	var errs []error
 
 	add := func(_ *gocron.Job, err error) { errs = append(errs, err) }
-	add(s.scheduler.Every(5).Minutes().Do(guard("Notify", s.notification.NotifyUpdates)))
-	add(s.scheduler.Every(6).Hours().WaitForSchedule().Do(guard("RefreshVideos", s.notification.RefreshVideos)))
+	// 同期と再生数の更新で起きたこと（新着・非公開・節目）は、ドメインイベントとして
+	// 購読したハンドラ（cmd/bot/main.go で登録）が通知する
+	add(s.scheduler.Every(5).Minutes().Do(guard("Notify", s.library.Sync)))
+	add(s.scheduler.Every(6).Hours().WaitForSchedule().Do(guard("RefreshVideos", s.library.RefreshVideos)))
 	add(s.scheduler.Cron(WRAPPED_CRON).Do(guard("Wrapped", s.notification.PostWrapped)))
 	add(s.scheduler.Every(1).Day().At(PICK_TIME).Do(guard("Pick", s.notification.PostPicks)))
 	// 新しい DB でも名前がそろうように、起動直後にも実行する

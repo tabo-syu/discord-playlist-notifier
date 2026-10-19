@@ -233,8 +233,8 @@ func (c *client) FetchLiveVideos(ids []library.VideoID) (map[library.VideoID]*li
 	channelOf := map[library.VideoID]string{}
 
 	var channelIds []string
-
-	for _, batch := range batches(ids) {
+	// 同じ動画を 2 回送ると、1 回に送れる 50 件の枠を無駄にする
+	for _, batch := range batches(unique(ids)) {
 		res, err := c.youtube.Videos.List([]string{"id", "snippet", "statistics"}).
 			MaxResults(int64(len(batch))).
 			Id(batch...).Do()
@@ -334,10 +334,10 @@ func channelIcon(c *ytapi.Channel) string {
 	return c.Snippet.Thumbnails.Default.Url
 }
 
-func unique(ids []string) []string {
-	seen := map[string]bool{}
+func unique[T comparable](ids []T) []T {
+	seen := map[T]bool{}
 
-	var result []string
+	var result []T
 
 	for _, id := range ids {
 		if !seen[id] {
