@@ -68,7 +68,9 @@ internal/mocks/              mockery が生成した mock（手で編集しな�
 1. **対話的な経路** — Discord のイベント → `presentation/discord` → `GuildService`・
    `SubscriptionService`・`LibraryService` → リポジトリ
 2. **定期実行の経路** — `presentation/scheduler` → `NotificationService` → リポジトリと
-   `LibraryService` → `application.Notifier`（実装は `presentation/notifier`）が Discord に投稿
+   `LibraryService` → 起きたこと（ドメインイベント）を `EventPublisher` に発行 →
+   `NotificationHandlers` → `application.Notifier`（実装は `presentation/notifier`）が Discord に投稿。
+   年末のまとめとピックはイベントではなく、`NotificationService` が直接 `Notifier` を呼ぶ
 3. **MCP の経路** — 外部のクライアント → `presentation/mcpserver` → `QueryService`（読み取りのみ）
 
 ### ドメインモデル
@@ -102,16 +104,23 @@ internal/mocks/              mockery が生成した mock（手で編集しな�
   識別子として使う `Guild` と `Subscription` だけで、`library` のモデルは YouTube の ID で識別します。
   監査用の時刻（`created_at`・`updated_at`）と論理削除（`deleted_at`）はレコードにだけあります。
 - フィールドは公開していますが、状態は直接代入せず、メソッド
-  （`Subscription.MarkNotified`、`Video.ChangePrivacy` など）を通して変えます。
+  （`Subscription.TakeNewVideos`、`Video.ChangePrivacy` など）を通して変えます。
   動画の詳細を取得済みかは `Video.DetailsFetched`（`ApplyDetails` が立てる）で表し、タイトルが
   空かどうかでは判断しません。
 - リポジトリと外部サービスのインターフェース（`library.YouTube`）は各集約の
   パッケージで宣言します。
+- ドメインで起きたことは、過去形の名前のドメインイベント（`library.VideoHidden`・
+  `library.MilestoneReached`・`subscription.VideosAdded`）で表します。集約のメソッドが戻り値で
+  返し（集約には溜めない）、アプリケーションサービスがその集約を**保存できた後に**
+  `application.Publish` で配ります。ハンドラは配られたイベントをまとめて受け取り、要るものは
+  自分で読みます。通知の種類を足すときは、`NotificationHandlers` にハンドラを足して
+  `cmd/bot/main.go` で `application.Subscribe` します。判断の経緯は issue #73 にあります。
 
 ### 依存の組み立て
 
 依存を組み立てるのは `cmd/bot/main.go` と `cmd/mcp/main.go` だけです。DI コンテナはありません。
-新しい依存もここに追加します。
+新しい依存もここに追加します。ドメインイベントのハンドラの登録（`application.Subscribe`）も
+`cmd/bot/main.go` で行います。
 
 - スキーマを更新するのは `cmd/migrate` だけで、ボットと MCP サーバーは更新しません。
   compose では一度だけ動く `migrate` が `db` の healthcheck を待って実行し、`bot` と `mcp` は

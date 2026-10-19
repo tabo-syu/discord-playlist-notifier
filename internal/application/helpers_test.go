@@ -179,6 +179,20 @@ func newQueryService(m *deps) *application.QueryService {
 	return application.NewQueryService(m.subscriptions, newLibraryService(m, clock), m.categories, m.channels)
 }
 
+// newNotificationService は mock で NotificationService を組み立てる。cmd/bot/main.go と
+// 同じく、通知のハンドラにドメインイベントを購読させる。now は現在時刻を返す。
+func newNotificationService(m *deps, now func() time.Time) *application.NotificationService {
+	ls := newLibraryService(m, now)
+
+	events := application.NewEventPublisher()
+	h := application.NewNotificationHandlers(m.subscriptions, ls, m.notifier)
+	application.Subscribe(events, h.NotifyHiddenVideos)
+	application.Subscribe(events, h.NotifyMilestones)
+	application.Subscribe(events, h.NotifyNewVideos)
+
+	return application.NewNotificationService(m.subscriptions, ls, m.notifier, events, jst, now)
+}
+
 // newLibraryService は mock で LibraryService を組み立てる。now は現在時刻を返す。
 func newLibraryService(m *deps, now func() time.Time) *application.LibraryService {
 	return application.NewLibraryService(m.youtube, m.playlists, m.videos, m.channels, m.categories, m.snapshots, jst, now)

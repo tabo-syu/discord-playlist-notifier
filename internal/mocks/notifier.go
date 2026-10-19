@@ -156,16 +156,16 @@ func (_c *MockNotifier_NotifyMilestone_Call) RunAndReturn(run func(notice *notif
 }
 
 // NotifyNewVideos provides a mock function for the type MockNotifier
-func (_mock *MockNotifier) NotifyNewVideos(news *notification.NewVideos, live map[library.VideoID]*library.LiveVideo) error {
-	ret := _mock.Called(news, live)
+func (_mock *MockNotifier) NotifyNewVideos(added *subscription.VideosAdded, live map[library.VideoID]*library.LiveVideo) error {
+	ret := _mock.Called(added, live)
 
 	if len(ret) == 0 {
 		panic("no return value specified for NotifyNewVideos")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(*notification.NewVideos, map[library.VideoID]*library.LiveVideo) error); ok {
-		r0 = returnFunc(news, live)
+	if returnFunc, ok := ret.Get(0).(func(*subscription.VideosAdded, map[library.VideoID]*library.LiveVideo) error); ok {
+		r0 = returnFunc(added, live)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -178,17 +178,17 @@ type MockNotifier_NotifyNewVideos_Call struct {
 }
 
 // NotifyNewVideos is a helper method to define mock.On call
-//   - news *notification.NewVideos
+//   - added *subscription.VideosAdded
 //   - live map[library.VideoID]*library.LiveVideo
-func (_e *MockNotifier_Expecter) NotifyNewVideos(news any, live any) *MockNotifier_NotifyNewVideos_Call {
-	return &MockNotifier_NotifyNewVideos_Call{Call: _e.mock.On("NotifyNewVideos", news, live)}
+func (_e *MockNotifier_Expecter) NotifyNewVideos(added any, live any) *MockNotifier_NotifyNewVideos_Call {
+	return &MockNotifier_NotifyNewVideos_Call{Call: _e.mock.On("NotifyNewVideos", added, live)}
 }
 
-func (_c *MockNotifier_NotifyNewVideos_Call) Run(run func(news *notification.NewVideos, live map[library.VideoID]*library.LiveVideo)) *MockNotifier_NotifyNewVideos_Call {
+func (_c *MockNotifier_NotifyNewVideos_Call) Run(run func(added *subscription.VideosAdded, live map[library.VideoID]*library.LiveVideo)) *MockNotifier_NotifyNewVideos_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 *notification.NewVideos
+		var arg0 *subscription.VideosAdded
 		if args[0] != nil {
-			arg0 = args[0].(*notification.NewVideos)
+			arg0 = args[0].(*subscription.VideosAdded)
 		}
 		var arg1 map[library.VideoID]*library.LiveVideo
 		if args[1] != nil {
@@ -207,7 +207,7 @@ func (_c *MockNotifier_NotifyNewVideos_Call) Return(err error) *MockNotifier_Not
 	return _c
 }
 
-func (_c *MockNotifier_NotifyNewVideos_Call) RunAndReturn(run func(news *notification.NewVideos, live map[library.VideoID]*library.LiveVideo) error) *MockNotifier_NotifyNewVideos_Call {
+func (_c *MockNotifier_NotifyNewVideos_Call) RunAndReturn(run func(added *subscription.VideosAdded, live map[library.VideoID]*library.LiveVideo) error) *MockNotifier_NotifyNewVideos_Call {
 	_c.Call.Return(run)
 	return _c
 }

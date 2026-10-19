@@ -3,6 +3,7 @@
 package subscription
 
 import (
+	"sort"
 	"time"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/guild"
@@ -47,6 +48,47 @@ func New(g *guild.Guild, channelID ChannelID, youtubeID library.PlaylistID, titl
 // ちょうど同時刻に追加されたアイテムを含めるため、After ではなく !Before を使う。
 func (s *Subscription) IsNew(item *library.PlaylistItem) bool {
 	return !item.AddedAt.Before(s.NotifiedUntil)
+}
+
+// TakeNewVideos は同期したプレイリストから、前回の通知の後に追加された視聴できる
+// 動画を選ぶ。あれば基準時刻を at に進め、タイトルを YouTube 上のものに合わせて、
+// VideosAdded を返す。なければ何も変えずに nil を返す。YouTube から削除された
+// プレイリストは通知しない。
+//
+// 返したイベントは、この通知設定を保存できた後にだけ配る。保存の前に送ると、
+// 保存に失敗したときに次の回でもう一度送ってしまう。
+func (s *Subscription) TakeNewVideos(latest *library.Snapshot, at time.Time) *VideosAdded {
+	if latest.Deleted {
+		return nil
+	}
+
+	var added []*library.PlaylistVideo
+
+	for _, item := range latest.Items {
+		if !s.IsNew(item) {
+			continue
+		}
+
+		video, ok := latest.Videos[item.VideoYoutubeID]
+		if !ok || !video.Available() {
+			continue
+		}
+
+		added = append(added, &library.PlaylistVideo{PlaylistID: s.YoutubeID, Item: item, Video: video})
+	}
+
+	if len(added) == 0 {
+		return nil
+	}
+	// プレイリストの順に関係なく、動画が追加された順に通知する
+	sort.SliceStable(added, func(i, j int) bool {
+		return added[i].Item.AddedAt.Before(added[j].Item.AddedAt)
+	})
+
+	s.Rename(latest.Title)
+	s.MarkNotified(at)
+
+	return &VideosAdded{ChannelID: s.SendChannelID, PlaylistID: s.YoutubeID, PlaylistTitle: s.Title, Videos: added}
 }
 
 // MarkNotified は新着動画の通知の基準時刻を進める。過去に戻すと、

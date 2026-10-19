@@ -15,7 +15,7 @@ func TestSyncVideos(t *testing.T) {
 		name            string
 		fetched         []*library.FetchedItem
 		videos          map[library.VideoID]*library.Video
-		wantHidden      []*library.Video
+		wantHidden      []*library.VideoHidden
 		wantNeedDetails []library.VideoID
 		wantChanged     []*library.Video
 	}{
@@ -27,10 +27,12 @@ func TestSyncVideos(t *testing.T) {
 			wantChanged:     []*library.Video{{YoutubeID: "a", PrivacyStatus: library.PrivacyPublic}},
 		},
 		{
-			name:        "見られなくなった動画を報告する",
-			fetched:     []*library.FetchedItem{fetched("1", "a", library.PrivacyPrivate)},
-			videos:      map[library.VideoID]*library.Video{"a": video("a", library.PrivacyPublic, 0)},
-			wantHidden:  []*library.Video{video("a", library.PrivacyPrivate, 0)},
+			name:    "見られなくなった動画を報告する",
+			fetched: []*library.FetchedItem{fetched("1", "a", library.PrivacyPrivate)},
+			videos:  map[library.VideoID]*library.Video{"a": video("a", library.PrivacyPublic, 0)},
+			wantHidden: []*library.VideoHidden{
+				{Video: video("a", library.PrivacyPrivate, 0)},
+			},
 			wantChanged: []*library.Video{video("a", library.PrivacyPrivate, 0)},
 		},
 		{

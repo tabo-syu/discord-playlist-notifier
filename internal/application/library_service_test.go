@@ -16,6 +16,8 @@ func TestLibraryServiceSync(t *testing.T) {
 		name  string
 		setup func(m *deps)
 		want  map[library.PlaylistID]*library.Snapshot
+		// 動画を保存できたときだけ返す
+		wantHidden []*library.VideoHidden
 	}{
 		{
 			name: "新しいアイテムを保存し、詳細を持っていない動画だけ詳細を取得する",
@@ -130,7 +132,7 @@ func TestLibraryServiceSync(t *testing.T) {
 			},
 		},
 		{
-			name: "見られなくなった動画を報告し、公開状態を保存する",
+			name: "公開状態を保存し、見られなくなった動画のイベントを返す",
 			setup: func(m *deps) {
 				m.youtube.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
 					"PL": {YoutubeID: "PL", Title: "タイトル", ItemCount: 1},
@@ -163,10 +165,10 @@ func TestLibraryServiceSync(t *testing.T) {
 					Videos: map[library.VideoID]*library.Video{
 						"a": video("a", library.PrivacyPrivate, 0, 0),
 					},
-					Hidden: []*library.Video{
-						video("a", library.PrivacyPrivate, 0, 0),
-					},
 				},
+			},
+			wantHidden: []*library.VideoHidden{
+				{Video: video("a", library.PrivacyPrivate, 0, 0)},
 			},
 		},
 		{
@@ -192,7 +194,7 @@ func TestLibraryServiceSync(t *testing.T) {
 			want: map[library.PlaylistID]*library.Snapshot{},
 		},
 		{
-			name: "動画の保存に失敗したら、結果から除く",
+			name: "動画の保存に失敗したら、結果から除き、イベントも返さない",
 			setup: func(m *deps) {
 				m.youtube.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
 					"PL": {YoutubeID: "PL", Title: "タイトル", ItemCount: 1},
@@ -248,10 +250,11 @@ func TestLibraryServiceSync(t *testing.T) {
 			tt.setup(m)
 			s := newLibraryService(m, clock)
 
-			got, err := s.Sync([]library.PlaylistID{"PL"})
+			got, hidden, err := s.Sync([]library.PlaylistID{"PL"})
 
 			assert.NoError(t, err)
 			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.wantHidden, hidden)
 		})
 	}
 }
@@ -344,12 +347,12 @@ func TestLibraryServiceSyncSkipsFetching(t *testing.T) {
 			current := now
 			s := newLibraryService(m, func() time.Time { return current })
 			// 前回の同期
-			_, err := s.Sync([]library.PlaylistID{"PL"})
+			_, _, err := s.Sync([]library.PlaylistID{"PL"})
 			assert.NoError(t, err)
 
 			current = now.Add(tt.elapsed)
 
-			_, err = s.Sync([]library.PlaylistID{"PL"})
+			_, _, err = s.Sync([]library.PlaylistID{"PL"})
 
 			assert.NoError(t, err)
 		})
@@ -362,10 +365,10 @@ func TestLibraryServiceRefreshVideos(t *testing.T) {
 	tests := []struct {
 		name  string
 		setup func(m *deps)
-		want  []*library.Video
+		want  []*library.MilestoneReached
 	}{
 		{
-			name: "再生数を更新して履歴に記録し、新しい節目に達した動画を返す",
+			name: "再生数を更新して履歴に記録し、新しい節目に達した動画のイベントを返す",
 			setup: func(m *deps) {
 				m.videos.EXPECT().FindListed().Return(map[library.VideoID]*library.Video{
 					"a": video("a", library.PrivacyPublic, 90_000, 0),
@@ -381,8 +384,8 @@ func TestLibraryServiceRefreshVideos(t *testing.T) {
 					{VideoYoutubeID: "a", RecordedAt: now, Title: "a", PrivacyStatus: library.PrivacyPublic, Views: 120_000},
 				}).Return(nil)
 			},
-			want: []*library.Video{
-				video("a", library.PrivacyPublic, 120_000, 100_000),
+			want: []*library.MilestoneReached{
+				{Video: video("a", library.PrivacyPublic, 120_000, 100_000), Milestone: 100_000},
 			},
 		},
 		{
@@ -425,7 +428,7 @@ func TestLibraryServiceRefreshVideos(t *testing.T) {
 			want: nil,
 		},
 		{
-			name: "履歴の記録に失敗しても、節目に達した動画は返す",
+			name: "履歴の記録に失敗しても、節目に達した動画のイベントは返す",
 			setup: func(m *deps) {
 				m.videos.EXPECT().FindListed().Return(map[library.VideoID]*library.Video{
 					"a": video("a", library.PrivacyPublic, 90_000, 0),
@@ -441,8 +444,8 @@ func TestLibraryServiceRefreshVideos(t *testing.T) {
 					{VideoYoutubeID: "a", RecordedAt: now, Title: "a", PrivacyStatus: library.PrivacyPublic, Views: 120_000},
 				}).Return(errMock)
 			},
-			want: []*library.Video{
-				video("a", library.PrivacyPublic, 120_000, 100_000),
+			want: []*library.MilestoneReached{
+				{Video: video("a", library.PrivacyPublic, 120_000, 100_000), Milestone: 100_000},
 			},
 		},
 	}

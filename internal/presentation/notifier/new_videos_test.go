@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/notification"
+	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/mocks"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/presentation/notifier"
 )
@@ -20,15 +20,17 @@ func TestNotifyNewVideos(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		news    *notification.NewVideos
+		news    *subscription.VideosAdded
 		live    map[library.VideoID]*library.LiveVideo
 		setup   func(discord *mocks.MockSender)
 		wantErr error
 	}{
 		{
 			name: "送る直前に取得した再生数とチャンネルを出し、投稿日時を Discord に渡す",
-			news: &notification.NewVideos{
-				Subscription: sub("お気に入り", ""),
+			news: &subscription.VideosAdded{
+				ChannelID:     "ch",
+				PlaylistID:    "PL",
+				PlaylistTitle: "お気に入り",
 				Videos: []*library.PlaylistVideo{
 					// UTC では 10/18 の 0 時、JST では 9 時
 					added(published, time.Date(2026, time.October, 18, 0, 0, 0, 0, time.UTC)),
@@ -62,8 +64,10 @@ func TestNotifyNewVideos(t *testing.T) {
 		},
 		{
 			name: "取得できなかった動画は、保存した再生数でチャンネルなしで送る",
-			news: &notification.NewVideos{
-				Subscription: sub("お気に入り", ""),
+			news: &subscription.VideosAdded{
+				ChannelID:     "ch",
+				PlaylistID:    "PL",
+				PlaylistTitle: "お気に入り",
 				Videos: []*library.PlaylistVideo{
 					added(video("b", 50), time.Date(2026, time.October, 18, 0, 0, 0, 0, time.UTC)),
 				},
@@ -85,8 +89,10 @@ func TestNotifyNewVideos(t *testing.T) {
 		},
 		{
 			name: "1 通失敗しても残りを送り、失敗を返す",
-			news: &notification.NewVideos{
-				Subscription: sub("お気に入り", ""),
+			news: &subscription.VideosAdded{
+				ChannelID:     "ch",
+				PlaylistID:    "PL",
+				PlaylistTitle: "お気に入り",
 				Videos: []*library.PlaylistVideo{
 					added(video("b", 50), time.Date(2026, time.October, 18, 0, 0, 0, 0, time.UTC)),
 					added(video("c", 60), time.Date(2026, time.October, 18, 1, 0, 0, 0, time.UTC)),

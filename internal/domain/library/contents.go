@@ -19,8 +19,6 @@ type Snapshot struct {
 	// Deleted は YouTube 上にプレイリストがもう存在しないときに真になる。
 	Deleted bool
 	Videos  map[VideoID]*Video
-	// 今回の同期で非公開・削除になった動画
-	Hidden []*Video
 }
 
 // PickRandom は中身から、重複のない視聴可能な動画を最大 n 件選ぶ。

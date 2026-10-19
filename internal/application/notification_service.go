@@ -6,31 +6,36 @@ import (
 	"time"
 
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/library"
-	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/notification"
 	"github.com/tabo-syu/discord-playlist-notifier/internal/domain/subscription"
 )
 
 // NotificationService は定期実行するユースケースを持つ。返す相手がいないので、
 // 失敗はエラーとして返さずログに出す。
+//
+// 動画の非公開・節目・新着はドメインイベントとして events に発行し、通知は
+// それを購読したハンドラ（NotificationHandlers）が送る。定期のまとめとピックは
+// ドメインで起きたことではなく、時刻が来たら投稿するものなので、ここから直接送る。
 type NotificationService struct {
 	subscriptions subscription.Repository
 	library       *LibraryService
 	notifier      Notifier
+	events        *EventPublisher
 	// 投稿の基準にする日付や年のタイムゾーン
 	location *time.Location
 	// 現在時刻。テストで固定できるように外から渡す
 	now func() time.Time
 }
 
-func NewNotificationService(s subscription.Repository, l *LibraryService, n Notifier, loc *time.Location, now func() time.Time) *NotificationService {
-	return &NotificationService{s, l, n, loc, now}
+func NewNotificationService(s subscription.Repository, l *LibraryService, n Notifier, e *EventPublisher, loc *time.Location, now func() time.Time) *NotificationService {
+	return &NotificationService{s, l, n, e, loc, now}
 }
 
 // NotifyUpdates は通知登録された全てのプレイリストを同期し、非公開・削除に
-// なった動画と、前回の通知以降に追加された動画を通知する。
+// なった動画と、前回の通知以降に追加された動画のイベントを発行する。
 //
-// 通知設定の基準時刻は動画を送る前に保存し、保存に成功した通知設定だけを
-// 通知する。通知を取りこぼすことはあっても、二重には送らない。
+// 新着のイベントは、通知設定の基準時刻を保存できた後にだけ発行する。全ての通知設定を
+// 保存してから発行するので、送信は必ず保存の後になる。通知を取りこぼすことは
+// あっても、二重には送らない。
 func (s *NotificationService) NotifyUpdates() {
 	subscriptions, err := s.subscriptions.FindAll()
 	if err != nil {
@@ -44,67 +49,57 @@ func (s *NotificationService) NotifyUpdates() {
 		ids = append(ids, sub.YoutubeID)
 	}
 
-	snapshots, err := s.library.Sync(ids)
+	snapshots, hidden, err := s.library.Sync(ids)
 	if err != nil {
 		log.Println("Could not notify cause:", err)
 
 		return
 	}
+	// 動画は Sync の中で保存済み
+	Publish(s.events, hidden)
 
-	s.notifyHiddenVideos(subscriptions, snapshots)
+	now := s.now()
+
+	var (
+		found bool
+		saved []*subscription.VideosAdded
+	)
 
 	for _, sub := range subscriptions {
-		if snapshot, ok := snapshots[sub.YoutubeID]; ok && snapshot.Deleted {
+		latest, ok := snapshots[sub.YoutubeID]
+		if !ok {
+			continue
+		}
+
+		if latest.Deleted {
 			log.Println("Playlist(ID:", sub.YoutubeID, ") may have been deleted from YouTube")
+		}
+
+		added := sub.TakeNewVideos(latest, now)
+		if added == nil {
+			continue
+		}
+
+		found = true
+
+		if err := s.subscriptions.Update(sub); err != nil {
+			log.Println("Could not update playlist:", sub.YoutubeID, "cause:", err)
+		} else {
+			saved = append(saved, added)
 		}
 	}
 
-	updates := notification.FindNewVideos(subscriptions, snapshots)
-	if len(updates) == 0 {
+	if !found {
 		log.Println("Playlist was not updated")
 
 		return
 	}
 
-	now := s.now()
-
-	var saved []*notification.NewVideos
-
-	for _, update := range updates {
-		sub := update.Subscription
-		sub.Rename(update.PlaylistTitle)
-		sub.MarkNotified(now)
-
-		if err := s.subscriptions.Update(sub); err != nil {
-			log.Println("Could not update playlist:", sub.YoutubeID, "cause:", err)
-		} else {
-			saved = append(saved, update)
-		}
-	}
-
-	for _, update := range saved {
-		sub := update.Subscription
-		// チャンネルは保存していないのでここで取得する。失敗したらチャンネルなしで送る。
-		var videoIDs []library.VideoID
-		for _, v := range update.Videos {
-			videoIDs = append(videoIDs, v.Video.YoutubeID)
-		}
-
-		live, err := s.library.LiveVideos(videoIDs)
-		if err != nil {
-			log.Println("Could not fetch channels for playlist:", sub.YoutubeID, "cause:", err)
-		}
-
-		if err := s.notifier.NotifyNewVideos(update, live); err != nil {
-			log.Println("Message could not send to", sub.SendChannelID, "for playlist:", sub.YoutubeID, "cause:", err)
-		} else {
-			log.Println("Successfully sent notification for playlist:", sub.YoutubeID, "to channel:", sub.SendChannelID)
-		}
-	}
+	Publish(s.events, saved)
 }
 
 // RefreshVideos は保存済みの全動画の詳細を更新し、再生数の新しい節目に
-// 達した動画を通知する。
+// 達した動画のイベントを発行する。
 func (s *NotificationService) RefreshVideos() {
 	reached, err := s.library.RefreshVideos()
 	if err != nil {
@@ -112,43 +107,8 @@ func (s *NotificationService) RefreshVideos() {
 
 		return
 	}
-
-	if len(reached) == 0 {
-		return
-	}
-
-	subscriptions, err := s.subscriptions.FindAll()
-	if err != nil {
-		log.Println("Could not notify milestones cause:", err)
-
-		return
-	}
-
-	var videoIDs []library.VideoID
-	for _, v := range reached {
-		videoIDs = append(videoIDs, v.YoutubeID)
-	}
-
-	containing, err := s.library.PlaylistsContaining(videoIDs)
-	if err != nil {
-		log.Println("Could not notify milestones cause:", err)
-
-		return
-	}
-
-	// チャンネルは保存していないのでここで取得する。失敗したらチャンネルなしで送る。
-	live, err := s.library.LiveVideos(videoIDs)
-	if err != nil {
-		log.Println("Could not fetch channels for milestones cause:", err)
-	}
-
-	for _, notice := range notification.FindMilestones(subscriptions, reached, containing) {
-		if err := s.notifier.NotifyMilestone(notice, live); err != nil {
-			log.Println("Milestone notice could not send to", notice.ChannelID, "video:", notice.Video.YoutubeID, "cause:", err)
-		} else {
-			log.Println("Sent milestone notice to", notice.ChannelID, "video:", notice.Video.YoutubeID, "milestone:", notice.Milestone)
-		}
-	}
+	// 動画は RefreshVideos の中で保存済み
+	Publish(s.events, reached)
 }
 
 // PostWrapped は、今年動画が追加された通知登録済みの全プレイリストについて、
@@ -229,16 +189,6 @@ func (s *NotificationService) PostPicks() {
 			log.Println("Pick could not send to", sub.SendChannelID, "for playlist:", sub.YoutubeID, "cause:", err)
 		} else {
 			log.Println("Sent pick to", sub.SendChannelID, "for playlist:", sub.YoutubeID, "interval:", sub.PickInterval, "video:", picked[0].Video.YoutubeID)
-		}
-	}
-}
-
-func (s *NotificationService) notifyHiddenVideos(subscriptions []*subscription.Subscription, snapshots map[library.PlaylistID]*library.Snapshot) {
-	for _, notice := range notification.FindHiddenVideos(subscriptions, snapshots) {
-		if err := s.notifier.NotifyHiddenVideo(notice); err != nil {
-			log.Println("Hidden video notice could not send to", notice.ChannelID, "video:", notice.Video.YoutubeID, "cause:", err)
-		} else {
-			log.Println("Sent hidden video notice to", notice.ChannelID, "video:", notice.Video.YoutubeID, "status:", notice.Video.PrivacyStatus)
 		}
 	}
 }

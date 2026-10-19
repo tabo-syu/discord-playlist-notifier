@@ -14,31 +14,20 @@ func TestFindHiddenVideos(t *testing.T) {
 	t.Parallel()
 
 	a := video("a", library.PrivacyPrivate)
+	b := video("b", library.PrivacyDeleted)
 
-	// 通知の順はプレイリストのマップの順で変わるので、順序は比べない
 	tests := []struct {
 		name          string
 		subscriptions []*subscription.Subscription
-		snapshots     map[library.PlaylistID]*library.Snapshot
+		events        []*library.VideoHidden
+		containing    map[library.VideoID][]library.PlaylistID
 		want          []*notification.HiddenVideo
 	}{
 		{
-			name:          "見られなくなった動画を通知する",
-			subscriptions: []*subscription.Subscription{sub("PL1", "ch1")},
-			snapshots: map[library.PlaylistID]*library.Snapshot{
-				"PL1": withHidden(snapshot("PL1", added("PL1", a, 0)), a),
-			},
-			want: []*notification.HiddenVideo{
-				{ChannelID: "ch1", PlaylistID: "PL1", PlaylistTitle: "PL1", Video: a},
-			},
-		},
-		{
-			name:          "同じ動画を含む他のプレイリストにも通知する",
+			name:          "動画を含むプレイリストのチャンネルに、通知設定のタイトルで通知する",
 			subscriptions: []*subscription.Subscription{sub("PL1", "ch1"), sub("PL2", "ch2")},
-			snapshots: map[library.PlaylistID]*library.Snapshot{
-				"PL1": withHidden(snapshot("PL1", added("PL1", a, 0)), a),
-				"PL2": snapshot("PL2", added("PL2", a, 0)),
-			},
+			events:        []*library.VideoHidden{{Video: a}},
+			containing:    map[library.VideoID][]library.PlaylistID{"a": {"PL1", "PL2"}},
 			want: []*notification.HiddenVideo{
 				{ChannelID: "ch1", PlaylistID: "PL1", PlaylistTitle: "PL1", Video: a},
 				{ChannelID: "ch2", PlaylistID: "PL2", PlaylistTitle: "PL2", Video: a},
@@ -47,51 +36,48 @@ func TestFindHiddenVideos(t *testing.T) {
 		{
 			name:          "同じチャンネルには 1 回だけ通知する",
 			subscriptions: []*subscription.Subscription{sub("PL1", "ch1"), sub("PL2", "ch1")},
-			snapshots: map[library.PlaylistID]*library.Snapshot{
-				"PL1": withHidden(snapshot("PL1", added("PL1", a, 0)), a),
-				"PL2": snapshot("PL2", added("PL2", a, 0)),
-			},
+			events:        []*library.VideoHidden{{Video: a}},
+			containing:    map[library.VideoID][]library.PlaylistID{"a": {"PL1", "PL2"}},
 			want: []*notification.HiddenVideo{
 				{ChannelID: "ch1", PlaylistID: "PL1", PlaylistTitle: "PL1", Video: a},
+			},
+		},
+		{
+			name:          "同じ動画のイベントが 2 回あっても、1 回だけ通知する",
+			subscriptions: []*subscription.Subscription{sub("PL1", "ch1")},
+			events:        []*library.VideoHidden{{Video: a}, {Video: a}},
+			containing:    map[library.VideoID][]library.PlaylistID{"a": {"PL1"}},
+			want: []*notification.HiddenVideo{
+				{ChannelID: "ch1", PlaylistID: "PL1", PlaylistTitle: "PL1", Video: a},
+			},
+		},
+		{
+			name:          "同じチャンネルでも、別の動画はそれぞれ通知する",
+			subscriptions: []*subscription.Subscription{sub("PL1", "ch1")},
+			events:        []*library.VideoHidden{{Video: a}, {Video: b}},
+			containing:    map[library.VideoID][]library.PlaylistID{"a": {"PL1"}, "b": {"PL1"}},
+			want: []*notification.HiddenVideo{
+				{ChannelID: "ch1", PlaylistID: "PL1", PlaylistTitle: "PL1", Video: a},
+				{ChannelID: "ch1", PlaylistID: "PL1", PlaylistTitle: "PL1", Video: b},
 			},
 		},
 		{
 			name:          "動画を含まないプレイリストには通知しない",
 			subscriptions: []*subscription.Subscription{sub("PL1", "ch1"), sub("PL2", "ch2")},
-			snapshots: map[library.PlaylistID]*library.Snapshot{
-				"PL1": withHidden(snapshot("PL1", added("PL1", a, 0)), a),
-				"PL2": snapshot("PL2"),
-			},
+			events:        []*library.VideoHidden{{Video: a}},
+			containing:    map[library.VideoID][]library.PlaylistID{"a": {"PL1"}},
 			want: []*notification.HiddenVideo{
 				{ChannelID: "ch1", PlaylistID: "PL1", PlaylistTitle: "PL1", Video: a},
 			},
-		},
-		{
-			name:          "同期に失敗したプレイリストには通知しない",
-			subscriptions: []*subscription.Subscription{sub("PL1", "ch1"), sub("PL2", "ch2")},
-			snapshots: map[library.PlaylistID]*library.Snapshot{
-				"PL1": withHidden(snapshot("PL1", added("PL1", a, 0)), a),
-			},
-			want: []*notification.HiddenVideo{
-				{ChannelID: "ch1", PlaylistID: "PL1", PlaylistTitle: "PL1", Video: a},
-			},
-		},
-		{
-			name:          "見られなくなった動画がなければ通知しない",
-			subscriptions: []*subscription.Subscription{sub("PL1", "ch1")},
-			snapshots: map[library.PlaylistID]*library.Snapshot{
-				"PL1": snapshot("PL1", added("PL1", video("b", library.PrivacyPublic), 0)),
-			},
-			want: nil,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			got := notification.FindHiddenVideos(tt.subscriptions, tt.snapshots)
+			got := notification.FindHiddenVideos(tt.subscriptions, tt.events, tt.containing)
 
-			assert.ElementsMatch(t, tt.want, got)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
