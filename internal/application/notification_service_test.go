@@ -142,6 +142,7 @@ func TestNotificationServiceNotifyUpdates(t *testing.T) {
 					"a": video("a", library.PrivacyPublic, 0, 0),
 				}, nil)
 				m.library.EXPECT().FindVideos([]library.VideoID(nil)).Return(map[library.VideoID]*library.Video{}, nil)
+				m.youtube.EXPECT().FetchVideos([]library.VideoID{"a"}).Return([]*library.Video{}, []*library.Channel{}, nil)
 				m.library.EXPECT().ApplyItems(library.PlaylistID("PL"), []*library.PlaylistItem(nil), []*library.PlaylistItem(nil), []*library.Video{
 					video("a", library.PrivacyPrivate, 0, 0),
 				}).Return(nil)
@@ -150,6 +151,33 @@ func TestNotificationServiceNotifyUpdates(t *testing.T) {
 					PlaylistID:    "PL",
 					PlaylistTitle: "PL",
 					Video:         video("a", library.PrivacyPrivate, 0, 0),
+				}).Return(nil)
+			},
+		},
+		{
+			name: "削除済みとして返ったアイテムでも、videos のエンドポイントが返した動画は通知しない",
+			setup: func(m *deps) {
+				m.subscriptions.EXPECT().FindAll().Return([]*subscription.Subscription{
+					sub(1, "PL", "ch", "PL", lastNotified),
+				}, nil)
+				m.youtube.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
+					"PL": meta("PL", "PL", 1),
+				}, nil)
+				m.library.EXPECT().FindItems(library.PlaylistID("PL")).Return([]*library.PlaylistItem{
+					item("PL", "1", "a", hoursAgo(10)),
+				}, nil).Times(2)
+				m.youtube.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return([]*library.FetchedItem{
+					fetched("1", "a", hoursAgo(10), library.PrivacyDeleted),
+				}, nil)
+				m.library.EXPECT().FindVideosInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
+					"a": video("a", library.PrivacyPublic, 0, 0),
+				}, nil)
+				m.library.EXPECT().FindVideos([]library.VideoID(nil)).Return(map[library.VideoID]*library.Video{}, nil)
+				m.youtube.EXPECT().FetchVideos([]library.VideoID{"a"}).Return([]*library.Video{
+					{YoutubeID: "a", Title: "a", PrivacyStatus: library.PrivacyPublic},
+				}, []*library.Channel{}, nil)
+				m.library.EXPECT().ApplyItems(library.PlaylistID("PL"), []*library.PlaylistItem(nil), []*library.PlaylistItem(nil), []*library.Video{
+					video("a", library.PrivacyPublic, 0, 0),
 				}).Return(nil)
 			},
 		},

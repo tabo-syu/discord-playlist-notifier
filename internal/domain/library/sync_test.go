@@ -122,3 +122,46 @@ func TestSyncApplyDetails(t *testing.T) {
 		})
 	}
 }
+
+func TestSyncRestoreWatchable(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name        string
+		fetched     []*library.FetchedItem
+		live        []*library.Video
+		want        []*library.Video
+		wantHidden  []*library.Video
+		wantChanged []*library.Video
+	}{
+		{
+			name:        "videos のエンドポイントが返した動画は、Hidden から除いてその公開状態に戻す",
+			fetched:     []*library.FetchedItem{fetched("1", "a", library.PrivacyDeleted)},
+			live:        []*library.Video{video("a", library.PrivacyUnlisted, 0)},
+			want:        []*library.Video{video("a", library.PrivacyUnlisted, 0)},
+			wantChanged: []*library.Video{video("a", library.PrivacyUnlisted, 0)},
+		},
+		{
+			name:        "videos のエンドポイントが返さなかった動画は、Hidden に残す",
+			fetched:     []*library.FetchedItem{fetched("1", "a", library.PrivacyDeleted)},
+			live:        []*library.Video{},
+			wantHidden:  []*library.Video{video("a", library.PrivacyDeleted, 0)},
+			wantChanged: []*library.Video{video("a", library.PrivacyDeleted, 0)},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			s := library.Reconcile("PL", []*library.PlaylistItem{stored("1", "a")}, tt.fetched, map[library.VideoID]*library.Video{
+				"a": video("a", library.PrivacyPublic, 0),
+			})
+
+			got := s.RestoreWatchable(tt.live)
+
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.wantHidden, s.Hidden)
+			assert.ElementsMatch(t, tt.wantChanged, s.ChangedVideos())
+		})
+	}
+}

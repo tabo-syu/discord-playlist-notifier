@@ -16,6 +16,9 @@ paths:
 - `videos.list` の part を増やしてもクォータは変わらないので、必要な情報は同じ呼び出しで取ります。
 - 動画の公開状態はアイテムの `status.privacyStatus` から取ります。`videos.list` は非公開・
   削除済みの動画を返さないためです。
+- ただしアイテムは、公開中の動画をページ単位でまとめて削除済み（タイトル `Deleted video` か
+  `privacyStatusUnspecified`）として返すことがあります。見られなくなった動画は通知の前に
+  `videos.list` で確かめ、返ってきた動画は `Sync.RestoreWatchable` で公開状態を戻します。
 - `Sync` は `FULL_SYNC_INTERVAL` 以内でアイテム数が変わらなければ全件取得を省き、`videos.list` は
   詳細を持っていない動画の分だけ呼びます。全件取得の状態はメモリにあるので、再起動直後は全件
   取得します。
