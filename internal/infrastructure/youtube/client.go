@@ -119,12 +119,18 @@ func (c *client) FetchPlaylistItems(id library.PlaylistID) ([]*library.FetchedIt
 				return nil, fmt.Errorf("failed to parse playlist item publish time: %w", err)
 			}
 
-			items = append(items, &library.FetchedItem{
+			fetched := &library.FetchedItem{
 				ItemID:        library.ItemID(item.Id),
 				VideoID:       library.VideoID(item.Snippet.ResourceId.VideoId),
 				AddedAt:       addedAt,
 				PrivacyStatus: itemPrivacy(item),
-			})
+				Title:         item.Snippet.Title,
+			}
+			if item.Status != nil {
+				fetched.RawPrivacyStatus = item.Status.PrivacyStatus
+			}
+
+			items = append(items, fetched)
 		}
 
 		nextPageToken = page.NextPageToken

@@ -20,6 +20,10 @@ type FetchedItem struct {
 	VideoID       VideoID
 	AddedAt       time.Time
 	PrivacyStatus PrivacyStatus
+	// YouTube が返したアイテムのタイトルと status.privacyStatus。PrivacyStatus を
+	// どう判定したかをログで確かめるためだけに持つ
+	Title            string
+	RawPrivacyStatus string
 }
 
 // Sync はプレイリストの保存済みのアイテムと、YouTube から取得したアイテムを
@@ -105,6 +109,39 @@ func (s *Sync) ApplyDetails(details []*Video) {
 		video.InitMilestone()
 		s.changed[d.YoutubeID] = video
 	}
+}
+
+// RestoreWatchable は、Hidden のうち videos のエンドポイントが見られる状態で
+// 返した動画を Hidden から除き、公開状態をその値に戻す。playlistItems の
+// エンドポイントは、公開中の動画をページ単位でまとめて削除済みとして返すことが
+// あるため。live には videos のエンドポイントから取得した動画を渡す。戻した
+// 動画を返す。
+func (s *Sync) RestoreWatchable(live []*Video) []*Video {
+	watchable := map[VideoID]PrivacyStatus{}
+
+	for _, v := range live {
+		if v.PrivacyStatus.Watchable() {
+			watchable[v.YoutubeID] = v.PrivacyStatus
+		}
+	}
+
+	var hidden, restored []*Video
+
+	for _, v := range s.Hidden {
+		status, ok := watchable[v.YoutubeID]
+		if !ok {
+			hidden = append(hidden, v)
+
+			continue
+		}
+
+		v.ChangePrivacy(status)
+		restored = append(restored, v)
+	}
+
+	s.Hidden = hidden
+
+	return restored
 }
 
 // ChangedVideos は保存が必要な動画を返す。

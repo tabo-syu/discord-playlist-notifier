@@ -162,6 +162,7 @@ func TestLibraryServiceSync(t *testing.T) {
 					"a": video("a", library.PrivacyPublic, 0, 0),
 				}, nil)
 				m.library.EXPECT().FindVideos([]library.VideoID(nil)).Return(map[library.VideoID]*library.Video{}, nil)
+				m.youtube.EXPECT().FetchVideos([]library.VideoID{"a"}).Return([]*library.Video{}, []*library.Channel{}, nil)
 				m.library.EXPECT().ApplyItems(
 					library.PlaylistID("PL"),
 					[]*library.PlaylistItem(nil),
@@ -187,6 +188,68 @@ func TestLibraryServiceSync(t *testing.T) {
 					},
 				},
 			},
+		},
+		{
+			name: "削除済みとして返ったアイテムでも、videos のエンドポイントが返した動画は報告せず、公開状態を戻す",
+			setup: func(m *deps) {
+				m.youtube.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
+					"PL": {YoutubeID: "PL", Title: "タイトル", ItemCount: 1},
+				}, nil)
+				m.library.EXPECT().FindItems(library.PlaylistID("PL")).Return([]*library.PlaylistItem{
+					item("PL", "1", "a", hoursAgo(2)),
+				}, nil).Once()
+				m.youtube.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return([]*library.FetchedItem{
+					fetched("1", "a", hoursAgo(2), library.PrivacyDeleted),
+				}, nil)
+				m.library.EXPECT().FindVideosInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
+					"a": video("a", library.PrivacyPublic, 0, 0),
+				}, nil)
+				m.library.EXPECT().FindVideos([]library.VideoID(nil)).Return(map[library.VideoID]*library.Video{}, nil)
+				m.youtube.EXPECT().FetchVideos([]library.VideoID{"a"}).Return([]*library.Video{
+					{YoutubeID: "a", Title: "a", PrivacyStatus: library.PrivacyPublic},
+				}, []*library.Channel{}, nil)
+				m.library.EXPECT().ApplyItems(
+					library.PlaylistID("PL"),
+					[]*library.PlaylistItem(nil),
+					[]*library.PlaylistItem(nil),
+					[]*library.Video{video("a", library.PrivacyPublic, 0, 0)},
+				).Return(nil)
+				m.library.EXPECT().FindItems(library.PlaylistID("PL")).Return([]*library.PlaylistItem{
+					item("PL", "1", "a", hoursAgo(2)),
+				}, nil).Once()
+			},
+			want: map[library.PlaylistID]*library.Snapshot{
+				"PL": {
+					YoutubeID: "PL",
+					Title:     "タイトル",
+					Items: []*library.PlaylistItem{
+						item("PL", "1", "a", hoursAgo(2)),
+					},
+					Videos: map[library.VideoID]*library.Video{
+						"a": video("a", library.PrivacyPublic, 0, 0),
+					},
+				},
+			},
+		},
+		{
+			name: "見られなくなった動画を確かめられなかったプレイリストは、保存せずに結果から除く",
+			setup: func(m *deps) {
+				m.youtube.EXPECT().FetchPlaylistMetas(library.PlaylistID("PL")).Return(map[library.PlaylistID]*library.PlaylistMeta{
+					"PL": {YoutubeID: "PL", Title: "タイトル", ItemCount: 1},
+				}, nil)
+				m.library.EXPECT().FindItems(library.PlaylistID("PL")).Return([]*library.PlaylistItem{
+					item("PL", "1", "a", hoursAgo(2)),
+				}, nil)
+				m.youtube.EXPECT().FetchPlaylistItems(library.PlaylistID("PL")).Return([]*library.FetchedItem{
+					fetched("1", "a", hoursAgo(2), library.PrivacyDeleted),
+				}, nil)
+				m.library.EXPECT().FindVideosInPlaylists(library.PlaylistID("PL")).Return(map[library.VideoID]*library.Video{
+					"a": video("a", library.PrivacyPublic, 0, 0),
+				}, nil)
+				m.library.EXPECT().FindVideos([]library.VideoID(nil)).Return(map[library.VideoID]*library.Video{}, nil)
+				m.youtube.EXPECT().FetchVideos([]library.VideoID{"a"}).Return(nil, nil, errMock)
+			},
+			want: map[library.PlaylistID]*library.Snapshot{},
 		},
 		{
 			name: "YouTube から消えたプレイリストは、削除されたものとして返す",

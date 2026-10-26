@@ -357,6 +357,12 @@ func (s *LibraryService) syncPlaylist(meta *library.PlaylistMeta) (*library.Snap
 		}
 	}
 
+	if len(changes.Hidden) > 0 {
+		if err = s.confirmHidden(meta.YoutubeID, fetched, changes); err != nil {
+			return nil, err
+		}
+	}
+
 	if err = s.library.ApplyItems(meta.YoutubeID, changes.Added, changes.Removed, changes.ChangedVideos()); err != nil {
 		return nil, err
 	}
@@ -372,6 +378,37 @@ func (s *LibraryService) syncPlaylist(meta *library.PlaylistMeta) (*library.Snap
 	}
 
 	return &library.Snapshot{YoutubeID: meta.YoutubeID, Title: meta.Title, Items: items, Videos: changes.Videos, Hidden: changes.Hidden}, nil
+}
+
+// confirmHidden は非公開・削除になった動画を videos のエンドポイントで確かめ、
+// まだ見られる動画の公開状態を戻す。見られなくなった動画が見つかるたびに
+// 1 ユニットを消費する。判定の根拠を後から確かめられるように、YouTube が返した
+// アイテムの値をログに出す。
+func (s *LibraryService) confirmHidden(playlistID library.PlaylistID, fetched []*library.FetchedItem, changes *library.Sync) error {
+	items := map[library.VideoID]*library.FetchedItem{}
+	for _, f := range fetched {
+		items[f.VideoID] = f
+	}
+
+	ids := make([]library.VideoID, 0, len(changes.Hidden))
+
+	for _, v := range changes.Hidden {
+		f := items[v.YoutubeID]
+		log.Printf("Video became hidden: %s playlist: %s item: %s title: %q status: %q", v.YoutubeID, playlistID, f.ItemID, f.Title, f.RawPrivacyStatus)
+
+		ids = append(ids, v.YoutubeID)
+	}
+
+	live, _, err := s.youtube.FetchVideos(ids)
+	if err != nil {
+		return err
+	}
+
+	for _, v := range changes.RestoreWatchable(live) {
+		log.Println("Ignored hidden status of watchable video:", v.YoutubeID, "playlist:", playlistID, "status:", v.PrivacyStatus)
+	}
+
+	return nil
 }
 
 func (s *LibraryService) snapshot(meta *library.PlaylistMeta, items []*library.PlaylistItem) (*library.Snapshot, error) {

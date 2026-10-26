@@ -153,8 +153,8 @@ func TestFetchPlaylistItems(t *testing.T) {
 				},
 			},
 			want: []*library.FetchedItem{
-				{ItemID: "1", VideoID: "a", AddedAt: time.Date(2026, time.October, 18, 3, 4, 5, 0, time.UTC), PrivacyStatus: library.PrivacyPublic},
-				{ItemID: "2", VideoID: "b", AddedAt: time.Date(2026, time.October, 18, 6, 0, 0, 0, time.UTC), PrivacyStatus: library.PrivacyPublic},
+				{ItemID: "1", VideoID: "a", AddedAt: time.Date(2026, time.October, 18, 3, 4, 5, 0, time.UTC), PrivacyStatus: library.PrivacyPublic, Title: "a", RawPrivacyStatus: "public"},
+				{ItemID: "2", VideoID: "b", AddedAt: time.Date(2026, time.October, 18, 6, 0, 0, 0, time.UTC), PrivacyStatus: library.PrivacyPublic, Title: "b", RawPrivacyStatus: "public"},
 			},
 			wantRequests: []string{
 				"/playlistItems maxResults=50 part=snippet,status playlistId=PL",
@@ -174,14 +174,14 @@ func TestFetchPlaylistItems(t *testing.T) {
 				]}`)},
 			},
 			want: []*library.FetchedItem{
-				{ItemID: "1", VideoID: "a", AddedAt: time.Date(2026, time.October, 18, 0, 0, 0, 0, time.UTC), PrivacyStatus: library.PrivacyUnlisted},
-				{ItemID: "2", VideoID: "b", AddedAt: time.Date(2026, time.October, 18, 0, 0, 0, 0, time.UTC), PrivacyStatus: library.PrivacyPrivate},
+				{ItemID: "1", VideoID: "a", AddedAt: time.Date(2026, time.October, 18, 0, 0, 0, 0, time.UTC), PrivacyStatus: library.PrivacyUnlisted, Title: "a", RawPrivacyStatus: "unlisted"},
+				{ItemID: "2", VideoID: "b", AddedAt: time.Date(2026, time.October, 18, 0, 0, 0, 0, time.UTC), PrivacyStatus: library.PrivacyPrivate, Title: "b", RawPrivacyStatus: "private"},
 				// 削除された動画は privacyStatusUnspecified か、タイトル「Deleted video」で返る
-				{ItemID: "3", VideoID: "c", AddedAt: time.Date(2026, time.October, 18, 0, 0, 0, 0, time.UTC), PrivacyStatus: library.PrivacyDeleted},
-				{ItemID: "4", VideoID: "d", AddedAt: time.Date(2026, time.October, 18, 0, 0, 0, 0, time.UTC), PrivacyStatus: library.PrivacyDeleted},
+				{ItemID: "3", VideoID: "c", AddedAt: time.Date(2026, time.October, 18, 0, 0, 0, 0, time.UTC), PrivacyStatus: library.PrivacyDeleted, Title: "c", RawPrivacyStatus: "privacyStatusUnspecified"},
+				{ItemID: "4", VideoID: "d", AddedAt: time.Date(2026, time.October, 18, 0, 0, 0, 0, time.UTC), PrivacyStatus: library.PrivacyDeleted, Title: "Deleted video", RawPrivacyStatus: "public"},
 				// status が欠けているか知らない値なら公開とみなす
-				{ItemID: "5", VideoID: "e", AddedAt: time.Date(2026, time.October, 18, 0, 0, 0, 0, time.UTC), PrivacyStatus: library.PrivacyPublic},
-				{ItemID: "6", VideoID: "f", AddedAt: time.Date(2026, time.October, 18, 0, 0, 0, 0, time.UTC), PrivacyStatus: library.PrivacyPublic},
+				{ItemID: "5", VideoID: "e", AddedAt: time.Date(2026, time.October, 18, 0, 0, 0, 0, time.UTC), PrivacyStatus: library.PrivacyPublic, Title: "e"},
+				{ItemID: "6", VideoID: "f", AddedAt: time.Date(2026, time.October, 18, 0, 0, 0, 0, time.UTC), PrivacyStatus: library.PrivacyPublic, Title: "f", RawPrivacyStatus: "unknown"},
 			},
 			wantRequests: []string{
 				"/playlistItems maxResults=50 part=snippet,status playlistId=PL",
